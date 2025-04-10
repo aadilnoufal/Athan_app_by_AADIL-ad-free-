@@ -20,8 +20,12 @@ So I decided to build my own app — clean, accurate, and distraction-free.
 - Global support coming soon, starting with the Gulf
 
 ## 📸 Screenshots
-![WhatsApp Image 2025-04-09 at 2 33 56 AM](https://github.com/user-attachments/assets/50f1a4bf-dbef-48f0-9478-2df06c5a86df) ![FRONT PAGE SCROLLED DOWN](https://github.com/user-attachments/assets/fbb26c9b-5a2a-42fd-9f41-2a7c0de091db) ![SETTINGS PAGE](https://github.com/user-attachments/assets/00f5f245-8a76-4370-b874-5b8dfc6fdf86)
 
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/50f1a4bf-dbef-48f0-9478-2df06c5a86df" alt="Home screen" width="30%" />
+  <img src="https://github.com/user-attachments/assets/fbb26c9b-5a2a-42fd-9f41-2a7c0de091db" alt="Front page scrolled" width="30%" />
+  <img src="https://github.com/user-attachments/assets/00f5f245-8a76-4370-b874-5b8dfc6fdf86" alt="Settings page" width="30%" />
+</p>
 
 
 ## 🔒 License
