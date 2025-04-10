@@ -22,9 +22,7 @@ So I decided to build my own app — clean, accurate, and distraction-free.
 ## 📸 Screenshots
 
 
-https://github.com/user-attachments/assets/66b9a03a-09ab-46f8-be85-822274d7c999
-![FRONT PAGE SCROLLED DOWN](https://github.com/user-attachments/assets/635892ee-1954-4280-bcfd-68e1fc18ba14)
-![SETTINGS PAGE](https://github.com/user-attachments/assets/22301fb5-baf6-4902-9b43-ba3a4386f9ad)
+https://github.com/user-attachments/assets/66b9a03a-09ab-46f8-be85-822274d7c999 ![FRONT PAGE SCROLLED DOWN](https://github.com/user-attachments/assets/635892ee-1954-4280-bcfd-68e1fc18ba14) ![SETTINGS PAGE](https://github.com/user-attachments/assets/22301fb5-baf6-4902-9b43-ba3a4386f9ad)
 
 
 
