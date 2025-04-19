@@ -26,9 +26,11 @@ import {
 import { scheduleImmediateNotification, setupNotificationChannels, requestBatteryOptimizationExemption, checkAndRequestNotificationPermissions, setupForegroundNotificationHandler } from '../../utils/notificationService';
 import { Audio } from 'expo-av';
 import { playTestSound } from '../../utils/audioHelper';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 export default function SettingsScreen() {
   const router = useRouter();
+  const { t, currentLang, changeLanguage, isRTL, availableLanguages } = useLanguage();
   
   // State for notifications
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
@@ -432,12 +434,12 @@ export default function SettingsScreen() {
   // Open donation dialog with multiple options
   const openDonation = () => {
     Alert.alert(
-      'Support the Developer',
-      'Thank you for considering a donation to keep this app ad-free!, your donation will help support the developer and to help him expand this app to other countries and make it better. This is completly optional and you can use the app for free without any issues..',
+      t('supportTitle'),
+      t('supportMessage'),
       [
-        { text: 'Maybe Later', style: 'cancel' },
+        { text: t('maybeLater'), style: 'cancel' },
         { 
-          text: 'One-Time Support', 
+          text: t('oneTimeSupport'), 
           onPress: () => {
             Linking.openURL('https://nas.io/checkout-global?communityId=640f2dbae2d22dff16a554d9&communityCode=AADIL_NOUFAL&requestor=signupRequestor&linkClicked=https%3A%2F%2Fnas.io%2Fportal%2Fproducts%2F67e825d377e3fc39a8ba9b0d%3Ftab%3Dcontent&sourceInfoType=folder&sourceInfoOrigin=67e825d377e3fc39a8ba9b0d').catch(err => 
               console.error('An error occurred while opening the link:', err)
@@ -445,7 +447,7 @@ export default function SettingsScreen() {
           } 
         },
         { 
-          text: 'Monthly Support', 
+          text: t('monthlySupport'), 
           onPress: () => {
             Linking.openURL('https://nas.io/checkout-global?communityId=67e828db202755d3615d3a6b&communityCode=AD_FREE_ATHAN&requestor=signupRequestor&linkClicked=https%3A%2F%2Fnas.io%2Fcheckout-widget%3FcommunityCode%3DAD_FREE_ATHAN%26communitySlug%3D%252Fad-free-athan%26buttonText%3DJoin%2520as%2520member%26buttonTextColorHex%3D%2523000%26buttonBgColorHex%3D%2523fccb1d%26widgetTheme%3Dlight%26backgroundColorHex%3D%2523fff%2522%2520width%3D%2522100%25%2522%2520height%3D%2522320%2522%2520frameborder%3D%25220%2522%2520referrerpolicy%3D%2522no-referrer&fromWidget=1').catch(err => 
               console.error('An error occurred while opening the link:', err)
@@ -461,7 +463,7 @@ export default function SettingsScreen() {
       <Stack.Screen 
         options={{
           headerShown: false,
-          title: "Settings"
+          title: t('settings')
         }} 
       />
       <StatusBar barStyle="light-content" backgroundColor="#121212" />
@@ -472,18 +474,44 @@ export default function SettingsScreen() {
           style={styles.backButton} 
           onPress={() => router.back()}
         >
-          <MaterialCommunityIcons name="arrow-left" size={24} color="#FFD700" />
+          <MaterialCommunityIcons 
+            name="arrow-left" 
+            size={24} 
+            color="#FFD700" 
+          />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Settings</Text>
+        <Text style={styles.headerTitle}>{t('settings')}</Text>
         <View style={{ width: 24 }} />
       </View>
       
-      <ScrollView style={styles.scrollView}>
+      <ScrollView style={[styles.scrollView, {direction: isRTL ? 'rtl' : 'ltr'}]}>
+        {/* Language Settings Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Notifications</Text>
+          <Text style={styles.sectionTitle}>{t('language')}</Text>
+          
+          {Object.values(availableLanguages).map((lang) => (
+            <TouchableOpacity
+              key={lang.id}
+              style={[
+                styles.languageOption,
+                currentLang === lang.id && styles.selectedLanguageOption
+              ]}
+              onPress={() => changeLanguage(lang.id)}
+            >
+              <Text style={styles.languageName}>{lang.name}</Text>
+              {currentLang === lang.id && (
+                <MaterialCommunityIcons name="check" size={24} color="#FFD700" />
+              )}
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Notification Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>{t('notifications')}</Text>
           
           <View style={styles.settingContainer}>
-            <Text style={styles.settingLabel}>Enable Notifications</Text>
+            <Text style={styles.settingLabel}>{t('enableNotifications')}</Text>
             <Switch
               value={notificationsEnabled}
               onValueChange={toggleNotifications}
@@ -495,7 +523,7 @@ export default function SettingsScreen() {
           {notificationsEnabled && (
             <>
               <View style={styles.prayerNotificationSettings}>
-                <Text style={styles.settingSubtitle}>Notify me for:</Text>
+                <Text style={styles.settingSubtitle}>{t('notifyMeFor')}:</Text>
                 
                 {Object.keys(notificationSettings).map((prayer) => (
                   <View key={prayer} style={styles.prayerNotificationItem}>
@@ -513,7 +541,7 @@ export default function SettingsScreen() {
                         color="#FFD700"
                         style={{ marginRight: 12 }}
                       />
-                      <Text style={styles.prayerLabel}>{prayer}</Text>
+                      <Text style={styles.prayerLabel}>{t(prayer)}</Text>
                     </View>
                     <Switch
                       value={notificationSettings[prayer]}
@@ -528,9 +556,9 @@ export default function SettingsScreen() {
               {/* Notification Sound Preference */}
               <View style={[styles.settingContainer, { marginTop: 10, borderTopWidth: 1, borderTopColor: 'rgba(255, 255, 255, 0.1)' }]}>
                 <View>
-                  <Text style={styles.settingLabel}>Use Azan Sound for Prayers</Text>
+                  <Text style={styles.settingLabel}>{t('useAzanSound')}</Text>
                   <Text style={styles.settingDescription}>
-                    When off, a simple beep will be used for all notifications
+                    {t('beepExplanation')}
                   </Text>
                 </View>
                 <Switch
@@ -548,7 +576,7 @@ export default function SettingsScreen() {
                   onPress={testNotification}
                 >
                   <MaterialCommunityIcons name="bell-ring" size={20} color="#121212" />
-                  <Text style={styles.testButtonText}>Test Notification</Text>
+                  <Text style={styles.testButtonText}>{t('testNotification')}</Text>
                 </TouchableOpacity>
                 
                 <TouchableOpacity 
@@ -556,7 +584,7 @@ export default function SettingsScreen() {
                   onPress={testDirectSound}
                 >
                   <MaterialCommunityIcons name="volume-high" size={20} color="#121212" />
-                  <Text style={styles.testButtonText}>Test Sound</Text>
+                  <Text style={styles.testButtonText}>{t('testSound')}</Text>
                 </TouchableOpacity>
                 
                 <TouchableOpacity 
@@ -564,17 +592,18 @@ export default function SettingsScreen() {
                   onPress={testInAppNotification}
                 >
                   <MaterialCommunityIcons name="message-alert" size={20} color="#121212" />
-                  <Text style={styles.testButtonText}>Test In-App Alert</Text>
+                  <Text style={styles.testButtonText}>{t('testInAppAlert')}</Text>
                 </TouchableOpacity>
               </View>
             </>
           )}
         </View>
         
+        {/* Location Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Location Settings</Text>
+          <Text style={styles.sectionTitle}>{t('locationSettings')}</Text>
           <Text style={styles.sectionDescription}>
-            Select your location to get accurate prayer times.
+            {t('selectLocation')}
           </Text>
           
           {/* Country Selection */}
@@ -583,10 +612,10 @@ export default function SettingsScreen() {
             onPress={() => toggleSection('country')}
           >
             <View style={styles.locationSelectorHeader}>
-              <Text style={styles.locationLabel}>Country</Text>
+              <Text style={styles.locationLabel}>{t('country')}</Text>
               <View style={styles.locationSelection}>
                 <Text style={styles.locationValue}>
-                  {countries.find(c => c.id === selectedCountry)?.name || 'Select Country'}
+                  {countries.find(c => c.id === selectedCountry)?.name || t('selectCountry')}
                 </Text>
                 <MaterialCommunityIcons 
                   name={expandedSection === 'country' ? 'chevron-up' : 'chevron-down'} 
@@ -628,10 +657,10 @@ export default function SettingsScreen() {
             onPress={() => toggleSection('state')}
           >
             <View style={styles.locationSelectorHeader}>
-              <Text style={styles.locationLabel}>State/Region</Text>
+              <Text style={styles.locationLabel}>{t('state')}</Text>
               <View style={styles.locationSelection}>
                 <Text style={styles.locationValue}>
-                  {states.find(s => s.id === selectedState)?.name || 'Select State'}
+                  {states.find(s => s.id === selectedState)?.name || t('selectState')}
                 </Text>
                 <MaterialCommunityIcons 
                   name={expandedSection === 'state' ? 'chevron-up' : 'chevron-down'} 
@@ -673,10 +702,10 @@ export default function SettingsScreen() {
             onPress={() => toggleSection('city')}
           >
             <View style={styles.locationSelectorHeader}>
-              <Text style={styles.locationLabel}>City</Text>
+              <Text style={styles.locationLabel}>{t('city')}</Text>
               <View style={styles.locationSelection}>
                 <Text style={styles.locationValue}>
-                  {cities.find(c => c.id === selectedCity)?.name || 'Select City'}
+                  {cities.find(c => c.id === selectedCity)?.name || t('selectCity')}
                 </Text>
                 <MaterialCommunityIcons 
                   name={expandedSection === 'city' ? 'chevron-up' : 'chevron-down'} 
@@ -724,18 +753,17 @@ export default function SettingsScreen() {
         </View>
         
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>About</Text>
+          <Text style={styles.sectionTitle}>{t('about')}</Text>
           <View style={styles.aboutContainer}>
-            <Text style={styles.appVersion}>Prayer Times v1.0.0</Text>
+            <Text style={styles.appVersion}>{t('appVersion')}</Text>
             <Text style={styles.aboutText}>
-              Get accurate prayer times customized for your location. While we strive for the highest precision, please note that actual timings may slightly differ.
-              Made with ❤️ by AADIL NOUFAL.
+              {t('aboutText')}
             </Text>
             
             <View style={styles.supportButtonsContainer}>
               <TouchableOpacity style={styles.supportButton} onPress={openDonation}>
                 <MaterialCommunityIcons name="gift" size={20} color="#121212" />
-                <Text style={styles.supportButtonText}>Support the App</Text>
+                <Text style={styles.supportButtonText}>{t('supportApp')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -971,5 +999,22 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     marginLeft: 8,
+  },
+  languageOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  selectedLanguageOption: {
+    backgroundColor: 'rgba(255, 215, 0, 0.1)',
+  },
+  languageName: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '500',
   },
 });

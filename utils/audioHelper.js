@@ -3,8 +3,8 @@ import { Asset } from 'expo-asset';
 
 // Define sound asset modules
 const soundModules = {
-  beep: require('../assets/sounds/beep.mp3'),
-  azan: require('../assets/sounds/azan.mp3'),
+  beep: require('../assets/sounds/beep.waw'),
+  azan: require('../assets/sounds/azan.waw'),
 };
 
 // Cache for loaded sounds
@@ -25,6 +25,22 @@ export async function preloadSounds() {
   }
 }
 
+async function createFreshSoundObject(soundKey) {
+  try {
+    const moduleRef = soundModules[soundKey];
+    if (!moduleRef) throw new Error(`Unknown sound key: ${soundKey}`);
+    // always load directly from module
+    const { sound } = await Audio.Sound.createAsync(
+      moduleRef,
+      { shouldPlay: false }
+    );
+    return sound;
+  } catch (error) {
+    console.error(`Failed to create fresh sound for ${soundKey}:`, error);
+    throw error;
+  }
+}
+
 /**
  * Get a sound object from the cache or create a new one
  * @param {string} soundKey - Key of the sound to load ('beep' or 'azan')
@@ -36,8 +52,7 @@ async function getSoundObject(soundKey) {
       return loadedSounds[soundKey];
     }
 
-    const soundModule = soundModules[soundKey];
-    const { sound } = await Audio.Sound.createAsync(soundModule);
+    const sound = await createFreshSoundObject(soundKey);
     loadedSounds[soundKey] = sound;
     return sound;
   } catch (error) {

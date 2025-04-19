@@ -27,6 +27,7 @@ import { getAvailableRegions, getRegionConfig, DEFAULT_REGION, RegionConfig } fr
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 // Configure notification defaults
 Notifications.setNotificationHandler({
@@ -44,6 +45,7 @@ const STATUS_BAR_HEIGHT = Platform.OS === 'android' ? StatusBar.currentHeight ||
 
 export default function Home() {
   const router = useRouter();
+  const { t, currentLang, changeLanguage, isRTL, availableLanguages } = useLanguage();
   
   // State variables to store our data and UI state
   const [prayerTimes, setPrayerTimes] = useState([]);
@@ -81,6 +83,7 @@ export default function Home() {
   const [countdownLoading, setCountdownLoading] = useState(true);
 
   const [appState, setAppState] = useState(AppState.currentState);
+  const [showLanguageSelector, setShowLanguageSelector] = useState(false);
 
   const lastModalToggleTime = useRef(Date.now());
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -222,39 +225,43 @@ export default function Home() {
     
     const trigger = date;
     
-    // Different message for each prayer
+    // Different message for each prayer using translations
     let message = "";
     switch(prayer) {
       case 'Fajr':
-        message = "It's time for Fajr prayer";
+        message = t('fajrMessage');
         break;
       case 'Sunrise':
-        message = "The sun has risen";
+        message = t('sunriseMessage');
         break;
       case 'Dhuhr':
-        message = "It's time for Dhuhr prayer";
+        message = t('dhuhrMessage');
         break;
       case 'Asr':
-        message = "It's time for Asr prayer";
+        message = t('asrMessage');
         break;
       case 'Maghrib':
-        message = "It's time for Maghrib prayer";
+        message = t('maghribMessage');
         break;
       case 'Isha':
-        message = "It's time for Isha prayer";
+        message = t('ishaMessage');
         break;
       default:
-        message = `It's time for ${prayer}`;
+        message = `${t('next')}: ${prayer}`;
     }
     
     await Notifications.scheduleNotificationAsync({
       content: {
-        title: prayer,
+        title: t(prayer),
         body: message,
-        sound: true, // Use the default sound
+        sound: true,
         priority: Notifications.AndroidNotificationPriority.HIGH,
       },
-      trigger,
+      trigger: {
+        type: 'date',
+        timestamp: date.getTime(),
+        channelId: 'prayer-reminders',    // ensure Android channel is used
+      },
     });
   };
 
@@ -283,7 +290,11 @@ export default function Home() {
           sound: true,
           priority: Notifications.AndroidNotificationPriority.HIGH,
         },
-        trigger: fajrDate,
+        trigger: {
+          type: 'date',
+          timestamp: fajrDate.getTime(),
+          channelId: 'prayer-reminders',
+        },
       });
     } catch (error) {
       console.error('Error scheduling tomorrow Fajr:', error);
@@ -389,18 +400,18 @@ export default function Home() {
       
       if (showAlerts) {
         Alert.alert(
-          'Cache Cleared',
-          'Prayer times data has been refreshed successfully!',
-          [{ text: 'OK' }]
+          t('cacheCleared'),
+          t('cacheMessage'),
+          [{ text: t('ok') }]
         );
       }
     } catch (error) {
       console.error('Error clearing cache:', error);
       if (showAlerts) {
         Alert.alert(
-          'Error',
-          'Failed to clear cache. Please try again.',
-          [{ text: 'OK' }]
+          t('error'),
+          t('failedCache'),
+          [{ text: t('ok') }]
         );
       }
     } finally {
@@ -478,9 +489,9 @@ export default function Home() {
     } catch (error) {
       console.error('Error fetching prayer times:', error);
       Alert.alert(
-        'Connection Error',
-        'Failed to load prayer times. Using offline data if available.',
-        [{ text: 'OK' }]
+        t('connectionError'),
+        t('connectionErrorMessage'),
+        [{ text: t('ok') }]
       );
       setLoading(false);
     }
@@ -980,15 +991,71 @@ export default function Home() {
     }
   };
   
+  // Toggle language selector
+  const toggleLanguageSelector = () => {
+    setShowLanguageSelector(!showLanguageSelector);
+  };
+  
+  // Select a language
+  const selectLanguage = async (langId) => {
+    await changeLanguage(langId);
+    setShowLanguageSelector(false);
+  };
+
+  // Language selector component
+  const LanguageSelector = () => (
+    <Modal
+      transparent={true}
+      visible={showLanguageSelector}
+      animationType="fade"
+      onRequestClose={() => setShowLanguageSelector(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={[styles.modalContent, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>{t('language')}</Text>
+            <TouchableOpacity onPress={() => setShowLanguageSelector(false)}>
+              <MaterialCommunityIcons name="close" size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+          
+          <FlatList
+            data={Object.values(availableLanguages)}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => (
+              <TouchableOpacity 
+                style={[
+                  styles.languageItem,
+                  currentLang === item.id && styles.selectedLanguageItem
+                ]}
+                onPress={() => selectLanguage(item.id)}
+              >
+                <Text style={[
+                  styles.languageName,
+                  currentLang === item.id && styles.selectedLanguageName
+                ]}>
+                  {item.name}
+                </Text>
+                {currentLang === item.id && (
+                  <MaterialCommunityIcons name="check" size={20} color="#FFD700" />
+                )}
+              </TouchableOpacity>
+            )}
+          />
+        </View>
+      </View>
+    </Modal>
+  );
+
   // Open donation dialog with multiple options
   const openDonation = () => {
     Alert.alert(
-      'Support the Developer',
-      'Thank you for considering a donation to keep this app ad-free!, your donation will help support the developer and to help him expand this app to other countries and make it better. This is completly optional and you can use the app for free without any issues.',
+      t('supportTitle'),
+      t('supportMessage'),
       [
-        { text: 'Maybe Later', style: 'cancel' },
+        { text: t('maybeLater'), style: 'cancel' },
         { 
-          text: 'One-Time Support', 
+          text: t('oneTimeSupport'), 
           onPress: () => {
             Linking.openURL('https://nas.io/checkout-global?communityId=640f2dbae2d22dff16a554d9&communityCode=AADIL_NOUFAL&requestor=signupRequestor&linkClicked=https%3A%2F%2Fnas.io%2Fportal%2Fproducts%2F67e825d377e3fc39a8ba9b0d%3Ftab%3Dcontent&sourceInfoType=folder&sourceInfoOrigin=67e825d377e3fc39a8ba9b0d').catch(err => 
               console.error('An error occurred while opening the link:', err)
@@ -996,7 +1063,7 @@ export default function Home() {
           } 
         },
         { 
-          text: 'Monthly Support', 
+          text: t('monthlySupport'), 
           onPress: () => {
             Linking.openURL('https://nas.io/checkout-global?communityId=67e828db202755d3615d3a6b&communityCode=AD_FREE_ATHAN&requestor=signupRequestor&linkClicked=https%3A%2F%2Fnas.io%2Fcheckout-widget%3FcommunityCode%3DAD_FREE_ATHAN%26communitySlug%3D%252Fad-free-athan%26buttonText%3DJoin%2520as%2520member%26buttonTextColorHex%3D%2523000%26buttonBgColorHex%3D%2523fccb1d%26widgetTheme%3Dlight%26backgroundColorHex%3D%2523fff%2522%2520width%3D%2522100%25%2522%2520height%3D%2522320%2522%2520frameborder%3D%25220%2522%2520referrerpolicy%3D%2522no-referrer&fromWidget=1').catch(err => 
               console.error('An error occurred while opening the link:', err)
@@ -1225,7 +1292,7 @@ export default function Home() {
       <Stack.Screen 
         options={{
           headerShown: false, // Hide the default header
-          title: "Prayer Times" // This sets the title but since we're hiding the header, it won't show
+          title: t('appName') // This sets the title but since we're hiding the header, it won't show
         }} 
       />
       
@@ -1233,9 +1300,12 @@ export default function Home() {
         {/* Region Picker Modal */}
         <RegionPicker />
         
+        {/* Language Selector Modal */}
+        <LanguageSelector />
+        
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Prayer Times</Text>
+          <Text style={styles.headerTitle}>{t('appName')}</Text>
           <View style={styles.headerButtons}>
             <TouchableOpacity 
               style={styles.refreshButton} 
@@ -1250,18 +1320,18 @@ export default function Home() {
               />
             </TouchableOpacity>
             <TouchableOpacity 
-              style={styles.settingsButton} 
-              onPress={openSettings}
+              style={styles.languageButton} 
+              onPress={toggleLanguageSelector}
             >
               <MaterialCommunityIcons 
-                name="cog" 
+                name="web" 
                 size={20} 
                 color="#FFD700" 
               />
             </TouchableOpacity>
             <TouchableOpacity style={styles.donateButton} onPress={openDonation}>
               <MaterialCommunityIcons name="gift" size={20} color="#FFD700" />
-              <Text style={styles.donateText}>Support</Text>
+              <Text style={styles.donateText}>{t('supportApp')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1275,7 +1345,12 @@ export default function Home() {
           <Text style={styles.locationText}>
             {getRegionConfig(regionId)?.name || location}
           </Text>
-          <MaterialCommunityIcons name="chevron-right" size={20} color="#FFD700" style={styles.dropdownIcon} />
+          <MaterialCommunityIcons 
+            name="chevron-right" 
+            size={20} 
+            color="#FFD700" 
+            style={styles.dropdownIcon} 
+          />
         </TouchableOpacity>
         
         {/* Date navigation */}
@@ -1286,7 +1361,7 @@ export default function Home() {
             disabled={currentDay === 0}
           >
             <MaterialCommunityIcons 
-              name="chevron-left" 
+              name="chevron-left"
               size={28} 
               color={currentDay === 0 ? '#555' : '#FFD700'} 
             />
@@ -1294,10 +1369,10 @@ export default function Home() {
           
           <Text style={styles.dateText}>
             {currentDay === 0 
-              ? 'Today' 
+              ? t('today')
               : currentDay === 1 
-                ? 'Tomorrow' 
-                : `+${currentDay} days`}
+                ? t('tomorrow')
+                : `+${currentDay} ${t('days')}`}
           </Text>
           
           <TouchableOpacity 
@@ -1306,7 +1381,7 @@ export default function Home() {
             disabled={currentDay === 9}
           >
             <MaterialCommunityIcons 
-              name="chevron-right" 
+              name="chevron-right"
               size={28} 
               color={currentDay === 9 ? '#555' : '#FFD700'} 
             />
@@ -1316,7 +1391,7 @@ export default function Home() {
         {loading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#FFD700" />
-            <Text style={styles.loadingText}>Loading prayer times...</Text>
+            <Text style={styles.loadingText}>{t('loading')}</Text>
           </View>
         ) : (
           <ScrollView 
@@ -1376,7 +1451,7 @@ export default function Home() {
                           color="#FFD700"
                         />
                       </View>
-                      <Text style={styles.prayerName}>{prayer}</Text>
+                      <Text style={styles.prayerName}>{t(prayer)}</Text>
                     </View>
                     <Text style={styles.prayerTime}>
                       {prayerTimes.times12h ? prayerTimes.times12h[prayer] : convertTo12HourFormat(time)}
@@ -1388,7 +1463,7 @@ export default function Home() {
             
             {/* Footer with developer credit */}
             <View style={styles.footer}>
-              <Text style={styles.footerText}>Made with ❤️ by AADIL NOUFAL</Text>
+              <Text style={styles.footerText}>{t('madeBy')}</Text>
             </View>
           </ScrollView>
         )}
@@ -1754,5 +1829,39 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginLeft: 6,
     opacity: 0.8,
+  },
+  // Add new language button style
+  languageButton: {
+    backgroundColor: 'rgba(42, 42, 42, 0.8)',
+    padding: 10,
+    borderRadius: 20,
+    marginRight: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  
+  // Language selector styles
+  languageItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  selectedLanguageItem: {
+    backgroundColor: 'rgba(255, 215, 0, 0.1)',
+  },
+  languageName: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    letterSpacing: 0.5,
+  },
+  selectedLanguageName: {
+    color: '#FFD700',
+    fontWeight: 'bold',
   },
 });

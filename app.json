@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Prayer Times",
+    "name": "Prayer Times by AADIL",
     "slug": "prayer-times",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -9,7 +9,7 @@
     "scheme": "prayertimes",
     "splash": {
       "image": "./assets/images/splash.png",
-      "resizeMode": "contain", 
+      "resizeMode": "contain",
       "backgroundColor": "#121212"
     },
     "assetBundlePatterns": [
@@ -17,12 +17,16 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.yourcompany.prayertimes",
+      "bundleIdentifier": "com.aadiln.prayertimes",
+      "buildNumber": "6",
       "infoPlist": {
         "UIBackgroundModes": [
           "fetch",
+          "remote-notification",
+          "fetch",
           "remote-notification"
-        ]
+        ],
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -30,7 +34,8 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#121212"
       },
-      "package": "com.yourcompany.prayertimes",
+      "package": "com.aadil_noufal.prayertimes",
+      "versionCode": 3,
       "permissions": [
         "RECEIVE_BOOT_COMPLETED",
         "SCHEDULE_EXACT_ALARM",
@@ -47,7 +52,8 @@
         "expo-notifications",
         {
           "icon": "./assets/notification-icon.png",
-          "color": "#ffffff"
+          "color": "#ffffff",
+          "sounds": ["./assets/sounds/azan.waw", "./assets/sounds/beep.waw"]
         }
       ],
       "expo-router"

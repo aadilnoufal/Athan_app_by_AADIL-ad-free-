@@ -9,6 +9,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { playPrayerSound, preloadSounds, unloadSounds } from '../utils/audioHelper';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { LanguageProvider } from '../contexts/LanguageContext';
 
 // Configure notifications to always show in foreground
 Notifications.setNotificationHandler({
@@ -222,30 +223,32 @@ export default function RootLayout() {
   }
   
   return (
-    <SafeAreaProvider>
-      <StatusBar 
-        style={isDark ? 'light' : 'dark'} 
-        backgroundColor="#121212" 
-        translucent={Platform.OS === 'android'} 
-      />
-      <Stack 
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { 
-            backgroundColor: isDark ? '#121212' : '#FFFFFF'
-          },
-        }}
-      >
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      </Stack>
-      {notification && (
-        <InAppNotification 
-          title={notification.title}
-          body={notification.body}
-          onClose={() => setNotification(null)}
+    <LanguageProvider>
+      <SafeAreaProvider>
+        <StatusBar 
+          style={isDark ? 'light' : 'dark'} 
+          backgroundColor="#121212" 
+          translucent={Platform.OS === 'android'} 
         />
-      )}
-    </SafeAreaProvider>
+        <Stack 
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { 
+              backgroundColor: isDark ? '#121212' : '#FFFFFF'
+            },
+          }}
+        >
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        </Stack>
+        {notification && (
+          <InAppNotification 
+            title={notification.title}
+            body={notification.body}
+            onClose={() => setNotification(null)}
+          />
+        )}
+      </SafeAreaProvider>
+    </LanguageProvider>
   );
 }
 

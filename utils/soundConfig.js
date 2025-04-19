@@ -11,17 +11,17 @@ export function getSoundForPrayer(prayerName, useAzanSound) {
   const shouldUseAzan = useAzanSound && prayerName !== 'Sunrise';
   
   // Base filenames
-  const azanFile = 'azan.mp3';
-  const beepFile = 'beep.mp3';
+  const azanFile = 'azan.waw';
+  const beepFile = 'beep.waw';
   
   if (Platform.OS === 'android') {
     // For Android, reference the raw resource
     return shouldUseAzan ? azanFile : beepFile;
   } else if (Platform.OS === 'ios') {
     // For iOS, provide the full path
-    return shouldUseAzan ? './assets/sounds/azan.mp3' : './assets/sounds/beep.mp3';
+    return shouldUseAzan ? './assets/sounds/azan.waw' : './assets/sounds/beep.waw';
   } else {
     // For other platforms, provide the asset path
-    return shouldUseAzan ? require('../assets/sounds/azan.mp3') : require('../assets/sounds/beep.mp3');
+    return shouldUseAzan ? require('../assets/sounds/azan.waw') : require('../assets/sounds/beep.waw');
   }
 }

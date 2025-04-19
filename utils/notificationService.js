@@ -6,7 +6,7 @@ import { Platform } from 'react-native';
 import { Asset } from 'expo-asset';
 
 // Preload custom sound
-const customSound = Asset.fromModule(require('../assets/sounds/azan.mp3')).uri;
+const customSound = Asset.fromModule(require('../assets/sounds/azan.waw')).uri;
 
 /**
  * Setup notification channels for Android
@@ -17,7 +17,7 @@ export async function setupNotificationChannels() {
       await Notifications.setNotificationChannelAsync('prayer-reminders', {
         name: 'Prayer Reminders',
         importance: Notifications.AndroidImportance.HIGH,
-        sound: 'azan.mp3', // Ensure this matches the file name in assets/sounds
+        sound: 'azan.waw', // Updated to match the file name in assets/sounds
         vibrationPattern: [0, 250, 250, 250],
         lightColor: '#FFD700',
       });
