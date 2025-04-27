@@ -48,6 +48,14 @@ export default {
   selectState: 'Select State',
   selectCity: 'Select City',
   
+  // Add UAE locations
+  UAE: 'United Arab Emirates',
+  Dubai: 'Dubai',
+  'Abu Dhabi': 'Abu Dhabi',
+  'Rural Area Dubai': 'Rural Area Dubai',
+  Hatta: 'Hatta',
+  'Al Ain': 'Al Ain',
+  
   // About section
   about: 'About',
   appVersion: 'Prayer Times v1.1.1',

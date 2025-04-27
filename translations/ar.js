@@ -48,6 +48,14 @@ export default {
   selectState: 'اختر المنطقة',
   selectCity: 'اختر المدينة',
   
+  // Add UAE locations
+  UAE: 'الإمارات العربية المتحدة',
+  Dubai: 'دبي',
+  'Abu Dhabi': 'أبوظبي',
+  'Rural Area Dubai': 'المنطقة الريفية دبي',
+  Hatta: 'حتا',
+  'Al Ain': 'العين',
+  
   // About section
   about: 'حول التطبيق',
   appVersion: 'مواقيت الصلاة الإصدار ١.١.١',

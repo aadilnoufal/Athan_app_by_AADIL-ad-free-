@@ -151,6 +151,7 @@ export default function RootLayout() {
       notification => {
         console.log("Notification received in foreground:", notification);
         const prayerName = notification.request.content.data?.prayerName || 'Prayer';
+        const useAzanSound = notification.request.content.data?.useAzanSound === true;
         
         // Only show new notifications (avoid duplication from quick re-renders)
         const currentTime = new Date().getTime();
@@ -164,8 +165,9 @@ export default function RootLayout() {
             data: notification.request.content.data || {}
           });
           
-          // Play sound directly instead of relying on notification sound
-          playSimpleSound();
+          // Play the correct sound directly based on notification data
+          const soundType = prayerName === 'Sunrise' || !useAzanSound ? 'beep' : 'azan';
+          playPrayerSound(prayerName, useAzanSound);
         }
       }
     );

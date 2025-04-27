@@ -334,10 +334,9 @@ export default function SettingsScreen() {
     const firstCity = stateCities.length > 0 ? stateCities[0].id : '';
     setSelectedCity(firstCity);
     
-    // Update the region ID
-    updateRegionId(countryId, firstState, firstCity);
+    // Don't automatically update the region - wait for user to press update button
   };
-  
+
   // Select state
   const selectState = (stateId) => {
     if (stateId === selectedState) return;
@@ -349,28 +348,43 @@ export default function SettingsScreen() {
     const firstCity = stateCities.length > 0 ? stateCities[0].id : '';
     setSelectedCity(firstCity);
     
-    // Update the region ID
-    updateRegionId(selectedCountry, stateId, firstCity);
+    // Don't automatically update the region - wait for user to press update button
   };
-  
+
   // Select city
   const selectCity = (cityId) => {
     if (cityId === selectedCity) return;
     
     setSelectedCity(cityId);
     
-    // Update the region ID
-    updateRegionId(selectedCountry, selectedState, cityId);
+    // Don't automatically update the region - wait for user to press update button
   };
-  
-  // Update the region ID and save it
-  const updateRegionId = async (countryId, stateId, cityId) => {
+
+  // Update the region ID and save it - only called when user presses update button
+  const updateRegionId = async () => {
     try {
-      const newRegionId = `${countryId}-${stateId}-${cityId}`;
+      // Create the new region ID from selected country, state, and city
+      const newRegionId = `${selectedCountry}-${selectedState}-${selectedCity}`;
+      
+      // Check if the region ID is actually changing
+      if (newRegionId === regionId) {
+        Alert.alert(
+          'No Change',
+          'You haven\'t changed your location.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      // Update the UI first
       setRegionId(newRegionId);
       
       // Save user preference
       await AsyncStorage.setItem('selected_region', newRegionId);
+      
+      // Cancel ALL existing notifications first to avoid duplicate notifications
+      await Notifications.cancelAllScheduledNotificationsAsync();
+      console.log('Cancelled all scheduled notifications during region change');
       
       // Clear cached prayer time data to force refresh
       const cachedKeys = await AsyncStorage.getAllKeys();
@@ -389,7 +403,6 @@ export default function SettingsScreen() {
       await AsyncStorage.removeItem('last_refresh_date');
       
       // Set a temporary flag to indicate we're in the middle of a location change
-      // This can help prevent race conditions during refresh
       await AsyncStorage.setItem('location_changing', 'true');
       
       // Signal the home screen that the region changed - with a timestamp
@@ -410,6 +423,16 @@ export default function SettingsScreen() {
               // After a short delay, clear the location_changing flag
               setTimeout(async () => {
                 await AsyncStorage.removeItem('location_changing');
+                console.log('Location change completed, location_changing flag cleared');
+                
+                // Ensure notifications are only scheduled after everything is refreshed
+                setTimeout(async () => {
+                  // Force a notification update to apply new location
+                  if (notificationsEnabled) {
+                    await AsyncStorage.setItem('notifications_updated', Date.now().toString());
+                    console.log('Triggered notification update after location change');
+                  }
+                }, 8000);
               }, 5000);
             }
           }
@@ -425,12 +448,11 @@ export default function SettingsScreen() {
       );
     }
   };
-  
+
   // Toggle a section's expanded state
   const toggleSection = (section) => {
     setExpandedSection(expandedSection === section ? '' : section);
   };
-  
   // Open donation dialog with multiple options
   const openDonation = () => {
     Alert.alert(
@@ -456,8 +478,7 @@ export default function SettingsScreen() {
         }
       ]
     );
-  };
-
+  }; 
   return (
     <SafeAreaView style={styles.container}>
       <Stack.Screen 
@@ -505,7 +526,7 @@ export default function SettingsScreen() {
             </TouchableOpacity>
           ))}
         </View>
-
+        
         {/* Notification Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t('notifications')}</Text>
@@ -519,12 +540,11 @@ export default function SettingsScreen() {
               thumbColor={notificationsEnabled ? "#FFD700" : "#f4f3f4"}
             />
           </View>
-          
+
           {notificationsEnabled && (
             <>
               <View style={styles.prayerNotificationSettings}>
                 <Text style={styles.settingSubtitle}>{t('notifyMeFor')}:</Text>
-                
                 {Object.keys(notificationSettings).map((prayer) => (
                   <View key={prayer} style={styles.prayerNotificationItem}>
                     <View style={styles.prayerLabelContainer}>
@@ -552,7 +572,7 @@ export default function SettingsScreen() {
                   </View>
                 ))}
               </View>
-              
+
               {/* Notification Sound Preference */}
               <View style={[styles.settingContainer, { marginTop: 10, borderTopWidth: 1, borderTopColor: 'rgba(255, 255, 255, 0.1)' }]}>
                 <View>
@@ -568,7 +588,7 @@ export default function SettingsScreen() {
                   thumbColor={useAzanSound ? "#FFD700" : "#f4f3f4"}
                 />
               </View>
-              
+
               {/* Test buttons container */}
               <View style={styles.testButtonsContainer}>
                 <TouchableOpacity 
@@ -578,7 +598,7 @@ export default function SettingsScreen() {
                   <MaterialCommunityIcons name="bell-ring" size={20} color="#121212" />
                   <Text style={styles.testButtonText}>{t('testNotification')}</Text>
                 </TouchableOpacity>
-                
+
                 <TouchableOpacity 
                   style={[styles.testButton, {marginTop: 10}]}
                   onPress={testDirectSound}
@@ -586,7 +606,7 @@ export default function SettingsScreen() {
                   <MaterialCommunityIcons name="volume-high" size={20} color="#121212" />
                   <Text style={styles.testButtonText}>{t('testSound')}</Text>
                 </TouchableOpacity>
-                
+
                 <TouchableOpacity 
                   style={[styles.testButton, {marginTop: 10}]}
                   onPress={testInAppNotification}
@@ -598,7 +618,7 @@ export default function SettingsScreen() {
             </>
           )}
         </View>
-        
+
         {/* Location Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t('locationSettings')}</Text>
@@ -625,7 +645,7 @@ export default function SettingsScreen() {
               </View>
             </View>
           </TouchableOpacity>
-          
+
           {expandedSection === 'country' && (
             <View style={styles.optionsContainer}>
               {countries.map(country => (
@@ -650,7 +670,7 @@ export default function SettingsScreen() {
               ))}
             </View>
           )}
-          
+
           {/* State Selection */}
           <TouchableOpacity 
             style={[styles.collapsibleHeader, { marginTop: 16 }]}
@@ -670,7 +690,7 @@ export default function SettingsScreen() {
               </View>
             </View>
           </TouchableOpacity>
-          
+
           {expandedSection === 'state' && (
             <View style={styles.optionsContainer}>
               {states.map(state => (
@@ -695,7 +715,7 @@ export default function SettingsScreen() {
               ))}
             </View>
           )}
-          
+
           {/* City Selection */}
           <TouchableOpacity 
             style={[styles.collapsibleHeader, { marginTop: 16 }]}
@@ -715,7 +735,7 @@ export default function SettingsScreen() {
               </View>
             </View>
           </TouchableOpacity>
-          
+
           {expandedSection === 'city' && (
             <View style={styles.optionsContainer}>
               {cities.map(city => (
@@ -740,7 +760,7 @@ export default function SettingsScreen() {
               ))}
             </View>
           )}
-          
+
           {/* Selected Location Summary */}
           <View style={styles.locationSummary}>
             <MaterialCommunityIcons name="map-marker" size={24} color="#FFD700" />
@@ -750,8 +770,17 @@ export default function SettingsScreen() {
               {countries.find(c => c.id === selectedCountry)?.name || 'Country'}
             </Text>
           </View>
+
+          {/* Update Location Button - Prominent and clear */}
+          <TouchableOpacity 
+            style={styles.updateLocationButton}
+            onPress={updateRegionId}
+          >
+            <MaterialCommunityIcons name="map-marker-check" size={20} color="#121212" />
+            <Text style={styles.updateLocationButtonText}>{t('updateLocation')}</Text>
+          </TouchableOpacity>
         </View>
-        
+      
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t('about')}</Text>
           <View style={styles.aboutContainer}>
@@ -759,7 +788,6 @@ export default function SettingsScreen() {
             <Text style={styles.aboutText}>
               {t('aboutText')}
             </Text>
-            
             <View style={styles.supportButtonsContainer}>
               <TouchableOpacity style={styles.supportButton} onPress={openDonation}>
                 <MaterialCommunityIcons name="gift" size={20} color="#121212" />
@@ -1016,5 +1044,28 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 18,
     fontWeight: '500',
+  },
+  updateLocationButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFD700',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 24,
+    alignSelf: 'center',
+    minWidth: 200,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+    marginTop: 20,
+  },
+  updateLocationButtonText: {
+    color: '#121212',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: 8,
   },
 });

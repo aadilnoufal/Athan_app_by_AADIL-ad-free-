@@ -2,7 +2,7 @@ const { getDefaultConfig } = require('expo/metro-config');
 
 const defaultConfig = getDefaultConfig(__dirname);
 
-// Ensure wav files are included in the asset resolver
-defaultConfig.resolver.assetExts.push('waw');
+// Include both mp3 and wav files in the asset resolver
+defaultConfig.resolver.assetExts.push('mp3', 'wav');
 
 module.exports = defaultConfig;

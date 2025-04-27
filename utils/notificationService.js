@@ -4,29 +4,17 @@ import * as Battery from 'expo-battery';
 import * as IntentLauncher from 'expo-intent-launcher';
 import { Platform } from 'react-native';
 import { Asset } from 'expo-asset';
+import { setupNotificationChannels as setupChannels, getChannelForPrayer, CHANNEL_IDS } from './notificationChannels';
 
 // Preload custom sound
-const customSound = Asset.fromModule(require('../assets/sounds/azan.waw')).uri;
+const customSound = Asset.fromModule(require('../assets/sounds/azan.wav')).uri;
 
 /**
  * Setup notification channels for Android
+ * This is a wrapper around the implementation in notificationChannels.js
  */
 export async function setupNotificationChannels() {
-  if (Platform.OS === 'android') {
-    try {
-      await Notifications.setNotificationChannelAsync('prayer-reminders', {
-        name: 'Prayer Reminders',
-        importance: Notifications.AndroidImportance.HIGH,
-        sound: 'azan.waw', // Updated to match the file name in assets/sounds
-        vibrationPattern: [0, 250, 250, 250],
-        lightColor: '#FFD700',
-      });
-
-      console.log("Notification channel setup complete");
-    } catch (error) {
-      console.error("Error setting up notification channel:", error);
-    }
-  }
+  await setupChannels();
 }
 
 /**
@@ -37,21 +25,45 @@ export async function scheduleImmediateNotification(prayerName) {
   try {
     const useAzanSound = await AsyncStorage.getItem('use_azan_sound') === 'true';
     
+    // Use the appropriate channel
+    const channelId = Platform.OS === 'android' 
+      ? getChannelForPrayer(prayerName || 'Test', useAzanSound)
+      : undefined;
+    
+    // Determine which sound file to use
+    const soundName = (prayerName === 'Sunrise' || !useAzanSound) ? 'beep.wav' : 'azan.wav';
+    
+    // Determine vibration pattern based on prayer
+    let vibrationPattern;
+    if (prayerName === 'Fajr') {
+      vibrationPattern = [0, 500, 200, 500, 200, 500]; // Special pattern for Fajr
+    } else if (prayerName === 'Sunrise') {
+      vibrationPattern = [0, 300]; // Shorter pattern for Sunrise
+    } else {
+      vibrationPattern = [0, 500, 200, 500]; // Standard pattern for other prayers
+    }
+    
     await Notifications.scheduleNotificationAsync({
       content: {
         title: `Test: ${prayerName} Prayer`,
         body: `This is a test notification for ${prayerName} prayer time`,
-        data: { prayerName },
+        data: { 
+          prayerName,
+          useAzanSound,
+          customSound: true,
+          vibrationPattern
+        },
         priority: Notifications.AndroidNotificationPriority.HIGH,
-        sound: customSound, // Use custom sound
+        sound: soundName, // Explicitly set the sound file
+        vibrate: vibrationPattern // Set custom vibration pattern
       },
       trigger: {
         seconds: 5, // Show after 5 seconds
-        channelId: 'prayer-reminders', // Use the prayer-reminders channel
+        channelId: channelId,
       },
     });
 
-    console.log(`Test notification for ${prayerName} scheduled`);
+    console.log(`Test notification for ${prayerName} scheduled using channel: ${channelId} with sound: ${soundName} and vibration`);
   } catch (error) {
     console.error("Error scheduling test notification:", error);
     
@@ -76,19 +88,48 @@ export async function scheduleImmediateNotification(prayerName) {
  * @param {string} title - Notification title
  * @param {string} body - Notification body
  * @param {Date} triggerDate - Date and time to trigger the notification
+ * @param {string} prayer - Prayer name for channel selection
  */
-export async function schedulePrayerNotification(title, body, triggerDate) {
+export async function schedulePrayerNotification(title, body, triggerDate, prayer = 'Default') {
   try {
+    const useAzanSound = await AsyncStorage.getItem('use_azan_sound') === 'true';
+    
+    // Use the appropriate channel
+    const channelId = Platform.OS === 'android' 
+      ? getChannelForPrayer(prayer, useAzanSound)
+      : undefined;
+    
+    // Determine the sound to use
+    const soundName = (prayer === 'Sunrise' || !useAzanSound) ? 'beep.wav' : 'azan.wav';
+    
+    // Determine vibration pattern based on prayer
+    let vibrationPattern;
+    if (prayer === 'Fajr') {
+      vibrationPattern = [0, 500, 200, 500, 200, 500]; // Special pattern for Fajr
+    } else if (prayer === 'Sunrise') {
+      vibrationPattern = [0, 300]; // Shorter pattern for Sunrise
+    } else {
+      vibrationPattern = [0, 500, 200, 500]; // Standard pattern for other prayers
+    }
+    
     await Notifications.scheduleNotificationAsync({
       content: {
         title,
         body,
-        sound: customSound, // Use custom sound
+        sound: soundName,
+        vibrate: vibrationPattern,
         priority: Notifications.AndroidNotificationPriority.HIGH,
+        data: { 
+          prayerName: prayer, 
+          useAzanSound,
+          customSound: true,
+          vibrationPattern
+        }
       },
       trigger: {
         type: 'date',
-        timestamp: triggerDate.getTime(), // Use the new trigger format
+        timestamp: triggerDate.getTime(),
+        channelId: channelId,
       },
     });
   } catch (error) {

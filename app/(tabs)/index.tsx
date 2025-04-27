@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, Dispatch, SetStateAction } from 'react';
 import { 
   StyleSheet, 
   Text, 
@@ -15,7 +15,8 @@ import {
   FlatList,
   AppState,
   Dimensions,
-  Platform
+  Platform,
+  GestureResponderEvent
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle, G } from 'react-native-svg';
@@ -28,6 +29,7 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { useLanguage } from '../../contexts/LanguageContext';
+import { setupNotificationChannels, getChannelForPrayer } from '../../utils/notificationChannels';
 
 // Configure notification defaults
 Notifications.setNotificationHandler({
@@ -43,16 +45,79 @@ const { width: screenWidth } = Dimensions.get('window');
 // Get status bar height to ensure proper padding
 const STATUS_BAR_HEIGHT = Platform.OS === 'android' ? StatusBar.currentHeight || 0 : 0;
 
+// Define interfaces for prayer data
+interface PrayerTime {
+  name: string;
+  time: string;
+  timeRaw: string;
+  date: Date;
+}
+
+interface PrayerData {
+  date: string;
+  hijriDate: string;
+  hijriMonth: string;
+  gregorianDate: string;
+  times: {
+    Fajr: string;
+    Sunrise: string;
+    Dhuhr: string;
+    Asr: string;
+    Maghrib: string;
+    Isha: string;
+    [key: string]: string;
+  };
+  times12h: {
+    Fajr: string;
+    Sunrise: string;
+    Dhuhr: string;
+    Asr: string;
+    Maghrib: string;
+    Isha: string;
+    [key: string]: string;
+  };
+}
+
+interface NextPrayer {
+  name: string;
+  time: string;
+  date: Date;
+}
+
+// Define interfaces for language and region items
+interface LanguageItem {
+  id: string;
+  name: string;
+  [key: string]: any;
+}
+
+interface RegionItem {
+  id: string;
+  name: string;
+  [key: string]: any;
+}
+
+// Define type for notification settings
+interface NotificationSettings {
+  Fajr: boolean;
+  Sunrise: boolean;
+  Dhuhr: boolean;
+  Asr: boolean;
+  Maghrib: boolean;
+  Isha: boolean;
+  [key: string]: boolean; // Add index signature for string keys
+}
+
 export default function Home() {
   const router = useRouter();
   const { t, currentLang, changeLanguage, isRTL, availableLanguages } = useLanguage();
   
   // State variables to store our data and UI state
-  const [prayerTimes, setPrayerTimes] = useState([]);
+  const [prayerTimes, setPrayerTimes] = useState<PrayerData | null>(null);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [loading, setLoading] = useState(true);
   const [currentDay, setCurrentDay] = useState(0); // 0 = today, 1 = tomorrow, etc.
-  const [nextPrayer, setNextPrayer] = useState(null);
+  const [nextPrayer, setNextPrayer] = useState<NextPrayer | null>(null);
   const [countdown, setCountdown] = useState('');
   const [regionId, setRegionId] = useState(DEFAULT_REGION);
   const [location, setLocation] = useState('');
@@ -70,7 +135,7 @@ export default function Home() {
   
   // Keep notification state for scheduling purposes
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
-  const [notificationSettings, setNotificationSettings] = useState({
+  const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({
     Fajr: true,
     Sunrise: false, // Many users don't want notifications for sunrise
     Dhuhr: true,
@@ -89,7 +154,7 @@ export default function Home() {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const modalLock = useRef(false);
-  const toggleModal = (setter) => {
+  const toggleModal = (setter: Dispatch<SetStateAction<boolean>>): void => {
     if (modalLock.current) return;
     modalLock.current = true;
     setter(prev => !prev);
@@ -100,6 +165,11 @@ export default function Home() {
 
   // Load notification settings
   useEffect(() => {
+    // Setup notification channels when the component mounts
+    if (Platform.OS === 'android') {
+      setupNotificationChannels();
+    }
+    
     checkNotificationSettings();
     
     // Listen for notification settings changes
@@ -184,21 +254,41 @@ export default function Home() {
     try {
       if (!notificationsEnabled) return;
       
+      // Check if we're in the middle of a location change
+      const locationChanging = await AsyncStorage.getItem('location_changing');
+      if (locationChanging === 'true') {
+        console.log('Location change in progress, skipping notification scheduling');
+        return;
+      }
+      
+      // To prevent duplicate notifications, add a debounce mechanism
+      const lastScheduled = await AsyncStorage.getItem('last_notification_scheduled');
+      const now = Date.now();
+      if (lastScheduled && now - parseInt(lastScheduled) < 10000) { // 10 seconds debounce
+        console.log('Notifications were recently scheduled, skipping');
+        return;
+      }
+      
+      console.log('Scheduling notifications for today - starting with cancelling existing ones');
+      
       // Cancel any existing notifications first
       await Notifications.cancelAllScheduledNotificationsAsync();
       
       // Get today's prayer times from AsyncStorage
       const cachedData = await AsyncStorage.getItem('prayer_0');
-      if (!cachedData) return;
+      if (!cachedData) {
+        console.log('No prayer data available for scheduling notifications');
+        return;
+      }
       
       const prayerData = JSON.parse(cachedData);
       const today = new Date();
       
       // For each prayer time, schedule a notification if enabled
       for (const [prayer, timeStr] of Object.entries(prayerData.times)) {
-        if (!notificationSettings[prayer]) continue;
+        if (!notificationSettings[prayer as keyof NotificationSettings]) continue;
         
-        const [hours, minutes] = timeStr.split(':').map(Number);
+        const [hours, minutes] = (timeStr as string).split(':').map(Number);
         
         // Create a date for the prayer time
         const prayerDate = new Date(today);
@@ -213,17 +303,20 @@ export default function Home() {
       // Also schedule for tomorrow's Fajr
       await scheduleTomorrowFajr();
       
+      // Record when we last scheduled notifications
+      await AsyncStorage.setItem('last_notification_scheduled', now.toString());
+      
       console.log('Notifications scheduled successfully');
     } catch (error) {
       console.error('Error scheduling notifications:', error);
+      // In case of error, clear the scheduling lock
+      await AsyncStorage.removeItem('last_notification_scheduled');
     }
   };
 
   // Schedule a notification for a specific prayer
-  const schedulePrayerNotification = async (prayer, date) => {
-    if (!notificationsEnabled || !notificationSettings[prayer]) return;
-    
-    const trigger = date;
+  const schedulePrayerNotification = async (prayer: string, date: Date): Promise<void> => {
+    if (!notificationsEnabled || !notificationSettings[prayer as keyof NotificationSettings]) return;
     
     // Different message for each prayer using translations
     let message = "";
@@ -250,23 +343,50 @@ export default function Home() {
         message = `${t('next')}: ${prayer}`;
     }
     
+    // Get the preferred sound setting
+    const useAzanSound = await AsyncStorage.getItem('use_azan_sound') !== 'false';
+    
+    // Get the appropriate channel for this prayer
+    const channelId = Platform.OS === 'android' 
+      ? getChannelForPrayer(prayer, useAzanSound)
+      : undefined; // Only use channelId on Android
+    
+    // Determine the sound to use
+    const soundName = (prayer === 'Sunrise' || !useAzanSound) ? 'beep.wav' : 'azan.wav';
+    
+    // Determine vibration pattern based on prayer
+    let vibrationPattern;
+    if (prayer === 'Fajr') {
+      vibrationPattern = [0, 500, 200, 500, 200, 500]; // Special pattern for Fajr
+    } else if (prayer === 'Sunrise') {
+      vibrationPattern = [0, 300]; // Shorter pattern for Sunrise
+    } else {
+      vibrationPattern = [0, 500, 200, 500]; // Standard pattern for other prayers
+    }
+    
     await Notifications.scheduleNotificationAsync({
       content: {
         title: t(prayer),
         body: message,
-        sound: true,
+        sound: soundName, // Explicitly set the sound file name
         priority: Notifications.AndroidNotificationPriority.HIGH,
+        vibrate: vibrationPattern, // Set custom vibration pattern
+        data: { 
+          prayerName: prayer,
+          useAzanSound: useAzanSound,
+          customSound: true, // Flag to indicate we want to use custom sound
+          vibrationPattern: vibrationPattern // Include vibration pattern in the notification data
+        }
       },
       trigger: {
-        type: 'date',
-        timestamp: date.getTime(),
-        channelId: 'prayer-reminders',    // ensure Android channel is used
-      },
+        date: date.getTime(), // Use 'date' instead of 'timestamp' and 'type'
+        channelId: channelId,
+      } as any, // Use 'as any' as a temporary fix for type compatibility
     });
   };
 
   // Special function to schedule tomorrow's Fajr notification
-  const scheduleTomorrowFajr = async () => {
+  const scheduleTomorrowFajr = async (): Promise<void> => {
     try {
       if (!notificationsEnabled || !notificationSettings['Fajr']) return;
       
@@ -283,18 +403,35 @@ export default function Home() {
       const fajrDate = new Date(tomorrow);
       fajrDate.setHours(hours, minutes, 0);
       
+      // Get the preferred sound setting
+      const useAzanSound = await AsyncStorage.getItem('use_azan_sound') !== 'false';
+      
+      // Get the appropriate channel ID
+      const channelId = Platform.OS === 'android' 
+        ? getChannelForPrayer('Fajr', useAzanSound) 
+        : undefined;
+      
+      // Special vibration pattern for Fajr
+      const vibrationPattern = [0, 500, 200, 500, 200, 500];
+      
       await Notifications.scheduleNotificationAsync({
         content: {
           title: 'Fajr',
           body: "It's time for Fajr prayer",
-          sound: true,
+          sound: useAzanSound ? 'azan.wav' : 'beep.wav', // Explicitly set sound file
           priority: Notifications.AndroidNotificationPriority.HIGH,
+          vibrate: vibrationPattern, // Set custom vibration pattern
+          data: { 
+            prayerName: 'Fajr',
+            useAzanSound: useAzanSound,
+            customSound: true,
+            vibrationPattern: vibrationPattern
+          }
         },
         trigger: {
-          type: 'date',
-          timestamp: fajrDate.getTime(),
-          channelId: 'prayer-reminders',
-        },
+          date: fajrDate.getTime(), // Use 'date' instead of 'timestamp' and 'type'
+          channelId: channelId,
+        } as any, // Use 'as any' as a temporary fix for type compatibility
       });
     } catch (error) {
       console.error('Error scheduling tomorrow Fajr:', error);
@@ -307,7 +444,7 @@ export default function Home() {
   }, []);
   
   // Load region config function
-  const loadRegionConfig = async () => {
+  const loadRegionConfig = async (): Promise<void> => {
     try {
       // Check if user has a saved region preference
       const savedRegion = await AsyncStorage.getItem('selected_region');
@@ -324,19 +461,23 @@ export default function Home() {
       } else {
         // Fallback to default if config not found
         const defaultConfig = getRegionConfig(DEFAULT_REGION);
-        setRegionId(DEFAULT_REGION);
-        setLocation(defaultConfig.location);
-        setMethod(defaultConfig.method);
-        setTuningParams(defaultConfig.tuningParams);
+        if (defaultConfig) { // Add null check
+          setRegionId(DEFAULT_REGION);
+          setLocation(defaultConfig.location);
+          setMethod(defaultConfig.method);
+          setTuningParams(defaultConfig.tuningParams);
+        }
       }
     } catch (error) {
       console.error('Error loading region config:', error);
       // Fallback to default
       const defaultConfig = getRegionConfig(DEFAULT_REGION);
-      setRegionId(DEFAULT_REGION);
-      setLocation(defaultConfig.location);
-      setMethod(defaultConfig.method);
-      setTuningParams(defaultConfig.tuningParams);
+      if (defaultConfig) { // Add null check
+        setRegionId(DEFAULT_REGION);
+        setLocation(defaultConfig.location);
+        setMethod(defaultConfig.method);
+        setTuningParams(defaultConfig.tuningParams);
+      }
     }
   };
 
@@ -498,7 +639,7 @@ export default function Home() {
   };
   
   // Add a helper function to convert 24h to 12h format
-  const convertTo12HourFormat = (timeStr) => {
+  const convertTo12HourFormat = (timeStr: string): string => {
     const [hours, minutes] = timeStr.split(':').map(Number);
     const period = hours >= 12 ? 'PM' : 'AM';
     const hours12 = hours % 12 || 12; // Convert 0 to 12
@@ -514,11 +655,18 @@ export default function Home() {
       
       console.log(`Fetching prayer times for ${formattedDate}, location: ${location}`);
       
+      // Create URL based on method - special handling for UAE (method 99)
+      let apiUrl = '';
+      if (method === 99) {
+        // For UAE cities, we need to add the methodSettings parameter
+        apiUrl = `https://api.aladhan.com/v1/timingsByAddress/${formattedDate}?address=${location}&method=${method}&methodSettings=18.2,null,18.2&school=0&tune=${tuningParams}`;
+      } else {
+        // Standard URL for other methods
+        apiUrl = `https://api.aladhan.com/v1/timingsByAddress/${formattedDate}?address=${location}&method=${method}&tune=${tuningParams}`;
+      }
+      
       // Make API request to Aladhan.com API with tuning parameters
-      // This API provides prayer times based on location and calculation method
-      const response = await fetch(
-        `https://api.aladhan.com/v1/timingsByAddress/${formattedDate}?address=${location}&method=${method}&tune=${tuningParams}`
-      );
+      const response = await fetch(apiUrl);
       
       if (!response.ok) {
         throw new Error(`API responded with status: ${response.status}`);
@@ -564,13 +712,23 @@ export default function Home() {
         }
       }
       
-      setPrayerTimes(formattedTimes);
-      updateNextPrayer(formattedTimes);
+      setPrayerTimes(formattedTimes); 
+      updateNextPrayer(formattedTimes); 
       setLoading(false);
       
       // After setting prayer times, update notifications if enabled
+      // Only schedule notifications if we're on today's view and not in the middle of a location change
       if (currentDay === 0 && notificationsEnabled) {
-        await scheduleNotificationsForToday();
+        // Check if we're in the middle of a location change
+        const locationChanging = await AsyncStorage.getItem('location_changing');
+        if (locationChanging !== 'true') {
+          // Add a small delay before scheduling to prevent race conditions
+          setTimeout(async () => {
+            await scheduleNotificationsForToday();
+          }, 1000);
+        } else {
+          console.log('Location change in progress, skipping automatic notification scheduling');
+        }
       }
     } catch (error) {
       console.error('Error fetching from API:', error);
@@ -579,7 +737,6 @@ export default function Home() {
       if (retryCount < 3) {
         console.log(`Retrying API fetch (attempt ${retryCount + 1} of 3)...`);
         const delay = Math.pow(2, retryCount) * 1000; // Exponential backoff: 1s, 2s, 4s
-        
         setTimeout(() => {
           fetchAndCachePrayerTimes(retryCount + 1);
         }, delay);
@@ -620,13 +777,12 @@ export default function Home() {
         };
         setPrayerTimes(fallbackTimes);
       }
-      
       setLoading(false);
     }
   };
-  
+
   // Pre-fetch and cache prayer times for a future day
-  const prefetchDay = async (dayOffset) => {
+  const prefetchDay = async (dayOffset: number): Promise<void> => {
     try {
       const fetchDate = addDays(new Date(), dayOffset);
       const formattedDate = format(fetchDate, 'dd-MM-yyyy');
@@ -635,9 +791,17 @@ export default function Home() {
       const existingData = await AsyncStorage.getItem(`prayer_${dayOffset}`);
       if (existingData) return;
       
-      const response = await fetch(
-        `https://api.aladhan.com/v1/timingsByAddress/${formattedDate}?address=${location}&method=${method}&tune=${tuningParams}`
-      );
+      // Create URL based on method - special handling for UAE (method 99)
+      let apiUrl = '';
+      if (method === 99) {
+        // For UAE cities, we need to add the methodSettings parameter
+        apiUrl = `https://api.aladhan.com/v1/timingsByAddress/${formattedDate}?address=${location}&method=${method}&methodSettings=18.2,null,18.2&school=0&tune=${tuningParams}`;
+      } else {
+        // Standard URL for other methods
+        apiUrl = `https://api.aladhan.com/v1/timingsByAddress/${formattedDate}?address=${location}&method=${method}&tune=${tuningParams}`;
+      }
+      
+      const response = await fetch(apiUrl);
       
       if (!response.ok) return;
       
@@ -674,14 +838,14 @@ export default function Home() {
       console.error(`Error prefetching day ${dayOffset}:`, error);
     }
   };
-  
+
   // Figure out which prayer is next and set countdown
-  const updateNextPrayer = (data) => {
+  const updateNextPrayer = (data: PrayerData): void => {
     if (!data || !data.times) return;
     
     const now = new Date();
     const today = new Date();
-    const prayers = [];
+    const prayers: PrayerTime[] = [];
     
     // Convert prayer time strings to Date objects
     Object.entries(data.times).forEach(([prayer, timeStr]) => {
@@ -692,7 +856,6 @@ export default function Home() {
       if (currentDay > 0) {
         prayerDate.setDate(prayerDate.getDate() + currentDay);
       }
-      
       prayerDate.setHours(hour, minute, 0);
       
       prayers.push({
@@ -743,7 +906,7 @@ export default function Home() {
       setNextPrayer(next);
     }
   };
-  
+
   // Update the countdown timer to the next prayer
   const updateCountdown = useCallback(() => {
     if (!nextPrayer) return;
@@ -764,13 +927,11 @@ export default function Home() {
     const hours = Math.floor(diffSeconds / 3600);
     const minutes = Math.floor((diffSeconds % 3600) / 60);
     const seconds = diffSeconds % 60;
-    
     setCountdown(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
     
     // First calculation - find total seconds between prayers
     if (totalSeconds === 0 || diffSeconds > totalSeconds) {
       // Initialize with max 6 hours to ensure visible progress
-      // Convert to ref to avoid state updates
       setTotalSeconds(Math.min(diffSeconds, 21600));
       setElapsedSeconds(0);
     } else {
@@ -780,11 +941,9 @@ export default function Home() {
     
     // Calculate progress percentage (0 to 1)
     const progress = Math.max(0, Math.min(1, elapsedSeconds / totalSeconds));
-    
     // Only update if there's a meaningful change to prevent unnecessary renders
     if (Math.abs(progress - progressPercent) > 0.001) {
       setProgressPercent(progress);
-      
       // Animate the progress value smoothly with shorter animation duration
       Animated.timing(progressAnimation, {
         toValue: progress,
@@ -797,7 +956,7 @@ export default function Home() {
   
   // Use more efficient timer management
   useEffect(() => {
-    let countdownTimer;
+    let countdownTimer: NodeJS.Timeout | null = null;
     
     // Only start the timer when we have necessary data
     if (nextPrayer) {
@@ -825,9 +984,17 @@ export default function Home() {
       }, 200);
     }
   }, [nextPrayer]);
-  
+
   // Calculate parameters for our progress circle
-  const CircularProgress = ({ progress, size, strokeWidth }) => {
+  const CircularProgress = ({ 
+    progress, 
+    size, 
+    strokeWidth 
+  }: { 
+    progress: number, 
+    size: number, 
+    strokeWidth: number 
+  }) => {
     const radius = (size - strokeWidth) / 2;
     const circumference = radius * 2 * Math.PI;
     
@@ -878,9 +1045,17 @@ export default function Home() {
       </View>
     );
   };
-  
-  // Create a properly animated circular progress component 
-  const AnimatedCircularProgress = ({ progress, size, strokeWidth }) => {
+
+  // Create a properly animated circular progress component
+  const AnimatedCircularProgress = ({ 
+    progress, 
+    size, 
+    strokeWidth 
+  }: { 
+    progress: number, 
+    size: number, 
+    strokeWidth: number 
+  }) => {
     const radius = (size - strokeWidth) / 2;
     const circumference = radius * 2 * Math.PI;
     
@@ -931,7 +1106,6 @@ export default function Home() {
                 Next: {nextPrayer.name}
               </Text>
               <Text style={styles.nextPrayerTime}>{nextPrayer.time}</Text>
-              
               {countdownLoading ? (
                 <View style={styles.countdownLoading}>
                   <ActivityIndicator size="small" color="#FFD700" />
@@ -946,7 +1120,7 @@ export default function Home() {
       </View>
     );
   };
-  
+
   // Navigate to previous day
   const goToPreviousDay = () => {
     if (currentDay > 0) {
@@ -997,11 +1171,11 @@ export default function Home() {
   };
   
   // Select a language
-  const selectLanguage = async (langId) => {
+  const selectLanguage = async (langId: string): Promise<void> => {
     await changeLanguage(langId);
     setShowLanguageSelector(false);
   };
-
+  
   // Language selector component
   const LanguageSelector = () => (
     <Modal
@@ -1018,12 +1192,11 @@ export default function Home() {
               <MaterialCommunityIcons name="close" size={24} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
-          
           <FlatList
-            data={Object.values(availableLanguages)}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <TouchableOpacity 
+            data={Object.values(availableLanguages) as LanguageItem[]}
+            keyExtractor={(item: LanguageItem) => item.id}
+            renderItem={({ item }: { item: LanguageItem }) => (
+              <TouchableOpacity
                 style={[
                   styles.languageItem,
                   currentLang === item.id && styles.selectedLanguageItem
@@ -1078,7 +1251,7 @@ export default function Home() {
   const openSettings = () => {
     router.push('/settings');
   };
-
+  
   // Region selector component
   const RegionPicker = () => (
     <Modal
@@ -1095,12 +1268,11 @@ export default function Home() {
               <MaterialCommunityIcons name="close" size={24} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
-          
           <FlatList
-            data={availableRegions}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <TouchableOpacity 
+            data={availableRegions as RegionItem[]}
+            keyExtractor={(item: RegionItem) => item.id}
+            renderItem={({ item }: { item: RegionItem }) => (
+              <TouchableOpacity
                 style={[
                   styles.regionItem,
                   regionId === item.id && styles.selectedRegionItem
@@ -1124,62 +1296,42 @@ export default function Home() {
     </Modal>
   );
 
-  // Check if the current date matches the system date when app is opened
-  useEffect(() => {
-    // Function to check and update date if needed
-    const checkAndUpdateDate = () => {
-      if (currentDay === 0) {
-        const systemDate = new Date();
-        // Compare dates by converting to date strings (ignoring time)
-        const systemDateStr = format(systemDate, 'yyyy-MM-dd');
-        const appDateStr = format(currentDate, 'yyyy-MM-dd');
+  // Ensure the current date matches the system date when app is opened
+  const checkAndUpdateDate = () => {
+    if (currentDay === 0) {
+      const systemDate = new Date();
+      // Compare dates by converting to date strings (ignoring time)
+      const systemDateStr = format(systemDate, 'yyyy-MM-dd');
+      const appDateStr = format(currentDate, 'yyyy-MM-dd');
+      
+      if (systemDateStr !== appDateStr) {
+        console.log('App date does not match system date, updating...');
+        setCurrentDate(systemDate);
+        // Force refresh prayer times for the new date
+        setLastRefreshDate(''); // This will trigger a data refresh
         
-        if (systemDateStr !== appDateStr) {
-          console.log('App date does not match system date, updating...');
-          setCurrentDate(systemDate);
-          // Force refresh prayer times for the new date
-          setLastRefreshDate(''); // This will trigger a data refresh
-          
-          // Reset to today's view
-          setCurrentDay(0);
-          
-          // If notifications are enabled, reschedule them for the new date
-          if (notificationsEnabled) {
-            setTimeout(() => {
-              scheduleNotificationsForToday();
-            }, 3000); // Give some time for data to be fetched
-          }
+        // Reset to today's view
+        setCurrentDay(0);
+         
+        // If notifications are enabled, reschedule them for the new date
+        if (notificationsEnabled) {
+          setTimeout(() => {
+            scheduleNotificationsForToday();
+          }, 3000); // Give some time for data to be fetched
         }
       }
-    };
-    
-    // Run date check when component mounts
-    checkAndUpdateDate();
-    
-    // Also set up AppState listener to check date when app comes to foreground
-    const subscription = AppState.addEventListener('change', (nextAppState) => {
-      if (appState.match(/inactive|background/) && nextAppState === 'active') {
-        // App has come to the foreground
-        checkAndUpdateDate();
-      }
-      setAppState(nextAppState);
-    });
-    
-    // Clean up the listener
-    return () => {
-      subscription.remove();
-    };
-  }, [currentDate, notificationsEnabled, currentDay]);
+    }
+  };
 
   // Add the missing changeRegion function
-  const changeRegion = async (newRegionId) => {
+  const changeRegion = async (newRegionId: string): Promise<void> => {
     try {
       // Save the selected region to AsyncStorage
       await AsyncStorage.setItem('selected_region', newRegionId);
       
       // Update the UI with the new region
       setRegionId(newRegionId);
-      
+        
       // Get the config for the new region
       const config = getRegionConfig(newRegionId);
       if (config) {
@@ -1196,6 +1348,13 @@ export default function Home() {
       
       // Set a flag to indicate that the region has changed
       await AsyncStorage.setItem('region_changed', 'true');
+        
+      // After location change is complete, schedule notifications with a delay
+      if (notificationsEnabled && currentDay === 0) {
+        setTimeout(() => {
+          scheduleNotificationsForToday();
+        }, 3000);
+      }
     } catch (error) {
       console.error('Error changing region:', error);
       Alert.alert('Error', 'Failed to change region. Please try again.');
@@ -1214,33 +1373,9 @@ export default function Home() {
       if (currentDay === 0) {
         // Compare dates by converting to date strings (ignoring time)
         const systemDateStr = format(now, 'yyyy-MM-dd');
-        const appDateStr = format(currentDate, 'yyyy-MM-dd');
-        
-        if (systemDateStr !== appDateStr) {
-          console.log('Date mismatch detected, updating to current date');
-          
-          // Force update the date
-          setCurrentDate(new Date());
-          
-          // Clear cached data to force a refresh
-          clearCache(false);
-          
-          // Reset last refresh date to force a new fetch
-          setLastRefreshDate('');
-          
-          // Make sure we're on today's view
-          setCurrentDay(0);
-          
-          // If notifications are enabled, reschedule them
-          if (notificationsEnabled) {
-            setTimeout(() => {
-              scheduleNotificationsForToday();
-            }, 2000);
-          }
-        }
       }
     };
-    
+
     // Run immediately when component mounts
     forceCurrentDateRefresh();
     
@@ -1273,12 +1408,17 @@ export default function Home() {
       subscription.remove();
       clearInterval(minuteTimer);
     };
-  }, []); // Empty dependency array so this only runs once on mount
+  }, []);
 
   // Keep the original date check for day changes
   useEffect(() => {
-    // ... existing code for checkDayChange ...
+    checkDayChange();
   }, [currentDate, notificationsEnabled, currentDay]);
+
+  // Modify the onPress handler for clearCache with proper types
+  const handleClearCache = (event: GestureResponderEvent): void => {
+    clearCache(true);
+  };
 
   // Render the UI
   return (
@@ -1290,12 +1430,12 @@ export default function Home() {
       />
       
       <Stack.Screen 
-        options={{
+        options={{ 
           headerShown: false, // Hide the default header
           title: t('appName') // This sets the title but since we're hiding the header, it won't show
-        }} 
+        }}
       />
-      
+       
       <View style={styles.container}>
         {/* Region Picker Modal */}
         <RegionPicker />
@@ -1309,7 +1449,7 @@ export default function Home() {
           <View style={styles.headerButtons}>
             <TouchableOpacity 
               style={styles.refreshButton} 
-              onPress={clearCache}
+              onPress={handleClearCache}
               disabled={refreshing}
             >
               <MaterialCommunityIcons 
@@ -1318,6 +1458,10 @@ export default function Home() {
                 color="#FFD700" 
                 style={refreshing ? styles.rotating : null}
               />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.donateButton} onPress={openDonation}>
+              <MaterialCommunityIcons name="gift" size={20} color="#FFD700" />
+              <Text style={styles.donateText}>{t('supportApp')}</Text>
             </TouchableOpacity>
             <TouchableOpacity 
               style={styles.languageButton} 
@@ -1328,10 +1472,6 @@ export default function Home() {
                 size={20} 
                 color="#FFD700" 
               />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.donateButton} onPress={openDonation}>
-              <MaterialCommunityIcons name="gift" size={20} color="#FFD700" />
-              <Text style={styles.donateText}>{t('supportApp')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1361,12 +1501,11 @@ export default function Home() {
             disabled={currentDay === 0}
           >
             <MaterialCommunityIcons 
-              name="chevron-left"
+              name="chevron-left" 
               size={28} 
               color={currentDay === 0 ? '#555' : '#FFD700'} 
             />
           </TouchableOpacity>
-          
           <Text style={styles.dateText}>
             {currentDay === 0 
               ? t('today')
@@ -1374,99 +1513,101 @@ export default function Home() {
                 ? t('tomorrow')
                 : `+${currentDay} ${t('days')}`}
           </Text>
-          
           <TouchableOpacity 
             style={styles.navButton} 
             onPress={goToNextDay}
             disabled={currentDay === 9}
           >
             <MaterialCommunityIcons 
-              name="chevron-right"
+              name="chevron-right" 
               size={28} 
               color={currentDay === 9 ? '#555' : '#FFD700'} 
             />
           </TouchableOpacity>
         </View>
         
-        {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#FFD700" />
-            <Text style={styles.loadingText}>{t('loading')}</Text>
-          </View>
-        ) : (
-          <ScrollView 
-            style={styles.scrollView}
-            contentContainerStyle={styles.scrollViewContent}
-            showsVerticalScrollIndicator={false}
-          >
-            {/* Date display */}
-            {prayerTimes.date && (
-              <View style={styles.dateContainer}>
-                <View style={styles.dateInnerContainer}>
-                  <Text style={styles.gregorianDate}>{prayerTimes.date}</Text>
-                  <Text style={styles.hijriDate}>
-                    {prayerTimes.hijriDate} {prayerTimes.hijriMonth}
-                  </Text>
-                </View>
-              </View>
-            )}
-            
-            {/* Next prayer countdown with circular progress */}
-            {nextPrayer && currentDay === 0 && (
-              <View style={styles.circularCountdownContainer}>
-                <AnimatedCircularProgress 
-                  progress={progressPercent} 
-                  size={Math.min(260, screenWidth * 0.75)} 
-                  strokeWidth={14}
-                />
-              </View>
-            )}
-            
-            {/* Prayer times list */}
-            {prayerTimes.times && (
-              <View style={styles.timesContainer}>
-                {Object.entries(prayerTimes.times).map(([prayer, time], index) => (
-                  <View 
-                    key={prayer} 
-                    style={[
-                      styles.prayerItem,
-                      nextPrayer && nextPrayer.name === prayer && currentDay === 0
-                        ? styles.nextPrayerItem 
-                        : null,
-                      { marginBottom: index === Object.entries(prayerTimes.times).length - 1 ? 0 : 8 }
-                    ]}
-                  >
-                    <View style={styles.prayerNameContainer}>
-                      <View style={styles.iconContainer}>
-                        <MaterialCommunityIcons
-                          name={
-                            prayer === 'Fajr' ? 'weather-sunset-up' :
-                            prayer === 'Sunrise' ? 'white-balance-sunny' :
-                            prayer === 'Dhuhr' ? 'sun-wireless' :
-                            prayer === 'Asr' ? 'weather-sunny' :
-                            prayer === 'Maghrib' ? 'weather-sunset-down' :
-                            'weather-night'
-                          }
-                          size={22}
-                          color="#FFD700"
-                        />
-                      </View>
-                      <Text style={styles.prayerName}>{t(prayer)}</Text>
-                    </View>
-                    <Text style={styles.prayerTime}>
-                      {prayerTimes.times12h ? prayerTimes.times12h[prayer] : convertTo12HourFormat(time)}
+        {/* Main content area - adjusted to allow scrolling */}
+        <View style={styles.contentContainer}>
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#FFD700" />
+              <Text style={styles.loadingText}>{t('loading')}</Text>
+            </View>
+          ) : (
+            <ScrollView 
+              style={styles.scrollView}
+              contentContainerStyle={styles.scrollViewContent}
+              showsVerticalScrollIndicator={false}
+            >
+              {/* Date display */}
+              {prayerTimes?.date && (
+                <View style={styles.dateContainer}>
+                  <View style={styles.dateInnerContainer}>
+                    <Text style={styles.gregorianDate}>{prayerTimes.date}</Text>
+                    <Text style={styles.hijriDate}>
+                      {prayerTimes.hijriDate} {prayerTimes.hijriMonth}
                     </Text>
                   </View>
-                ))}
+                </View>
+              )}
+              
+              {/* Next prayer countdown with circular progress */}
+              {nextPrayer && currentDay === 0 && (
+                <View style={styles.circularCountdownContainer}>
+                  <AnimatedCircularProgress 
+                    progress={progressPercent} 
+                    size={Math.min(260, screenWidth * 0.75)} 
+                    strokeWidth={14} 
+                  />
+                </View>
+              )}
+              
+              {/* Prayer times list */}
+              {prayerTimes?.times && (
+                <View style={styles.timesContainer}>
+                  {Object.entries(prayerTimes.times).map(([prayer, time], index) => (
+                    <View 
+                      key={prayer}
+                      style={[
+                        styles.prayerItem, 
+                        nextPrayer && nextPrayer.name === prayer && currentDay === 0
+                          ? styles.nextPrayerItem
+                          : null,
+                        { marginBottom: index === Object.entries(prayerTimes.times).length - 1 ? 0 : 8 }
+                      ]}
+                    >
+                      <View style={styles.prayerNameContainer}>
+                        <View style={styles.iconContainer}>
+                          <MaterialCommunityIcons 
+                            name={
+                              prayer === 'Fajr' ? 'weather-sunset-up' :
+                              prayer === 'Sunrise' ? 'white-balance-sunny' :
+                              prayer === 'Dhuhr' ? 'sun-wireless' :
+                              prayer === 'Asr' ? 'weather-sunny' :
+                              prayer === 'Maghrib' ? 'weather-sunset-down' :
+                              'weather-night'
+                            }
+                            size={22}
+                            color="#FFD700"
+                          />
+                        </View>
+                        <Text style={styles.prayerName}>{t(prayer)}</Text>
+                      </View>
+                      <Text style={styles.prayerTime}>
+                        {prayerTimes.times12h ? prayerTimes.times12h[prayer] : convertTo12HourFormat(time)}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+              
+              {/* Footer with developer credit */}
+              <View style={styles.footer}>
+                <Text style={styles.footerText}>{t('madeBy')}</Text>
               </View>
-            )}
-            
-            {/* Footer with developer credit */}
-            <View style={styles.footer}>
-              <Text style={styles.footerText}>{t('madeBy')}</Text>
-            </View>
-          </ScrollView>
-        )}
+            </ScrollView>
+          )}
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -1588,7 +1729,6 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
     width: '100%',
-    backgroundColor: '#121212',
   },
   scrollViewContent: {
     paddingHorizontal: 12,
@@ -1711,16 +1851,12 @@ const styles = StyleSheet.create({
   },
   prayerTime: {
     color: '#FFD700',
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: 'bold',
     letterSpacing: 0.5,
   },
   circularCountdownContainer: {
     alignItems: 'center',
-    justifyContent: 'center',
-    padding: 10,
-    marginVertical: 12,
-    borderRadius: 16,
     backgroundColor: 'rgba(26, 26, 26, 0.4)',
     borderWidth: 1,
     borderColor: 'rgba(255, 215, 0, 0.1)',
@@ -1842,7 +1978,6 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 4,
   },
-  
   // Language selector styles
   languageItem: {
     flexDirection: 'row',
@@ -1863,5 +1998,10 @@ const styles = StyleSheet.create({
   selectedLanguageName: {
     color: '#FFD700',
     fontWeight: 'bold',
+  },
+  contentContainer: {
+    flex: 1, // Add this to allow the container to expand properly
+    width: '100%',
+    backgroundColor: '#121212',
   },
 });

@@ -81,6 +81,69 @@ const QATAR_CITIES: City[] = [
   }
 ];
 
+// Configuration for Dubai cities in UAE
+const DUBAI_CITIES: City[] = [
+  {
+    id: 'dubai',
+    name: 'Dubai',
+    config: {
+      id: 'uae-dubai-dubai',
+      name: 'Dubai, UAE',
+      location: 'Dubai, United Arab Emirates',
+      method: 99, // Custom Method with specific settings
+      tuningParams: '0,1,-2,3,2,3,0,0,0'
+    }
+  },
+  {
+    id: 'rural-area-dubai',
+    name: 'Rural Area Dubai',
+    config: {
+      id: 'uae-dubai-rural-area-dubai',
+      name: 'Rural Area Dubai, UAE',
+      location: 'Dubai, United Arab Emirates',
+      method: 99,
+      tuningParams: '0,1,-4,1,-1,1,0,-3,0'
+    }
+  },
+  {
+    id: 'hatta',
+    name: 'Hatta',
+    config: {
+      id: 'uae-dubai-hatta',
+      name: 'Hatta, Dubai, UAE',
+      location: 'Dubai, UAE',
+      method: 99,
+      tuningParams: '0,-1,-6,-1,-2,0,0,-5,0'
+    }
+  }
+];
+
+// Configuration for Abu Dhabi cities in UAE
+const ABUDHABI_CITIES: City[] = [
+  {
+    id: 'abudhabi',
+    name: 'Abu Dhabi',
+    config: {
+      id: 'uae-abudhabi-abudhabi',
+      name: 'Abu Dhabi, UAE',
+      location: 'Dubai, UAE',
+      method: 99,
+      tuningParams: '0,5,1,6,3,6,0,2,0'
+    }
+  },
+  {
+    id: 'al-ain',
+    name: 'Al Ain',
+    config: {
+      id: 'uae-abudhabi-al-ain',
+      name: 'Al Ain, Abu Dhabi, UAE',
+      location: 'Dubai, UAE',
+      method: 99,
+      tuningParams: '0,0,-5,1,-2,1,0,-4,0'
+    }
+  }
+];
+
 // Define all available countries
 const COUNTRIES: Country[] = [
   {
@@ -91,6 +154,22 @@ const COUNTRIES: Country[] = [
         id: 'qatar',
         name: 'Qatar',
         cities: QATAR_CITIES
+      }
+    ]
+  },
+  {
+    id: 'uae',
+    name: 'UAE',
+    states: [
+      {
+        id: 'dubai',
+        name: 'Dubai',
+        cities: DUBAI_CITIES
+      },
+      {
+        id: 'abudhabi',
+        name: 'Abu Dhabi',
+        cities: ABUDHABI_CITIES
       }
     ]
   }
