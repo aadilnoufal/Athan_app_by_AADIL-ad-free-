@@ -1,50 +1,48 @@
-# Welcome to your Expo app 👋
+# 🕌 Athan App by Aadil
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+<img width="512" alt="Feature graphic" src="https://github.com/user-attachments/assets/f0d53cc1-dea6-4671-bd27-e8e876af4772" />
 
-## Get started
+A simple, beautiful, and **ad-free** Islamic prayer time app built using **React Native**.
 
-1. Install dependencies
+No more ads ruining your Suhoor ✋
 
-   ```bash
-   npm install
-   ```
+## 🚀 About the Project
 
-2. Start the app
+During Ramadan, I was frustrated by prayer apps full of ads when every second before Fajr counted.  
+So I decided to build my own app — clean, accurate, and distraction-free.
 
-   ```bash
-    npx expo start
-   ```
+### 🔧 Built With:
 
-In the output, you'll find options to open the app in a
+- **React Native** – so it works on both Android and (soon) iOS
+- ❤️ Time, effort, and lots of Suhoor caffeine
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+### 🌍 Currently Supports:
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+- Cities across **Qatar** (with verified prayer times)
+- Global support coming soon, starting with the Gulf
 
-## Get a fresh project
+## 📸 Screenshots
 
-When you're ready, run:
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/50f1a4bf-dbef-48f0-9478-2df06c5a86df" alt="Home screen" width="30%" />
+  <img src="https://github.com/user-attachments/assets/fbb26c9b-5a2a-42fd-9f41-2a7c0de091db" alt="Front page scrolled" width="30%" />
+  <img src="https://github.com/user-attachments/assets/00f5f245-8a76-4370-b874-5b8dfc6fdf86" alt="Settings page" width="30%" />
+</p>
 
-```bash
-npm run reset-project
-```
+## 🔒 License
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+This project is **view-only open source**.
 
-## Learn more
+You may read and learn from the code, but **you cannot copy, reuse, or modify** any part of it without my written permission.
 
-To learn more about developing your project with Expo, look at the following resources:
+**To request permission**, contact:  
+📧 AADIL NOUFAL – aadilnoufal@gmail.com
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## 🤝 Contributions
 
-## Join the community
+This is currently a personal project with limited scope. I may open it up for contributors in the future.
 
-Join our community of developers creating universal apps.
+---
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Thank you for checking out the Athan App 🙏  
+Feel free to leave feedback or reach out!
