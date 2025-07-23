@@ -42,7 +42,8 @@
         "VIBRATE",
         "INTERNET",
         "ACCESS_NETWORK_STATE"
-      ]
+      ],
+      "linkingSchemes": ["com.aadil_noufal.prayertimes"]
     },
     "web": {
       "favicon": "./assets/images/favicon.png"
@@ -53,7 +54,10 @@
         {
           "icon": "./assets/notification-icon.png",
           "color": "#ffffff",
-          "sounds": ["./assets/sounds/azan.wav", "./assets/sounds/beep.wav"]
+          "sounds": [
+            "./assets/sounds/azan.wav",
+            "./assets/sounds/beep.wav"
+          ]
         }
       ],
       "expo-router"

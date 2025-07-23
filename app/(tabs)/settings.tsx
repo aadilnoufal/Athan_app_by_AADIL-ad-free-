@@ -9,7 +9,8 @@ import {
   Switch,
   Alert,
   ScrollView,
-  Linking
+  Linking,
+  Platform
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -23,10 +24,33 @@ import {
   DEFAULT_REGION,
   parseRegionId
 } from '../config/prayerTimeConfig';
-import { scheduleImmediateNotification, setupNotificationChannels, requestBatteryOptimizationExemption, checkAndRequestNotificationPermissions, setupForegroundNotificationHandler } from '../../utils/notificationService';
-import { Audio } from 'expo-av';
+import { 
+  scheduleImmediateNotification, 
+  setupNotificationChannels, 
+  requestBatteryOptimizationExemption, 
+  checkAndRequestNotificationPermissions, 
+  setupForegroundNotificationHandler 
+} from '../../utils/notificationService';
 import { playTestSound } from '../../utils/audioHelper';
 import { useLanguage } from '../../contexts/LanguageContext';
+import { SepiaColors } from '../../constants/sepiaColors';
+
+// Define interfaces
+interface LanguageItem {
+  id: string;
+  name: string;
+  [key: string]: any;
+}
+
+interface NotificationSettings {
+  Fajr: boolean;
+  Sunrise: boolean;
+  Dhuhr: boolean;
+  Asr: boolean;
+  Maghrib: boolean;
+  Isha: boolean;
+  [key: string]: boolean;
+}
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -34,7 +58,7 @@ export default function SettingsScreen() {
   
   // State for notifications
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
-  const [notificationSettings, setNotificationSettings] = useState({
+  const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({
     Fajr: true,
     Sunrise: false,
     Dhuhr: true,
@@ -147,7 +171,7 @@ export default function SettingsScreen() {
   };
   
   // Toggle notifications on/off
-  const toggleNotifications = async (value) => {
+  const toggleNotifications = async (value: boolean) => {
     try {
       if (value) {
         // If turning on, request permissions first
@@ -174,7 +198,7 @@ export default function SettingsScreen() {
   };
   
   // Toggle individual prayer notification settings
-  const togglePrayerNotification = async (prayer, value) => {
+  const togglePrayerNotification = async (prayer: string, value: boolean) => {
     try {
       const updatedSettings = {
         ...notificationSettings,
@@ -194,7 +218,7 @@ export default function SettingsScreen() {
   };
 
   // Toggle notification sound preference
-  const toggleSoundPreference = async (value) => {
+  const toggleSoundPreference = async (value: boolean) => {
     try {
       setUseAzanSound(value);
       await AsyncStorage.setItem('use_azan_sound', value ? 'true' : 'false');
@@ -281,7 +305,7 @@ export default function SettingsScreen() {
       console.error("Error playing test sound:", error);
       Alert.alert(
         "Sound Test Failed",
-        "Error: " + error.message + "\n\nPlease check if audio files are in the correct location.",
+        "Error: " + (error instanceof Error ? error.message : String(error)) + "\n\nPlease check if audio files are in the correct location.",
         [{ text: "OK" }]
       );
     }
@@ -319,7 +343,7 @@ export default function SettingsScreen() {
   };
 
   // Select country
-  const selectCountry = (countryId) => {
+  const selectCountry = (countryId: string) => {
     if (countryId === selectedCountry) return;
     
     setSelectedCountry(countryId);
@@ -338,7 +362,7 @@ export default function SettingsScreen() {
   };
 
   // Select state
-  const selectState = (stateId) => {
+  const selectState = (stateId: string) => {
     if (stateId === selectedState) return;
     
     setSelectedState(stateId);
@@ -352,7 +376,7 @@ export default function SettingsScreen() {
   };
 
   // Select city
-  const selectCity = (cityId) => {
+  const selectCity = (cityId: string) => {
     if (cityId === selectedCity) return;
     
     setSelectedCity(cityId);
@@ -360,7 +384,7 @@ export default function SettingsScreen() {
     // Don't automatically update the region - wait for user to press update button
   };
 
-  // Update the region ID and save it - only called when user presses update button
+  // Update the region ID and save it - simplified for no-cache system
   const updateRegionId = async () => {
     try {
       // Create the new region ID from selected country, state, and city
@@ -382,58 +406,34 @@ export default function SettingsScreen() {
       // Save user preference
       await AsyncStorage.setItem('selected_region', newRegionId);
       
-      // Cancel ALL existing notifications first to avoid duplicate notifications
+      // Cancel ALL existing notifications first
       await Notifications.cancelAllScheduledNotificationsAsync();
       console.log('Cancelled all scheduled notifications during region change');
       
-      // Clear cached prayer time data to force refresh
+      // Clear any existing cached data (just in case)
       const cachedKeys = await AsyncStorage.getAllKeys();
       const prayerTimeKeys = cachedKeys.filter(key => 
         key.startsWith('prayer_') || 
         key.startsWith('last_updated_') ||
-        key === 'cached_prayer_data'
+        key === 'cached_prayer_data' ||
+        key === 'last_refresh_date'
       );
       
       if (prayerTimeKeys.length > 0) {
         await AsyncStorage.multiRemove(prayerTimeKeys);
-        console.log('Cleared cached prayer time data due to location change');
+        console.log('Cleared any existing cached data during location change');
       }
       
-      // Force data refresh by clearing the last refresh date
-      await AsyncStorage.removeItem('last_refresh_date');
-      
-      // Set a temporary flag to indicate we're in the middle of a location change
-      await AsyncStorage.setItem('location_changing', 'true');
-      
-      // Signal the home screen that the region changed - with a timestamp
-      const timestamp = Date.now().toString();
-      await AsyncStorage.setItem('region_changed', timestamp);
-      
-      // Show a toast or small alert to inform the user
+      // Show immediate confirmation and navigate back
       Alert.alert(
         'Location Updated',
-        'Prayer times are being refreshed with data for the new location.',
+        'Your location has been updated. The home page will refresh with new prayer times.',
         [
           { 
             text: 'OK', 
             onPress: () => {
-              // Force navigation back to home to trigger refresh
+              // Navigate back to home - the no-cache system will automatically fetch fresh data
               router.push('/');
-              
-              // After a short delay, clear the location_changing flag
-              setTimeout(async () => {
-                await AsyncStorage.removeItem('location_changing');
-                console.log('Location change completed, location_changing flag cleared');
-                
-                // Ensure notifications are only scheduled after everything is refreshed
-                setTimeout(async () => {
-                  // Force a notification update to apply new location
-                  if (notificationsEnabled) {
-                    await AsyncStorage.setItem('notifications_updated', Date.now().toString());
-                    console.log('Triggered notification update after location change');
-                  }
-                }, 8000);
-              }, 5000);
             }
           }
         ],
@@ -450,7 +450,7 @@ export default function SettingsScreen() {
   };
 
   // Toggle a section's expanded state
-  const toggleSection = (section) => {
+  const toggleSection = (section: string) => {
     setExpandedSection(expandedSection === section ? '' : section);
   };
   // Open donation dialog with multiple options
@@ -487,7 +487,7 @@ export default function SettingsScreen() {
           title: t('settings')
         }} 
       />
-      <StatusBar barStyle="light-content" backgroundColor="#121212" />
+      <StatusBar barStyle="dark-content" backgroundColor={SepiaColors.background.primary} />
       
       {/* Header */}
       <View style={styles.header}>
@@ -498,33 +498,39 @@ export default function SettingsScreen() {
           <MaterialCommunityIcons 
             name="arrow-left" 
             size={24} 
-            color="#FFD700" 
+            color={SepiaColors.accent.gold} 
           />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{t('settings')}</Text>
         <View style={{ width: 24 }} />
       </View>
       
-      <ScrollView style={[styles.scrollView, {direction: isRTL ? 'rtl' : 'ltr'}]}>
+      <ScrollView 
+        style={[styles.scrollView, {direction: isRTL ? 'rtl' : 'ltr'}]}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Language Settings Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t('language')}</Text>
           
-          {Object.values(availableLanguages).map((lang) => (
-            <TouchableOpacity
-              key={lang.id}
-              style={[
-                styles.languageOption,
-                currentLang === lang.id && styles.selectedLanguageOption
-              ]}
-              onPress={() => changeLanguage(lang.id)}
-            >
-              <Text style={styles.languageName}>{lang.name}</Text>
-              {currentLang === lang.id && (
-                <MaterialCommunityIcons name="check" size={24} color="#FFD700" />
-              )}
-            </TouchableOpacity>
-          ))}
+          {Object.values(availableLanguages).map((lang) => {
+            const typedLang = lang as LanguageItem;
+            return (
+              <TouchableOpacity
+                key={typedLang.id}
+                style={[
+                  styles.languageOption,
+                  currentLang === typedLang.id && styles.selectedLanguageOption
+                ]}
+                onPress={() => changeLanguage(typedLang.id)}
+              >
+                <Text style={styles.languageName}>{typedLang.name}</Text>
+                {currentLang === typedLang.id && (
+                  <MaterialCommunityIcons name="check" size={24} color={SepiaColors.accent.gold} />
+                )}
+              </TouchableOpacity>
+            );
+          })}
         </View>
         
         {/* Notification Section */}
@@ -536,8 +542,8 @@ export default function SettingsScreen() {
             <Switch
               value={notificationsEnabled}
               onValueChange={toggleNotifications}
-              trackColor={{ false: "#555", true: "#FFD700" }}
-              thumbColor={notificationsEnabled ? "#FFD700" : "#f4f3f4"}
+              trackColor={{ false: SepiaColors.special.disabled, true: SepiaColors.accent.gold }}
+              thumbColor={notificationsEnabled ? SepiaColors.accent.gold : SepiaColors.surface.secondary}
             />
           </View>
 
@@ -558,7 +564,7 @@ export default function SettingsScreen() {
                           'weather-night'
                         }
                         size={22}
-                        color="#FFD700"
+                        color={SepiaColors.accent.gold}
                         style={{ marginRight: 12 }}
                       />
                       <Text style={styles.prayerLabel}>{t(prayer)}</Text>
@@ -566,16 +572,16 @@ export default function SettingsScreen() {
                     <Switch
                       value={notificationSettings[prayer]}
                       onValueChange={(value) => togglePrayerNotification(prayer, value)}
-                      trackColor={{ false: "#555", true: "#FFD700" }}
-                      thumbColor={notificationSettings[prayer] ? "#FFD700" : "#f4f3f4"}
+                      trackColor={{ false: SepiaColors.special.disabled, true: SepiaColors.accent.gold }}
+                      thumbColor={notificationSettings[prayer] ? SepiaColors.accent.gold : SepiaColors.surface.secondary}
                     />
                   </View>
                 ))}
               </View>
 
-              {/* Notification Sound Preference */}
-              <View style={[styles.settingContainer, { marginTop: 10, borderTopWidth: 1, borderTopColor: 'rgba(255, 255, 255, 0.1)' }]}>
-                <View>
+              {/* Notification Sound Preference - Fixed layout */}
+              <View style={[styles.soundPreferenceContainer, { marginTop: 10, borderTopWidth: 1, borderTopColor: 'rgba(255, 255, 255, 0.1)' }]}>
+                <View style={styles.soundPrefTextContainer}>
                   <Text style={styles.settingLabel}>{t('useAzanSound')}</Text>
                   <Text style={styles.settingDescription}>
                     {t('beepExplanation')}
@@ -584,8 +590,8 @@ export default function SettingsScreen() {
                 <Switch
                   value={useAzanSound}
                   onValueChange={toggleSoundPreference}
-                  trackColor={{ false: "#555", true: "#FFD700" }}
-                  thumbColor={useAzanSound ? "#FFD700" : "#f4f3f4"}
+                  trackColor={{ false: SepiaColors.special.disabled, true: SepiaColors.accent.gold }}
+                  thumbColor={useAzanSound ? SepiaColors.accent.gold : SepiaColors.surface.secondary}
                 />
               </View>
 
@@ -595,7 +601,7 @@ export default function SettingsScreen() {
                   style={styles.testButton}
                   onPress={testNotification}
                 >
-                  <MaterialCommunityIcons name="bell-ring" size={20} color="#121212" />
+                  <MaterialCommunityIcons name="bell-ring" size={20} color={SepiaColors.text.inverse} />
                   <Text style={styles.testButtonText}>{t('testNotification')}</Text>
                 </TouchableOpacity>
 
@@ -603,7 +609,7 @@ export default function SettingsScreen() {
                   style={[styles.testButton, {marginTop: 10}]}
                   onPress={testDirectSound}
                 >
-                  <MaterialCommunityIcons name="volume-high" size={20} color="#121212" />
+                  <MaterialCommunityIcons name="volume-high" size={20} color={SepiaColors.text.inverse} />
                   <Text style={styles.testButtonText}>{t('testSound')}</Text>
                 </TouchableOpacity>
 
@@ -611,7 +617,7 @@ export default function SettingsScreen() {
                   style={[styles.testButton, {marginTop: 10}]}
                   onPress={testInAppNotification}
                 >
-                  <MaterialCommunityIcons name="message-alert" size={20} color="#121212" />
+                  <MaterialCommunityIcons name="message-alert" size={20} color={SepiaColors.text.inverse} />
                   <Text style={styles.testButtonText}>{t('testInAppAlert')}</Text>
                 </TouchableOpacity>
               </View>
@@ -640,7 +646,7 @@ export default function SettingsScreen() {
                 <MaterialCommunityIcons 
                   name={expandedSection === 'country' ? 'chevron-up' : 'chevron-down'} 
                   size={24} 
-                  color="#FFD700" 
+                  color={SepiaColors.accent.gold} 
                 />
               </View>
             </View>
@@ -664,7 +670,7 @@ export default function SettingsScreen() {
                     {country.name}
                   </Text>
                   {selectedCountry === country.id && (
-                    <MaterialCommunityIcons name="check" size={20} color="#FFD700" />
+                    <MaterialCommunityIcons name="check" size={20} color={SepiaColors.accent.gold} />
                   )}
                 </TouchableOpacity>
               ))}
@@ -685,7 +691,7 @@ export default function SettingsScreen() {
                 <MaterialCommunityIcons 
                   name={expandedSection === 'state' ? 'chevron-up' : 'chevron-down'} 
                   size={24} 
-                  color="#FFD700" 
+                  color={SepiaColors.accent.gold} 
                 />
               </View>
             </View>
@@ -709,7 +715,7 @@ export default function SettingsScreen() {
                     {state.name}
                   </Text>
                   {selectedState === state.id && (
-                    <MaterialCommunityIcons name="check" size={20} color="#FFD700" />
+                    <MaterialCommunityIcons name="check" size={20} color={SepiaColors.accent.gold} />
                   )}
                 </TouchableOpacity>
               ))}
@@ -730,7 +736,7 @@ export default function SettingsScreen() {
                 <MaterialCommunityIcons 
                   name={expandedSection === 'city' ? 'chevron-up' : 'chevron-down'} 
                   size={24} 
-                  color="#FFD700" 
+                  color={SepiaColors.accent.gold} 
                 />
               </View>
             </View>
@@ -754,7 +760,7 @@ export default function SettingsScreen() {
                     {city.name}
                   </Text>
                   {selectedCity === city.id && (
-                    <MaterialCommunityIcons name="check" size={20} color="#FFD700" />
+                    <MaterialCommunityIcons name="check" size={20} color={SepiaColors.accent.gold} />
                   )}
                 </TouchableOpacity>
               ))}
@@ -763,7 +769,7 @@ export default function SettingsScreen() {
 
           {/* Selected Location Summary */}
           <View style={styles.locationSummary}>
-            <MaterialCommunityIcons name="map-marker" size={24} color="#FFD700" />
+            <MaterialCommunityIcons name="map-marker" size={24} color={SepiaColors.accent.gold} />
             <Text style={styles.locationSummaryText}>
               {cities.find(c => c.id === selectedCity)?.name || 'City'}, {' '}
               {states.find(s => s.id === selectedState)?.name || 'State'}, {' '}
@@ -776,7 +782,7 @@ export default function SettingsScreen() {
             style={styles.updateLocationButton}
             onPress={updateRegionId}
           >
-            <MaterialCommunityIcons name="map-marker-check" size={20} color="#121212" />
+            <MaterialCommunityIcons name="map-marker-check" size={20} color={SepiaColors.text.inverse} />
             <Text style={styles.updateLocationButtonText}>{t('updateLocation')}</Text>
           </TouchableOpacity>
         </View>
@@ -790,12 +796,15 @@ export default function SettingsScreen() {
             </Text>
             <View style={styles.supportButtonsContainer}>
               <TouchableOpacity style={styles.supportButton} onPress={openDonation}>
-                <MaterialCommunityIcons name="gift" size={20} color="#121212" />
+                <MaterialCommunityIcons name="gift" size={20} color={SepiaColors.text.inverse} />
                 <Text style={styles.supportButtonText}>{t('supportApp')}</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
+        
+        {/* Footer Padding */}
+        <View style={{ height: 40 }} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -804,16 +813,17 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#121212',
+    backgroundColor: SepiaColors.background.primary,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 18,
-    backgroundColor: 'rgba(30, 30, 30, 0.9)',
+    backgroundColor: SepiaColors.surface.elevated,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 215, 0, 0.1)',
+    borderBottomColor: SepiaColors.border.light,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 10 : 18,
   },
   backButton: {
     padding: 8,
@@ -821,7 +831,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: '#FFFFFF',
+    color: SepiaColors.text.primary,
     letterSpacing: 0.5,
   },
   scrollView: {
@@ -830,20 +840,20 @@ const styles = StyleSheet.create({
   section: {
     margin: 16,
     padding: 16,
-    backgroundColor: 'rgba(30, 30, 30, 0.7)',
+    backgroundColor: SepiaColors.surface.primary,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: SepiaColors.border.light,
   },
   sectionTitle: {
-    color: '#FFD700',
+    color: SepiaColors.accent.gold,
     fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 16,
     letterSpacing: 0.5,
   },
   sectionDescription: {
-    color: '#CCCCCC',
+    color: SepiaColors.text.secondary,
     fontSize: 16,
     marginBottom: 16,
     letterSpacing: 0.3,
@@ -854,15 +864,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    borderBottomColor: SepiaColors.border.light,
   },
   settingLabel: {
-    color: '#FFFFFF',
+    color: SepiaColors.text.primary,
     fontSize: 18,
     fontWeight: '500',
   },
   settingSubtitle: {
-    color: '#FFFFFF',
+    color: SepiaColors.text.primary,
     fontSize: 16,
     fontWeight: '500',
     marginVertical: 10,
@@ -876,20 +886,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+    borderBottomColor: SepiaColors.border.light,
   },
   prayerLabelContainer: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   prayerLabel: {
-    color: '#FFFFFF',
+    color: SepiaColors.text.primary,
     fontSize: 16,
   },
   collapsibleHeader: {
-    backgroundColor: 'rgba(42, 42, 42, 0.6)',
+    backgroundColor: SepiaColors.surface.secondary,
     borderRadius: 12,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: SepiaColors.border.light,
   },
   locationSelectorHeader: {
     flexDirection: 'row',
@@ -899,7 +911,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   locationLabel: {
-    color: '#FFFFFF',
+    color: SepiaColors.text.primary,
     fontSize: 16,
     fontWeight: '500',
   },
@@ -908,17 +920,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   locationValue: {
-    color: '#FFD700',
+    color: SepiaColors.accent.gold,
     fontSize: 16,
     fontWeight: '600',
     marginRight: 8,
   },
   optionsContainer: {
     marginTop: 2,
-    backgroundColor: 'rgba(40, 40, 40, 0.6)',
+    backgroundColor: SepiaColors.surface.elevated,
     borderRadius: 10,
     paddingVertical: 8,
     maxHeight: 200,
+    borderWidth: 1,
+    borderColor: SepiaColors.border.light,
   },
   optionItem: {
     flexDirection: 'row',
@@ -927,31 +941,31 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+    borderBottomColor: SepiaColors.border.light,
   },
   selectedOptionItem: {
-    backgroundColor: 'rgba(255, 215, 0, 0.1)',
+    backgroundColor: SepiaColors.special.highlight,
   },
   optionName: {
-    color: '#FFFFFF',
+    color: SepiaColors.text.primary,
     fontSize: 16,
   },
   selectedOptionName: {
-    color: '#FFD700',
+    color: SepiaColors.accent.gold,
     fontWeight: 'bold',
   },
   locationSummary: {
     flexDirection: 'row',
     alignItems: 'center',
     marginTop: 20,
-    backgroundColor: 'rgba(42, 42, 42, 0.8)',
+    backgroundColor: SepiaColors.surface.secondary,
     padding: 16,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255, 215, 0, 0.2)',
+    borderColor: SepiaColors.border.medium,
   },
   locationSummaryText: {
-    color: '#FFFFFF',
+    color: SepiaColors.text.primary,
     fontSize: 16,
     marginLeft: 10,
     flex: 1,
@@ -960,13 +974,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   appVersion: {
-    color: '#FFFFFF',
+    color: SepiaColors.text.primary,
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 12,
   },
   aboutText: {
-    color: '#CCCCCC',
+    color: SepiaColors.text.secondary,
     fontSize: 16,
     textAlign: 'center',
     lineHeight: 24,
@@ -981,24 +995,24 @@ const styles = StyleSheet.create({
   supportButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFD700',
+    backgroundColor: SepiaColors.accent.gold,
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 24,
-    shadowColor: "#000",
+    shadowColor: SepiaColors.shadow.medium,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 4,
   },
   supportButtonText: {
-    color: '#121212',
+    color: SepiaColors.text.inverse,
     fontSize: 16,
     fontWeight: 'bold',
     marginLeft: 8,
   },
   settingDescription: {
-    color: '#AAAAAA',
+    color: SepiaColors.text.tertiary,
     fontSize: 14,
     marginTop: 4,
   },
@@ -1010,20 +1024,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFD700',
+    backgroundColor: SepiaColors.accent.gold,
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 24,
     alignSelf: 'center',
     minWidth: 200,
-    shadowColor: "#000",
+    shadowColor: SepiaColors.shadow.medium,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 4,
   },
   testButtonText: {
-    color: '#121212',
+    color: SepiaColors.text.inverse,
     fontSize: 16,
     fontWeight: 'bold',
     marginLeft: 8,
@@ -1035,13 +1049,13 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 20,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    borderBottomColor: SepiaColors.border.light,
   },
   selectedLanguageOption: {
-    backgroundColor: 'rgba(255, 215, 0, 0.1)',
+    backgroundColor: SepiaColors.special.highlight,
   },
   languageName: {
-    color: '#FFFFFF',
+    color: SepiaColors.text.primary,
     fontSize: 18,
     fontWeight: '500',
   },
@@ -1049,13 +1063,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFD700',
+    backgroundColor: SepiaColors.accent.gold,
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 24,
     alignSelf: 'center',
     minWidth: 200,
-    shadowColor: "#000",
+    shadowColor: SepiaColors.shadow.medium,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
@@ -1063,9 +1077,22 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   updateLocationButtonText: {
-    color: '#121212',
+    color: SepiaColors.text.inverse,
     fontSize: 16,
     fontWeight: 'bold',
     marginLeft: 8,
+  },
+  // Fixed sound preference container with proper layout
+  soundPreferenceContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: SepiaColors.border.light,
+  },
+  soundPrefTextContainer: {
+    flex: 1,
+    paddingRight: 16,
   },
 });

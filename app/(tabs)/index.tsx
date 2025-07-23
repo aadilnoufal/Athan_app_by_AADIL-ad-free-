@@ -19,17 +19,22 @@ import {
   GestureResponderEvent
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Svg, { Circle, G } from 'react-native-svg';
+import Svg, { Circle } from 'react-native-svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialCommunityIcons } from '@expo/vector-icons'; // Note: Using Expo's vector icons
-import { format, addDays, differenceInSeconds, parse, isValid } from 'date-fns';
+import { format, addDays, differenceInSeconds } from 'date-fns';
 import { Stack, useRouter } from 'expo-router';
-import { getAvailableRegions, getRegionConfig, DEFAULT_REGION, RegionConfig } from '../config/prayerTimeConfig';
+import { useFocusEffect } from '@react-navigation/native';
+import { getAvailableRegions, getRegionConfig, DEFAULT_REGION } from '../config/prayerTimeConfig';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { setupNotificationChannels, getChannelForPrayer } from '../../utils/notificationChannels';
+// Import our new prayer time tuner utility
+import { applyTuningParameters, applyLocalDataCityAdjustments, extractCityIdFromRegionId } from '../../utils/prayerTimeTuner';
+import { getPrayerTimesFromLocalData, hasLocalDataForDate } from '../../utils/localPrayerData';
+import { SepiaColors } from '../../constants/sepiaColors';
 
 // Configure notification defaults
 Notifications.setNotificationHandler({
@@ -37,6 +42,8 @@ Notifications.setNotificationHandler({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
   }),
 });
 
@@ -112,47 +119,53 @@ export default function Home() {
   const router = useRouter();
   const { t, currentLang, changeLanguage, isRTL, availableLanguages } = useLanguage();
   
-  // State variables to store our data and UI state
+  // Core state
   const [prayerTimes, setPrayerTimes] = useState<PrayerData | null>(null);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [loading, setLoading] = useState(true);
-  const [currentDay, setCurrentDay] = useState(0); // 0 = today, 1 = tomorrow, etc.
+  const [currentDay, setCurrentDay] = useState(0);
   const [nextPrayer, setNextPrayer] = useState<NextPrayer | null>(null);
   const [countdown, setCountdown] = useState('');
+  const [countdownLoading, setCountdownLoading] = useState(true);
+  
+  // Location and region settings
   const [regionId, setRegionId] = useState(DEFAULT_REGION);
   const [location, setLocation] = useState('');
   const [method, setMethod] = useState(0);
   const [tuningParams, setTuningParams] = useState('');
+  const availableRegions = getAvailableRegions();
+  
+  // UI state
   const [refreshing, setRefreshing] = useState(false);
-  const [lastRefreshDate, setLastRefreshDate] = useState('');
-  const [lastDateCheckTime, setLastDateCheckTime] = useState(0); // Track when we last checked the date
+  const [showRegionPicker, setShowRegionPicker] = useState(false);
+  const [showLanguageSelector, setShowLanguageSelector] = useState(false);
+  const [appState, setAppState] = useState(AppState.currentState);
+  const [regionChanging, setRegionChanging] = useState(false);
+  
+  // Progress tracking
   const [progressAnimation] = useState(new Animated.Value(0));
   const [progressPercent, setProgressPercent] = useState(0);
   const [totalSeconds, setTotalSeconds] = useState(0);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const [showRegionPicker, setShowRegionPicker] = useState(false);
-  const availableRegions = getAvailableRegions();
   
-  // Keep notification state for scheduling purposes
+  // Date management
+  const [lastRefreshDate, setLastRefreshDate] = useState('');
+  const [lastDateCheckTime, setLastDateCheckTime] = useState(0);
+  
+  // Notifications
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({
     Fajr: true,
-    Sunrise: false, // Many users don't want notifications for sunrise
+    Sunrise: false,
     Dhuhr: true,
     Asr: true,
     Maghrib: true,
     Isha: true
   });
 
-  // Add a state for countdown loading
-  const [countdownLoading, setCountdownLoading] = useState(true);
-
-  const [appState, setAppState] = useState(AppState.currentState);
-  const [showLanguageSelector, setShowLanguageSelector] = useState(false);
-
+  // Modal management
   const lastModalToggleTime = useRef(Date.now());
   const [isModalOpen, setIsModalOpen] = useState(false);
-
   const modalLock = useRef(false);
   const toggleModal = (setter: Dispatch<SetStateAction<boolean>>): void => {
     if (modalLock.current) return;
@@ -163,16 +176,14 @@ export default function Home() {
     }, 600);
   };
 
-  // Load notification settings
+  // Notification setup and management
   useEffect(() => {
-    // Setup notification channels when the component mounts
     if (Platform.OS === 'android') {
       setupNotificationChannels();
     }
     
     checkNotificationSettings();
     
-    // Listen for notification settings changes
     const checkForSettingsChanges = async () => {
       try {
         const notifEnabled = await AsyncStorage.getItem('notifications_enabled');
@@ -190,39 +201,20 @@ export default function Home() {
       }
     };
     
-    // Set up interval to check for settings changes
     const settingsInterval = setInterval(checkForSettingsChanges, 3000);
     
-    // Listen for the specific notification update flag
     const notificationListener = async () => {
       const updateFlag = await AsyncStorage.getItem('notifications_updated');
       
       if (updateFlag) {
-        // Clear the flag
         await AsyncStorage.removeItem('notifications_updated');
-        // Reload settings and reschedule
         await checkNotificationSettings();
         await scheduleNotificationsForToday();
       }
     };
     
-    // Check for region changes
-    const regionChangeListener = async () => {
-      const changeFlag = await AsyncStorage.getItem('region_changed');
-      
-      if (changeFlag) {
-        // Clear the flag
-        await AsyncStorage.removeItem('region_changed');
-        // Reload region settings and clear cache
-        await loadRegionConfig();
-        await clearCache(false);
-      }
-    };
-    
-    // Set interval to check for these flags
     const flagsInterval = setInterval(() => {
       notificationListener();
-      regionChangeListener();
     }, 2000);
     
     return () => {
@@ -249,230 +241,167 @@ export default function Home() {
     }
   };
 
-  // Schedule notifications for today's prayer times
   const scheduleNotificationsForToday = async () => {
     try {
       if (!notificationsEnabled) return;
       
-      // Check if we're in the middle of a location change
-      const locationChanging = await AsyncStorage.getItem('location_changing');
-      if (locationChanging === 'true') {
-        console.log('Location change in progress, skipping notification scheduling');
-        return;
-      }
-      
-      // To prevent duplicate notifications, add a debounce mechanism
       const lastScheduled = await AsyncStorage.getItem('last_notification_scheduled');
       const now = Date.now();
-      if (lastScheduled && now - parseInt(lastScheduled) < 10000) { // 10 seconds debounce
+      if (lastScheduled && now - parseInt(lastScheduled) < 10000) {
         console.log('Notifications were recently scheduled, skipping');
         return;
       }
       
       console.log('Scheduling notifications for today - starting with cancelling existing ones');
       
-      // Cancel any existing notifications first
       await Notifications.cancelAllScheduledNotificationsAsync();
       
-      // Get today's prayer times from AsyncStorage
-      const cachedData = await AsyncStorage.getItem('prayer_0');
-      if (!cachedData) {
+      // Use current prayer times from state instead of cache
+      if (!prayerTimes || !prayerTimes.times) {
         console.log('No prayer data available for scheduling notifications');
         return;
       }
       
-      const prayerData = JSON.parse(cachedData);
       const today = new Date();
       
-      // For each prayer time, schedule a notification if enabled
-      for (const [prayer, timeStr] of Object.entries(prayerData.times)) {
+      for (const [prayer, timeStr] of Object.entries(prayerTimes.times)) {
         if (!notificationSettings[prayer as keyof NotificationSettings]) continue;
         
         const [hours, minutes] = (timeStr as string).split(':').map(Number);
         
-        // Create a date for the prayer time
         const prayerDate = new Date(today);
         prayerDate.setHours(hours, minutes, 0);
         
-        // Only schedule if the prayer time is in the future
         if (prayerDate > today) {
           await schedulePrayerNotification(prayer, prayerDate);
         }
       }
       
-      // Also schedule for tomorrow's Fajr
       await scheduleTomorrowFajr();
       
-      // Record when we last scheduled notifications
       await AsyncStorage.setItem('last_notification_scheduled', now.toString());
       
       console.log('Notifications scheduled successfully');
     } catch (error) {
       console.error('Error scheduling notifications:', error);
-      // In case of error, clear the scheduling lock
       await AsyncStorage.removeItem('last_notification_scheduled');
     }
   };
 
-  // Schedule a notification for a specific prayer
   const schedulePrayerNotification = async (prayer: string, date: Date): Promise<void> => {
     if (!notificationsEnabled || !notificationSettings[prayer as keyof NotificationSettings]) return;
     
-    // Different message for each prayer using translations
     let message = "";
     switch(prayer) {
-      case 'Fajr':
-        message = t('fajrMessage');
-        break;
-      case 'Sunrise':
-        message = t('sunriseMessage');
-        break;
-      case 'Dhuhr':
-        message = t('dhuhrMessage');
-        break;
-      case 'Asr':
-        message = t('asrMessage');
-        break;
-      case 'Maghrib':
-        message = t('maghribMessage');
-        break;
-      case 'Isha':
-        message = t('ishaMessage');
-        break;
-      default:
-        message = `${t('next')}: ${prayer}`;
+      case 'Fajr': message = t('fajrMessage'); break;
+      case 'Sunrise': message = t('sunriseMessage'); break;
+      case 'Dhuhr': message = t('dhuhrMessage'); break;
+      case 'Asr': message = t('asrMessage'); break;
+      case 'Maghrib': message = t('maghribMessage'); break;
+      case 'Isha': message = t('ishaMessage'); break;
+      default: message = `${t('next')}: ${prayer}`;
     }
     
-    // Get the preferred sound setting
     const useAzanSound = await AsyncStorage.getItem('use_azan_sound') !== 'false';
     
-    // Get the appropriate channel for this prayer
     const channelId = Platform.OS === 'android' 
       ? getChannelForPrayer(prayer, useAzanSound)
-      : undefined; // Only use channelId on Android
+      : undefined;
     
-    // Determine the sound to use
     const soundName = (prayer === 'Sunrise' || !useAzanSound) ? 'beep.wav' : 'azan.wav';
     
-    // Determine vibration pattern based on prayer
     let vibrationPattern;
     if (prayer === 'Fajr') {
-      vibrationPattern = [0, 500, 200, 500, 200, 500]; // Special pattern for Fajr
+      vibrationPattern = [0, 500, 200, 500, 200, 500];
     } else if (prayer === 'Sunrise') {
-      vibrationPattern = [0, 300]; // Shorter pattern for Sunrise
+      vibrationPattern = [0, 300];
     } else {
-      vibrationPattern = [0, 500, 200, 500]; // Standard pattern for other prayers
+      vibrationPattern = [0, 500, 200, 500];
     }
     
     await Notifications.scheduleNotificationAsync({
       content: {
         title: t(prayer),
         body: message,
-        sound: soundName, // Explicitly set the sound file name
+        sound: soundName,
         priority: Notifications.AndroidNotificationPriority.HIGH,
-        vibrate: vibrationPattern, // Set custom vibration pattern
+        vibrate: vibrationPattern,
         data: { 
           prayerName: prayer,
           useAzanSound: useAzanSound,
-          customSound: true, // Flag to indicate we want to use custom sound
-          vibrationPattern: vibrationPattern // Include vibration pattern in the notification data
+          customSound: true,
+          vibrationPattern: vibrationPattern
         }
       },
       trigger: {
-        date: date.getTime(), // Use 'date' instead of 'timestamp' and 'type'
+        date: date.getTime(),
         channelId: channelId,
-      } as any, // Use 'as any' as a temporary fix for type compatibility
+      } as any,
     });
   };
 
-  // Special function to schedule tomorrow's Fajr notification
   const scheduleTomorrowFajr = async (): Promise<void> => {
     try {
       if (!notificationsEnabled || !notificationSettings['Fajr']) return;
       
-      // Get tomorrow's prayer times
-      const cachedData = await AsyncStorage.getItem('prayer_1');
-      if (!cachedData) return;
+      // For now, skip tomorrow's Fajr since we removed caching
+      console.log('Skipping tomorrow Fajr scheduling (no cache available)');
+      return;
       
-      const prayerData = JSON.parse(cachedData);
-      const tomorrow = addDays(new Date(), 1);
-      
-      const fajrTime = prayerData.times['Fajr'];
-      const [hours, minutes] = fajrTime.split(':').map(Number);
-      
-      const fajrDate = new Date(tomorrow);
-      fajrDate.setHours(hours, minutes, 0);
-      
-      // Get the preferred sound setting
-      const useAzanSound = await AsyncStorage.getItem('use_azan_sound') !== 'false';
-      
-      // Get the appropriate channel ID
-      const channelId = Platform.OS === 'android' 
-        ? getChannelForPrayer('Fajr', useAzanSound) 
-        : undefined;
-      
-      // Special vibration pattern for Fajr
-      const vibrationPattern = [0, 500, 200, 500, 200, 500];
-      
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title: 'Fajr',
-          body: "It's time for Fajr prayer",
-          sound: useAzanSound ? 'azan.wav' : 'beep.wav', // Explicitly set sound file
-          priority: Notifications.AndroidNotificationPriority.HIGH,
-          vibrate: vibrationPattern, // Set custom vibration pattern
-          data: { 
-            prayerName: 'Fajr',
-            useAzanSound: useAzanSound,
-            customSound: true,
-            vibrationPattern: vibrationPattern
-          }
-        },
-        trigger: {
-          date: fajrDate.getTime(), // Use 'date' instead of 'timestamp' and 'type'
-          channelId: channelId,
-        } as any, // Use 'as any' as a temporary fix for type compatibility
-      });
     } catch (error) {
       console.error('Error scheduling tomorrow Fajr:', error);
     }
   };
 
-  // Load configuration for the selected region
+  // Region configuration management
   useEffect(() => {
     loadRegionConfig();
   }, []);
+
+  // Reload region config when screen becomes focused (e.g., returning from settings)
+  useFocusEffect(
+    useCallback(() => {
+      console.log('Home screen focused, reloading region config...');
+      loadRegionConfig();
+    }, [])
+  );
   
-  // Load region config function
   const loadRegionConfig = async (): Promise<void> => {
     try {
-      // Check if user has a saved region preference
       const savedRegion = await AsyncStorage.getItem('selected_region');
       const regionToUse = savedRegion || DEFAULT_REGION;
       
-      // Get configuration for the region
+      console.log(`Loading region config for: ${regionToUse}`);
+      
       const config = getRegionConfig(regionToUse);
       
       if (config) {
+        console.log(`Setting region to: ${config.id}, location: ${config.location}`);
         setRegionId(config.id);
         setLocation(config.location);
         setMethod(config.method);
         setTuningParams(config.tuningParams);
+        
+        // Clear prayer times to force refetch with new region
+        setPrayerTimes(null);
+        setLoading(true);
       } else {
-        // Fallback to default if config not found
         const defaultConfig = getRegionConfig(DEFAULT_REGION);
-        if (defaultConfig) { // Add null check
+        if (defaultConfig) {
           setRegionId(DEFAULT_REGION);
           setLocation(defaultConfig.location);
           setMethod(defaultConfig.method);
           setTuningParams(defaultConfig.tuningParams);
+          
+          // Clear prayer times to force refetch
+          setPrayerTimes(null);
+          setLoading(true);
         }
       }
     } catch (error) {
       console.error('Error loading region config:', error);
-      // Fallback to default
       const defaultConfig = getRegionConfig(DEFAULT_REGION);
-      if (defaultConfig) { // Add null check
+      if (defaultConfig) {
         setRegionId(DEFAULT_REGION);
         setLocation(defaultConfig.location);
         setMethod(defaultConfig.method);
@@ -481,60 +410,48 @@ export default function Home() {
     }
   };
 
-  // Function to check if we need to auto refresh for a new day (optimized)
+  // Date change detection (optimized)
   const checkDayChange = () => {
-    // Only check once per minute (60000 milliseconds)
     const now = Date.now();
     if (now - lastDateCheckTime < 60000) {
-      return; // Skip the check if it's been less than a minute
+      return;
     }
     
-    // Update the last check time
     setLastDateCheckTime(now);
     
     const today = format(new Date(), 'yyyy-MM-dd');
     
-    // If we haven't refreshed today yet
     if (lastRefreshDate !== today) {
-      // Update the last refresh date
       setLastRefreshDate(today);
       
-      // If it's not the first run (lastRefreshDate is not empty)
       if (lastRefreshDate !== '') {
         console.log('Auto-refreshing at new day');
-        clearCache(false); // Clear cache without showing alert
+        clearCache(false);
       } else {
-        // First run of the app, just set the date
         AsyncStorage.setItem('last_refresh_date', today);
       }
     }
   };
   
-  // Modified clearCache function to optionally show alerts
   const clearCache = async (showAlerts = true) => {
     try {
       setRefreshing(true);
       
-      // Get all keys from AsyncStorage
+      // Clear all cached data
       const keys = await AsyncStorage.getAllKeys();
-      
-      // Filter only prayer time related keys
       const prayerKeys = keys.filter(key => key.startsWith('prayer_'));
       
-      // Remove all prayer time related data
       if (prayerKeys.length > 0) {
         await AsyncStorage.multiRemove(prayerKeys);
       }
       
-      // Store current date as last refresh date
       const today = format(new Date(), 'yyyy-MM-dd');
       await AsyncStorage.setItem('last_refresh_date', today);
       setLastRefreshDate(today);
       
-      // Fetch fresh data
+      // Fetch fresh data (no cache)
       await fetchAndCachePrayerTimes();
       
-      // After cache is cleared and new data is fetched, reschedule notifications
       if (notificationsEnabled) {
         await scheduleNotificationsForToday();
       }
@@ -542,7 +459,7 @@ export default function Home() {
       if (showAlerts) {
         Alert.alert(
           t('cacheCleared'),
-          t('cacheMessage'),
+          'Fresh prayer times loaded',
           [{ text: t('ok') }]
         );
       }
@@ -560,7 +477,7 @@ export default function Home() {
     }
   };
 
-  // Run once when the app starts to get the last refresh date
+  // Initialize last refresh date on startup
   useEffect(() => {
     const getLastRefreshDate = async () => {
       try {
@@ -568,7 +485,6 @@ export default function Home() {
         if (storedDate) {
           setLastRefreshDate(storedDate);
         }
-        // Initialize the last check time
         setLastDateCheckTime(Date.now());
       } catch (error) {
         console.error('Error getting last refresh date:', error);
@@ -578,55 +494,38 @@ export default function Home() {
     getLastRefreshDate();
   }, []);
 
-  // Run when the app starts and when currentDay changes
+  // Main effect for data fetching and timer management
   useEffect(() => {
-    // Reset progress when day changes
     setProgressPercent(0);
     progressAnimation.setValue(0);
     setTotalSeconds(0);
     setElapsedSeconds(0);
     
-    // Only fetch prayer times when configuration is loaded
-    if (location && method && tuningParams) {
-      console.log(`Fetching prayer times for day +${currentDay}`);
+    if (location && method !== undefined && tuningParams !== undefined) {
+      console.log(`Fetching prayer times for day +${currentDay}, location: ${location}`);
       fetchPrayerTimes();
     }
     
-    // Create separate intervals for countdown update and date checking
     const countdownTimer = setInterval(() => {
       updateCountdown();
     }, 1000);
     
-    // Check for date changes every minute instead of every second
     const dateCheckTimer = setInterval(() => {
       checkDayChange();
-    }, 60000); // 60000 ms = 1 minute
+    }, 60000);
     
-    // Clean up the timers when component unmounts
     return () => {
       clearInterval(countdownTimer);
       clearInterval(dateCheckTimer);
     };
   }, [currentDay, lastRefreshDate, location, method, tuningParams]);
   
-  // Fetch prayer times from API or local storage
+  // Prayer times fetching - NO CACHE, ALWAYS FRESH
   const fetchPrayerTimes = async () => {
     try {
       setLoading(true);
-      
-      // First check if we have cached data for the selected day
-      const cachedData = await AsyncStorage.getItem(`prayer_${currentDay}`);
-      
-      if (cachedData) {
-        // If we have cached data, use it instead of making an API call
-        const parsedData = JSON.parse(cachedData);
-        setPrayerTimes(parsedData);
-        setLoading(false);
-        updateNextPrayer(parsedData);
-      } else {
-        // Otherwise fetch from Aladhan API
-        await fetchAndCachePrayerTimes();
-      }
+      console.log('Always fetching fresh data - no cache used');
+      await fetchAndCachePrayerTimes();
     } catch (error) {
       console.error('Error fetching prayer times:', error);
       Alert.alert(
@@ -638,119 +537,149 @@ export default function Home() {
     }
   };
   
-  // Add a helper function to convert 24h to 12h format
+  // Convert 24h to 12h format
   const convertTo12HourFormat = (timeStr: string): string => {
     const [hours, minutes] = timeStr.split(':').map(Number);
     const period = hours >= 12 ? 'PM' : 'AM';
-    const hours12 = hours % 12 || 12; // Convert 0 to 12
+    const hours12 = hours % 12 || 12;
     return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`;
   };
 
-  // This is the function that actually fetches data from the Aladhan API
+  // Fetch prayer times - NO CACHING, ALWAYS FRESH
   const fetchAndCachePrayerTimes = async (retryCount = 0) => {
     try {
-      // Calculate the date for fetching (today + currentDay offset)
       const fetchDate = addDays(new Date(), currentDay);
       const formattedDate = format(fetchDate, 'dd-MM-yyyy');
+      const fetchYear = fetchDate.getFullYear();
       
-      console.log(`Fetching prayer times for ${formattedDate}, location: ${location}`);
+      console.log(`Fetching FRESH prayer times for ${formattedDate}, location: ${location}`);
       
-      // Create URL based on method - special handling for UAE (method 99)
-      let apiUrl = '';
-      if (method === 99) {
-        // For UAE cities, we need to add the methodSettings parameter
-        apiUrl = `https://api.aladhan.com/v1/timingsByAddress/${formattedDate}?address=${location}&method=${method}&methodSettings=18.2,null,18.2&school=0&tune=${tuningParams}`;
-      } else {
-        // Standard URL for other methods
-        apiUrl = `https://api.aladhan.com/v1/timingsByAddress/${formattedDate}?address=${location}&method=${method}&tune=${tuningParams}`;
-      }
-      
-      // Make API request to Aladhan.com API with tuning parameters
-      const response = await fetch(apiUrl);
-      
-      if (!response.ok) {
-        throw new Error(`API responded with status: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      
-      // Extract the prayer times from API response
-      const timings = data.data.timings;
-      const date = data.data.date;
-      
-      // Format and organize the prayer times data
-      const formattedTimes = {
-        date: date.readable,
-        hijriDate: date.hijri.date,
-        hijriMonth: date.hijri.month.en,
-        gregorianDate: date.gregorian.date,
-        times: {
-          Fajr: timings.Fajr,
-          Sunrise: timings.Sunrise,
-          Dhuhr: timings.Dhuhr,
-          Asr: timings.Asr,
-          Maghrib: timings.Maghrib,
-          Isha: timings.Isha
-        },
-        times12h: {
-          Fajr: convertTo12HourFormat(timings.Fajr),
-          Sunrise: convertTo12HourFormat(timings.Sunrise),
-          Dhuhr: convertTo12HourFormat(timings.Dhuhr),
-          Asr: convertTo12HourFormat(timings.Asr),
-          Maghrib: convertTo12HourFormat(timings.Maghrib),
-          Isha: convertTo12HourFormat(timings.Isha)
+      if (fetchYear === 2025) {
+        // Use local CSV data for 2025
+        const localData = getPrayerTimesFromLocalData(fetchDate) as PrayerData | null;
+        
+        if (localData) {
+          console.log(`Using local CSV prayer time data for ${formattedDate}`);
+          
+          const cityId = extractCityIdFromRegionId(regionId);
+          console.log(`Applying local data adjustments for city: ${cityId}`);
+          
+          let timings = { ...localData.times } as any;
+          timings = applyLocalDataCityAdjustments(timings, cityId, true);
+          
+          const formattedTimes: PrayerData = {
+            date: localData.date,
+            hijriDate: localData.hijriDate,
+            hijriMonth: localData.hijriMonth,
+            gregorianDate: localData.gregorianDate,
+            times: timings,
+            times12h: {
+              Fajr: convertTo12HourFormat(timings.Fajr),
+              Sunrise: convertTo12HourFormat(timings.Sunrise),
+              Dhuhr: convertTo12HourFormat(timings.Dhuhr),
+              Asr: convertTo12HourFormat(timings.Asr),
+              Maghrib: convertTo12HourFormat(timings.Maghrib),
+              Isha: convertTo12HourFormat(timings.Isha)
+            }
+          };
+          
+          // NO CACHING - Just set the data directly
+          setPrayerTimes(formattedTimes); 
+          updateNextPrayer(formattedTimes); 
+          setLoading(false);
+          
+          if (currentDay === 0 && notificationsEnabled) {
+            setTimeout(async () => {
+              await scheduleNotificationsForToday();
+            }, 1000);
+          }
+          return;
+        } else {
+          console.log(`No local CSV data available for ${formattedDate} (2025)`);
+          Alert.alert(
+            'Data Not Available',
+            `Prayer time data for ${formattedDate} is not available in local database.`,
+            [{ text: 'OK' }]
+          );
+          setLoading(false);
+          return;
         }
-      };
-      
-      // Cache the data for offline use
-      await AsyncStorage.setItem(`prayer_${currentDay}`, JSON.stringify(formattedTimes));
-      
-      // Pre-fetch the next few days for offline use
-      if (currentDay === 0) {
-        for (let i = 1; i < 10; i++) {
-          prefetchDay(i);
+      } else if (fetchYear >= 2026) {
+        // Use API for 2026 and beyond
+        console.log(`Using API for year ${fetchYear}`);
+        
+        const apiUrl = `https://api.aladhan.com/v1/timingsByAddress/${formattedDate}?address=${location}&method=${method}`;
+        
+        const response = await fetch(apiUrl);
+        
+        if (!response.ok) {
+          throw new Error(`API responded with status: ${response.status}`);
         }
-      }
-      
-      setPrayerTimes(formattedTimes); 
-      updateNextPrayer(formattedTimes); 
-      setLoading(false);
-      
-      // After setting prayer times, update notifications if enabled
-      // Only schedule notifications if we're on today's view and not in the middle of a location change
-      if (currentDay === 0 && notificationsEnabled) {
-        // Check if we're in the middle of a location change
-        const locationChanging = await AsyncStorage.getItem('location_changing');
-        if (locationChanging !== 'true') {
-          // Add a small delay before scheduling to prevent race conditions
+        
+        const data = await response.json();
+        
+        let timings = data.data.timings;
+        const date = data.data.date;
+        
+        timings = applyTuningParameters(timings, tuningParams);
+        
+        const formattedTimes = {
+          date: date.readable,
+          hijriDate: date.hijri.date,
+          hijriMonth: date.hijri.month.en,
+          gregorianDate: date.gregorian.date,
+          times: {
+            Fajr: timings.Fajr,
+            Sunrise: timings.Sunrise,
+            Dhuhr: timings.Dhuhr,
+            Asr: timings.Asr,
+            Maghrib: timings.Maghrib,
+            Isha: timings.Isha
+          },
+          times12h: {
+            Fajr: convertTo12HourFormat(timings.Fajr),
+            Sunrise: convertTo12HourFormat(timings.Sunrise),
+            Dhuhr: convertTo12HourFormat(timings.Dhuhr),
+            Asr: convertTo12HourFormat(timings.Asr),
+            Maghrib: convertTo12HourFormat(timings.Maghrib),
+            Isha: convertTo12HourFormat(timings.Isha)
+          }
+        };
+        
+        // NO CACHING - Just set the data directly
+        setPrayerTimes(formattedTimes); 
+        updateNextPrayer(formattedTimes); 
+        setLoading(false);
+        
+        if (currentDay === 0 && notificationsEnabled) {
           setTimeout(async () => {
             await scheduleNotificationsForToday();
           }, 1000);
-        } else {
-          console.log('Location change in progress, skipping automatic notification scheduling');
         }
+      } else {
+        console.log(`Year ${fetchYear} is not supported`);
+        Alert.alert(
+          'Year Not Supported',
+          `Prayer times for year ${fetchYear} are not available. Please check your device date.`,
+          [{ text: 'OK' }]
+        );
+        setLoading(false);
+        return;
       }
     } catch (error) {
-      console.error('Error fetching from API:', error);
+      console.error('Error fetching prayer times:', error);
       
-      // Add retry logic - try up to 3 times with exponential backoff
       if (retryCount < 3) {
-        console.log(`Retrying API fetch (attempt ${retryCount + 1} of 3)...`);
-        const delay = Math.pow(2, retryCount) * 1000; // Exponential backoff: 1s, 2s, 4s
+        console.log(`Retrying prayer time fetch (attempt ${retryCount + 1} of 3)...`);
+        const delay = Math.pow(2, retryCount) * 1000;
         setTimeout(() => {
           fetchAndCachePrayerTimes(retryCount + 1);
         }, delay);
         return;
       }
       
-      // After retries, try to use any offline data we might have
-      const offlineData = await AsyncStorage.getItem(`prayer_${currentDay}`);
-      if (offlineData) {
-        console.log('Using cached offline data');
-        setPrayerTimes(JSON.parse(offlineData));
-      } else if (currentDay === 0) {
-        // For today, let's create a fallback data structure with the current date
-        // so the UI doesn't break completely if both API and cache fail
+      // Fallback only when all retries fail
+      if (currentDay === 0) {
         console.log('Creating fallback prayer times data');
         const today = new Date();
         const fallbackTimes = {
@@ -781,65 +710,14 @@ export default function Home() {
     }
   };
 
-  // Pre-fetch and cache prayer times for a future day
+  // Pre-fetch disabled - No caching system active
   const prefetchDay = async (dayOffset: number): Promise<void> => {
-    try {
-      const fetchDate = addDays(new Date(), dayOffset);
-      const formattedDate = format(fetchDate, 'dd-MM-yyyy');
-      
-      // Check if we already have this data cached
-      const existingData = await AsyncStorage.getItem(`prayer_${dayOffset}`);
-      if (existingData) return;
-      
-      // Create URL based on method - special handling for UAE (method 99)
-      let apiUrl = '';
-      if (method === 99) {
-        // For UAE cities, we need to add the methodSettings parameter
-        apiUrl = `https://api.aladhan.com/v1/timingsByAddress/${formattedDate}?address=${location}&method=${method}&methodSettings=18.2,null,18.2&school=0&tune=${tuningParams}`;
-      } else {
-        // Standard URL for other methods
-        apiUrl = `https://api.aladhan.com/v1/timingsByAddress/${formattedDate}?address=${location}&method=${method}&tune=${tuningParams}`;
-      }
-      
-      const response = await fetch(apiUrl);
-      
-      if (!response.ok) return;
-      
-      const data = await response.json();
-      
-      const timings = data.data.timings;
-      const date = data.data.date;
-      
-      const formattedTimes = {
-        date: date.readable,
-        hijriDate: date.hijri.date,
-        hijriMonth: date.hijri.month.en,
-        gregorianDate: date.gregorian.date,
-        times: {
-          Fajr: timings.Fajr,
-          Sunrise: timings.Sunrise,
-          Dhuhr: timings.Dhuhr,
-          Asr: timings.Asr,
-          Maghrib: timings.Maghrib,
-          Isha: timings.Isha
-        },
-        times12h: {
-          Fajr: convertTo12HourFormat(timings.Fajr),
-          Sunrise: convertTo12HourFormat(timings.Sunrise),
-          Dhuhr: convertTo12HourFormat(timings.Dhuhr),
-          Asr: convertTo12HourFormat(timings.Asr),
-          Maghrib: convertTo12HourFormat(timings.Maghrib),
-          Isha: convertTo12HourFormat(timings.Isha)
-        }
-      };
-      
-      await AsyncStorage.setItem(`prayer_${dayOffset}`, JSON.stringify(formattedTimes));
-    } catch (error) {
-      console.error(`Error prefetching day ${dayOffset}:`, error);
-    }
+    // Prefetching disabled since we removed caching completely
+    console.log(`Prefetching disabled for day ${dayOffset} - no cache system active`);
+    return;
   };
 
-  // Figure out which prayer is next and set countdown
+  // Determine next prayer and set countdown
   const updateNextPrayer = (data: PrayerData): void => {
     if (!data || !data.times) return;
     
@@ -847,12 +725,10 @@ export default function Home() {
     const today = new Date();
     const prayers: PrayerTime[] = [];
     
-    // Convert prayer time strings to Date objects
     Object.entries(data.times).forEach(([prayer, timeStr]) => {
       const [hour, minute] = timeStr.split(':').map(Number);
       const prayerDate = new Date(today);
       
-      // Adjust date for future days
       if (currentDay > 0) {
         prayerDate.setDate(prayerDate.getDate() + currentDay);
       }
@@ -866,34 +742,32 @@ export default function Home() {
       });
     });
     
-    // Sort prayers by time
-    prayers.sort((a, b) => a.date - b.date);
+    prayers.sort((a, b) => a.date.getTime() - b.date.getTime());
     
-    // Find the next prayer
     let next = null;
     
     if (currentDay === 0) {
-      // For today, find the next prayer based on current time
+      // Find the next prayer that hasn't passed today
       next = prayers.find(prayer => prayer.date > now);
       
-      // If no prayers left today, first prayer tomorrow is next
+      // Only show "Fajr (Tomorrow)" if ALL prayers for today have passed
       if (!next) {
-        const tomorrowFajr = prayers.find(prayer => prayer.name === 'Fajr');
-        if (tomorrowFajr) {
-          const fajrDate = new Date(tomorrowFajr.date);
+        // Use today's Fajr time but set for tomorrow as fallback
+        const todayFajr = prayers.find(prayer => prayer.name === 'Fajr');
+        if (todayFajr) {
+          const fajrDate = new Date(todayFajr.date);
           fajrDate.setDate(fajrDate.getDate() + 1);
           next = {
             name: 'Fajr (Tomorrow)',
-            time: tomorrowFajr.time,
+            time: todayFajr.time,
             date: fajrDate
           };
         }
       }
     } else {
-      // For future days, just show the first prayer
+      // For future days, show the first prayer of that day
       next = prayers[0];
       if (next) {
-        // Keep the original name without adding "(Tomorrow)"
         next = {
           name: next.name,
           time: next.time,
@@ -907,146 +781,72 @@ export default function Home() {
     }
   };
 
-  // Update the countdown timer to the next prayer
+  // Update countdown timer to next prayer
   const updateCountdown = useCallback(() => {
     if (!nextPrayer) return;
     
     const now = new Date();
     const prayerTime = new Date(nextPrayer.date);
     
-    // Calculate the time difference (without currentDay adjustment here as we already did it in updateNextPrayer)
     const diffSeconds = Math.max(0, differenceInSeconds(prayerTime, now));
     
     if (diffSeconds <= 0) {
-      // Time for prayer has passed, update next prayer
       fetchPrayerTimes();
       return;
     }
     
-    // Format the countdown
     const hours = Math.floor(diffSeconds / 3600);
     const minutes = Math.floor((diffSeconds % 3600) / 60);
     const seconds = diffSeconds % 60;
     setCountdown(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
     
-    // First calculation - find total seconds between prayers
     if (totalSeconds === 0 || diffSeconds > totalSeconds) {
-      // Initialize with max 6 hours to ensure visible progress
       setTotalSeconds(Math.min(diffSeconds, 21600));
       setElapsedSeconds(0);
     } else {
-      // Update elapsed time
       setElapsedSeconds(totalSeconds - diffSeconds);
     }
     
-    // Calculate progress percentage (0 to 1)
     const progress = Math.max(0, Math.min(1, elapsedSeconds / totalSeconds));
-    // Only update if there's a meaningful change to prevent unnecessary renders
     if (Math.abs(progress - progressPercent) > 0.001) {
       setProgressPercent(progress);
-      // Animate the progress value smoothly with shorter animation duration
       Animated.timing(progressAnimation, {
         toValue: progress,
-        duration: 300, // Reduced from 500ms to 300ms for faster updates
+        duration: 300,
         useNativeDriver: false,
         easing: Easing.out(Easing.ease)
       }).start();
     }
   }, [nextPrayer, currentDay, totalSeconds, elapsedSeconds, progressPercent]);
   
-  // Use more efficient timer management
+  // Timer management for countdown
   useEffect(() => {
     let countdownTimer: NodeJS.Timeout | null = null;
     
-    // Only start the timer when we have necessary data
     if (nextPrayer) {
-      updateCountdown(); // Run once immediately
+      updateCountdown();
       countdownTimer = setInterval(updateCountdown, 1000);
     }
     
-    // Clean up the timer when component unmounts
     return () => {
       if (countdownTimer) clearInterval(countdownTimer);
     };
   }, [updateCountdown, nextPrayer]);
 
-  // Reset total seconds when next prayer changes
+  // Reset progress when next prayer changes
   useEffect(() => {
     if (nextPrayer) {
-      // Set countdown loading while we calculate
       setCountdownLoading(true);
       
-      // Small delay to allow the UI to show the loading state
       setTimeout(() => {
-        setTotalSeconds(0); // This will trigger recalculation in updateCountdown
-        progressAnimation.setValue(0); // Reset the animation value
+        setTotalSeconds(0);
+        progressAnimation.setValue(0);
         setCountdownLoading(false);
       }, 200);
     }
   }, [nextPrayer]);
 
-  // Calculate parameters for our progress circle
-  const CircularProgress = ({ 
-    progress, 
-    size, 
-    strokeWidth 
-  }: { 
-    progress: number, 
-    size: number, 
-    strokeWidth: number 
-  }) => {
-    const radius = (size - strokeWidth) / 2;
-    const circumference = radius * 2 * Math.PI;
-    
-    // Convert progress (0-1) to dash offset for SVG
-    const strokeDashoffset = circumference * (1 - progress);
-    
-    return (
-      <View style={{ width: size, height: size }}>
-        <Svg width={size} height={size}>
-          {/* Background Circle */}
-          <Circle
-            stroke="#333333"
-            fill="none"
-            cx={size / 2}
-            cy={size / 2}
-            r={radius}
-            strokeWidth={strokeWidth}
-          />
-          
-          {/* Progress Circle */}
-          <Circle
-            stroke="#FFD700"
-            fill="none"
-            cx={size / 2}
-            cy={size / 2}
-            r={radius}
-            strokeWidth={strokeWidth}
-            strokeDasharray={`${circumference} ${circumference}`}
-            strokeDashoffset={strokeDashoffset}
-            strokeLinecap="round"
-            rotation="-90"
-            origin={`${size/2}, ${size/2}`}
-          />
-        </Svg>
-        
-        {/* Center content */}
-        <View style={styles.progressCenter}>
-          {nextPrayer && (
-            <>
-              <Text style={styles.nextPrayerText}>
-                Next: {nextPrayer.name}
-              </Text>
-              <Text style={styles.nextPrayerTime}>{nextPrayer.time}</Text>
-              <Text style={styles.countdownText}>{countdown}</Text>
-            </>
-          )}
-        </View>
-      </View>
-    );
-  };
-
-  // Create a properly animated circular progress component
+  // Animated circular progress component
   const AnimatedCircularProgress = ({ 
     progress, 
     size, 
@@ -1059,20 +859,17 @@ export default function Home() {
     const radius = (size - strokeWidth) / 2;
     const circumference = radius * 2 * Math.PI;
     
-    // Use interpolated value for smooth animation
     const animatedStrokeDashoffset = progressAnimation.interpolate({
       inputRange: [0, 1],
       outputRange: [circumference, 0],
       extrapolate: 'clamp'
     });
     
-    // Create an AnimatedCircle component
     const AnimatedCircle = Animated.createAnimatedComponent(Circle);
     
     return (
       <View style={{ width: size, height: size }}>
         <Svg width={size} height={size}>
-          {/* Background Circle */}
           <Circle
             stroke="#333333"
             fill="none"
@@ -1082,9 +879,8 @@ export default function Home() {
             strokeWidth={strokeWidth}
           />
           
-          {/* Animated Progress Circle */}
           <AnimatedCircle
-            stroke="#FFD700"
+            stroke={SepiaColors.accent.gold}
             fill="none"
             cx={size / 2}
             cy={size / 2}
@@ -1098,7 +894,6 @@ export default function Home() {
           />
         </Svg>
         
-        {/* Center content */}
         <View style={styles.progressCenter}>
           {nextPrayer && (
             <>
@@ -1108,7 +903,7 @@ export default function Home() {
               <Text style={styles.nextPrayerTime}>{nextPrayer.time}</Text>
               {countdownLoading ? (
                 <View style={styles.countdownLoading}>
-                  <ActivityIndicator size="small" color="#FFD700" />
+                  <ActivityIndicator size="small" color={SepiaColors.accent.gold} />
                   <Text style={styles.countdownLoadingText}>Calculating...</Text>
                 </View>
               ) : (
@@ -1121,56 +916,44 @@ export default function Home() {
     );
   };
 
-  // Navigate to previous day
+  // Day navigation functions
   const goToPreviousDay = () => {
     if (currentDay > 0) {
-      // First update state
       const newDay = currentDay - 1;
       setCurrentDay(newDay);
       
-      // Update the displayed date
       if (newDay === 0) {
-        // If going back to today, set to current date
         setCurrentDate(new Date());
       } else {
-        // Otherwise subtract a day
         setCurrentDate(prevDate => addDays(prevDate, -1));
       }
       
-      // Force a reload by clearing any cached nextPrayer
       setNextPrayer(null);
       setCountdown('');
       
-      // Log for debugging
       console.log(`Moving to day +${newDay}`);
     }
   };
   
-  // Navigate to next day
   const goToNextDay = () => {
-    if (currentDay < 9) { // Limit to 10 days (0-9)
-      // First update state
+    if (currentDay < 9) {
       const newDay = currentDay + 1;
       setCurrentDay(newDay);
       
-      // Update the displayed date
       setCurrentDate(prevDate => addDays(prevDate, 1));
       
-      // Force a reload by clearing any cached nextPrayer
       setNextPrayer(null);
       setCountdown('');
       
-      // Log for debugging
       console.log(`Moving to day +${newDay}`);
     }
   };
   
-  // Toggle language selector
+  // Language functions
   const toggleLanguageSelector = () => {
     setShowLanguageSelector(!showLanguageSelector);
   };
   
-  // Select a language
   const selectLanguage = async (langId: string): Promise<void> => {
     await changeLanguage(langId);
     setShowLanguageSelector(false);
@@ -1189,7 +972,7 @@ export default function Home() {
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>{t('language')}</Text>
             <TouchableOpacity onPress={() => setShowLanguageSelector(false)}>
-              <MaterialCommunityIcons name="close" size={24} color="#FFFFFF" />
+              <MaterialCommunityIcons name="close" size={24} color={SepiaColors.text.primary} />
             </TouchableOpacity>
           </View>
           <FlatList
@@ -1210,7 +993,7 @@ export default function Home() {
                   {item.name}
                 </Text>
                 {currentLang === item.id && (
-                  <MaterialCommunityIcons name="check" size={20} color="#FFD700" />
+                  <MaterialCommunityIcons name="check" size={20} color={SepiaColors.accent.gold} />
                 )}
               </TouchableOpacity>
             )}
@@ -1220,7 +1003,7 @@ export default function Home() {
     </Modal>
   );
 
-  // Open donation dialog with multiple options
+  // Donation dialog
   const openDonation = () => {
     Alert.alert(
       t('supportTitle'),
@@ -1246,11 +1029,6 @@ export default function Home() {
       ]
     );
   };
-
-  // Navigate to settings page
-  const openSettings = () => {
-    router.push('/settings');
-  };
   
   // Region selector component
   const RegionPicker = () => (
@@ -1265,7 +1043,7 @@ export default function Home() {
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Select Region</Text>
             <TouchableOpacity onPress={() => toggleModal(setShowRegionPicker)}>
-              <MaterialCommunityIcons name="close" size={24} color="#FFFFFF" />
+              <MaterialCommunityIcons name="close" size={24} color={SepiaColors.text.primary} />
             </TouchableOpacity>
           </View>
           <FlatList
@@ -1286,7 +1064,7 @@ export default function Home() {
                   {item.name}
                 </Text>
                 {regionId === item.id && (
-                  <MaterialCommunityIcons name="check" size={20} color="#FFD700" />
+                  <MaterialCommunityIcons name="check" size={20} color={SepiaColors.accent.gold} />
                 )}
               </TouchableOpacity>
             )}
@@ -1323,45 +1101,70 @@ export default function Home() {
     }
   };
 
-  // Add the missing changeRegion function
   const changeRegion = async (newRegionId: string): Promise<void> => {
     try {
-      // Save the selected region to AsyncStorage
+      console.log(`Changing region from ${regionId} to ${newRegionId}`);
+      
+      // Set loading states
+      setRegionChanging(true);
+      setLoading(true);
+      
+      // Save the new region first
       await AsyncStorage.setItem('selected_region', newRegionId);
       
-      // Update the UI with the new region
-      setRegionId(newRegionId);
-        
-      // Get the config for the new region
+      // Get config for new region
       const config = getRegionConfig(newRegionId);
-      if (config) {
-        setLocation(config.location);
-        setMethod(config.method);
-        setTuningParams(config.tuningParams);
+      if (!config) {
+        throw new Error('Invalid region configuration');
       }
       
-      // Close the region picker
+      console.log(`New location config: ${config.location}`);
+      
+      // Clear ALL cached data (just in case some exists)
+      console.log('Clearing any existing cached data...');
+      const keys = await AsyncStorage.getAllKeys();
+      const prayerKeys = keys.filter(key => key.startsWith('prayer_'));
+      if (prayerKeys.length > 0) {
+        await AsyncStorage.multiRemove(prayerKeys);
+        console.log(`Removed ${prayerKeys.length} cached prayer entries`);
+      }
+      
+      // Reset prayer states
+      setPrayerTimes(null);
+      setNextPrayer(null);
+      setCountdown('');
+      
+      // Update state with new location config
+      setRegionId(newRegionId);
+      setLocation(config.location);
+      setMethod(config.method);
+      setTuningParams(config.tuningParams);
+      
+      // Close the modal
       toggleModal(setShowRegionPicker);
       
-      // Clear the cache to fetch prayer times for the new region
-      await clearCache(false);
+      // Force immediate fresh data fetch for new location
+      console.log('Fetching FRESH data for new region (no cache)...');
+      await fetchAndCachePrayerTimes();
       
-      // Set a flag to indicate that the region has changed
-      await AsyncStorage.setItem('region_changed', 'true');
-        
-      // After location change is complete, schedule notifications with a delay
+      // Schedule notifications after successful data fetch
       if (notificationsEnabled && currentDay === 0) {
         setTimeout(() => {
           scheduleNotificationsForToday();
-        }, 3000);
+        }, 1000);
       }
+      
+      console.log('Region change completed successfully');
     } catch (error) {
       console.error('Error changing region:', error);
       Alert.alert('Error', 'Failed to change region. Please try again.');
+    } finally {
+      setLoading(false);
+      setRegionChanging(false);
     }
   };
 
-  // Enhanced date check that runs when app is opened
+  // Date synchronization with system
   useEffect(() => {
     const forceCurrentDateRefresh = () => {
       const now = new Date();
@@ -1369,29 +1172,23 @@ export default function Home() {
       console.log(`System date: ${format(now, 'yyyy-MM-dd')}`);
       console.log(`App date: ${format(currentDate, 'yyyy-MM-dd')}`);
       
-      // Always set to current date when on the "today" view
       if (currentDay === 0) {
-        // Compare dates by converting to date strings (ignoring time)
         const systemDateStr = format(now, 'yyyy-MM-dd');
       }
     };
 
-    // Run immediately when component mounts
     forceCurrentDateRefresh();
     
-    // Set up AppState listener to check date when app resumes from background
     const subscription = AppState.addEventListener('change', (nextAppState) => {
       if (appState.match(/inactive|background/) && nextAppState === 'active') {
-        // App has come to the foreground - force a date check
         console.log('App resumed from background, checking date');
         forceCurrentDateRefresh();
       }
       setAppState(nextAppState);
     });
     
-    // Also set a timer to check the date every minute
     const minuteTimer = setInterval(() => {
-      if (currentDay === 0) {  // Only check when viewing today
+      if (currentDay === 0) {
         const now = new Date();
         const systemDateStr = format(now, 'yyyy-MM-dd');
         const appDateStr = format(currentDate, 'yyyy-MM-dd');
@@ -1403,20 +1200,17 @@ export default function Home() {
       }
     }, 60000);
     
-    // Clean up
     return () => {
       subscription.remove();
       clearInterval(minuteTimer);
     };
   }, []);
 
-  // Keep the original date check for day changes
   useEffect(() => {
     checkDayChange();
   }, [currentDate, notificationsEnabled, currentDay]);
 
-  // Modify the onPress handler for clearCache with proper types
-  const handleClearCache = (event: GestureResponderEvent): void => {
+  const handleClearCache = (): void => {
     clearCache(true);
   };
 
@@ -1424,8 +1218,8 @@ export default function Home() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar 
-        barStyle="light-content" 
-        backgroundColor="#121212" 
+        barStyle="dark-content" 
+        backgroundColor={SepiaColors.background.primary} 
         translucent={Platform.OS === 'android'} 
       />
       
@@ -1455,12 +1249,12 @@ export default function Home() {
               <MaterialCommunityIcons 
                 name="refresh" 
                 size={20} 
-                color="#FFD700" 
+                color={SepiaColors.accent.gold} 
                 style={refreshing ? styles.rotating : null}
               />
             </TouchableOpacity>
             <TouchableOpacity style={styles.donateButton} onPress={openDonation}>
-              <MaterialCommunityIcons name="gift" size={20} color="#FFD700" />
+              <MaterialCommunityIcons name="gift" size={20} color={SepiaColors.text.inverse} />
               <Text style={styles.donateText}>{t('supportApp')}</Text>
             </TouchableOpacity>
             <TouchableOpacity 
@@ -1470,7 +1264,7 @@ export default function Home() {
               <MaterialCommunityIcons 
                 name="web" 
                 size={20} 
-                color="#FFD700" 
+                color={SepiaColors.accent.gold} 
               />
             </TouchableOpacity>
           </View>
@@ -1480,17 +1274,22 @@ export default function Home() {
         <TouchableOpacity 
           style={styles.locationContainer} 
           onPress={() => router.push('/settings')}
+          disabled={regionChanging}
         >
-          <MaterialCommunityIcons name="map-marker" size={20} color="#FFD700" />
+          <MaterialCommunityIcons name="map-marker" size={20} color={SepiaColors.accent.gold} />
           <Text style={styles.locationText}>
-            {getRegionConfig(regionId)?.name || location}
+            {regionChanging ? 'Changing location...' : (getRegionConfig(regionId)?.name || location)}
           </Text>
-          <MaterialCommunityIcons 
-            name="chevron-right" 
-            size={20} 
-            color="#FFD700" 
-            style={styles.dropdownIcon} 
-          />
+          {regionChanging ? (
+            <ActivityIndicator size="small" color={SepiaColors.accent.gold} />
+          ) : (
+            <MaterialCommunityIcons 
+              name="chevron-right" 
+              size={20} 
+              color={SepiaColors.accent.gold} 
+              style={styles.dropdownIcon} 
+            />
+          )}
         </TouchableOpacity>
         
         {/* Date navigation */}
@@ -1503,7 +1302,7 @@ export default function Home() {
             <MaterialCommunityIcons 
               name="chevron-left" 
               size={28} 
-              color={currentDay === 0 ? '#555' : '#FFD700'} 
+              color={currentDay === 0 ? SepiaColors.special.disabled : SepiaColors.accent.gold} 
             />
           </TouchableOpacity>
           <Text style={styles.dateText}>
@@ -1521,17 +1320,19 @@ export default function Home() {
             <MaterialCommunityIcons 
               name="chevron-right" 
               size={28} 
-              color={currentDay === 9 ? '#555' : '#FFD700'} 
+              color={currentDay === 9 ? SepiaColors.special.disabled : SepiaColors.accent.gold} 
             />
           </TouchableOpacity>
         </View>
         
         {/* Main content area - adjusted to allow scrolling */}
         <View style={styles.contentContainer}>
-          {loading ? (
+          {loading || regionChanging ? (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#FFD700" />
-              <Text style={styles.loadingText}>{t('loading')}</Text>
+              <ActivityIndicator size="large" color={SepiaColors.accent.gold} />
+              <Text style={styles.loadingText}>
+                {regionChanging ? 'Loading prayer times for new location...' : t('loading')}
+              </Text>
             </View>
           ) : (
             <ScrollView 
@@ -1588,7 +1389,7 @@ export default function Home() {
                               'weather-night'
                             }
                             size={22}
-                            color="#FFD700"
+                            color={SepiaColors.accent.gold}
                           />
                         </View>
                         <Text style={styles.prayerName}>{t(prayer)}</Text>
@@ -1617,11 +1418,11 @@ export default function Home() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#121212',
+    backgroundColor: SepiaColors.background.primary,
   },
   container: {
     flex: 1,
-    backgroundColor: '#121212',
+    backgroundColor: SepiaColors.background.primary,
     width: '100%',
   },
   header: {
@@ -1630,24 +1431,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 14,
     width: '100%',
-    backgroundColor: 'rgba(30, 30, 30, 0.9)',
+    backgroundColor: SepiaColors.surface.elevated,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 215, 0, 0.1)',
+    borderBottomColor: SepiaColors.border.light,
   },
   headerButtons: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   refreshButton: {
-    backgroundColor: 'rgba(42, 42, 42, 0.8)',
+    backgroundColor: SepiaColors.surface.secondary,
     padding: 8,
     borderRadius: 20,
     marginRight: 8,
-    shadowColor: "#000",
+    shadowColor: SepiaColors.shadow.medium,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 4,
+    borderWidth: 1,
+    borderColor: SepiaColors.border.light,
   },
   rotating: {
     transform: [{ rotate: '45deg' }],
@@ -1655,24 +1458,24 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: '#FFFFFF',
+    color: SepiaColors.text.primary,
     letterSpacing: 0.5,
   },
   donateButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(42, 42, 42, 0.8)',
+    backgroundColor: SepiaColors.accent.gold,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
-    shadowColor: "#000",
+    shadowColor: SepiaColors.shadow.medium,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 4,
   },
   donateText: {
-    color: '#FFD700',
+    color: SepiaColors.text.inverse,
     marginLeft: 6,
     fontWeight: 'bold',
     letterSpacing: 0.5,
@@ -1681,12 +1484,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 10,
-    backgroundColor: 'rgba(26, 26, 26, 0.9)',
+    backgroundColor: SepiaColors.surface.secondary,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 215, 0, 0.1)',
+    borderBottomColor: SepiaColors.border.light,
   },
   locationText: {
-    color: '#FFFFFF',
+    color: SepiaColors.text.primary,
     marginLeft: 8,
     fontSize: 16,
     fontWeight: '500',
@@ -1699,17 +1502,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 10,
     paddingHorizontal: 16,
-    backgroundColor: 'rgba(30, 30, 30, 0.8)',
+    backgroundColor: SepiaColors.surface.elevated,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 215, 0, 0.1)',
+    borderBottomColor: SepiaColors.border.light,
   },
   navButton: {
     padding: 8,
     borderRadius: 20,
-    backgroundColor: 'rgba(50, 50, 50, 0.4)',
+    backgroundColor: SepiaColors.surface.secondary,
+    borderWidth: 1,
+    borderColor: SepiaColors.border.light,
   },
   dateText: {
-    color: '#FFFFFF',
+    color: SepiaColors.text.primary,
     fontSize: 16,
     fontWeight: 'bold',
     letterSpacing: 0.5,
@@ -1718,10 +1523,10 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#121212',
+    backgroundColor: SepiaColors.background.primary,
   },
   loadingText: {
-    color: '#FFFFFF',
+    color: SepiaColors.text.secondary,
     marginTop: 16,
     fontSize: 16,
     letterSpacing: 0.5,
@@ -1738,8 +1543,8 @@ const styles = StyleSheet.create({
     marginVertical: 12,
     borderRadius: 16,
     overflow: 'hidden',
-    backgroundColor: 'rgba(30, 30, 30, 0.6)',
-    shadowColor: "#000",
+    backgroundColor: SepiaColors.surface.primary,
+    shadowColor: SepiaColors.shadow.light,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 6,
@@ -1748,19 +1553,19 @@ const styles = StyleSheet.create({
   dateInnerContainer: {
     padding: 14,
     alignItems: 'center',
-    backgroundColor: 'rgba(26, 26, 26, 0.8)',
+    backgroundColor: SepiaColors.surface.elevated,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 215, 0, 0.15)',
+    borderColor: SepiaColors.border.light,
   },
   gregorianDate: {
-    color: '#FFFFFF',
+    color: SepiaColors.text.primary,
     fontSize: 18,
     fontWeight: 'bold',
     letterSpacing: 0.5,
   },
   hijriDate: {
-    color: '#CCCCCC',
+    color: SepiaColors.text.secondary,
     fontSize: 14,
     marginTop: 4,
     fontWeight: '400',
@@ -1769,19 +1574,21 @@ const styles = StyleSheet.create({
   countdownContainer: {
     padding: 20,
     alignItems: 'center',
-    backgroundColor: 'rgba(42, 42, 42, 0.6)',
+    backgroundColor: SepiaColors.surface.primary,
     margin: 16,
     borderRadius: 16,
+    borderWidth: 1,
+    borderColor: SepiaColors.border.medium,
   },
   nextPrayerText: {
-    color: '#FFFFFF',
+    color: SepiaColors.text.primary,
     fontSize: 16,
     textAlign: 'center',
     letterSpacing: 0.5,
     fontWeight: '500',
   },
   nextPrayerTime: {
-    color: '#FFD700',
+    color: SepiaColors.accent.gold,
     fontSize: 26,
     fontWeight: 'bold',
     marginVertical: 6,
@@ -1789,12 +1596,12 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   countdownText: {
-    color: '#FFFFFF',
+    color: SepiaColors.text.primary,
     fontSize: 32,
     fontWeight: '300',
     letterSpacing: 2,
     textAlign: 'center',
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowColor: SepiaColors.shadow.light,
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 2,
   },
@@ -1808,25 +1615,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 14,
     paddingHorizontal: 16,
-    backgroundColor: 'rgba(30, 30, 30, 0.7)',
+    backgroundColor: SepiaColors.surface.primary,
     borderRadius: 14,
-    shadowColor: "#000",
+    shadowColor: SepiaColors.shadow.light,
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 5,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: SepiaColors.border.light,
   },
   nextPrayerItem: {
-    backgroundColor: 'rgba(42, 42, 42, 0.9)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 215, 0, 0.5)',
-    shadowColor: "#FFD700",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-    elevation: 6,
+    backgroundColor: SepiaColors.special.highlight,
+    borderWidth: 2,
+    borderColor: SepiaColors.border.accent,
   },
   prayerNameContainer: {
     flexDirection: 'row',
@@ -1838,29 +1640,29 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(20, 20, 20, 0.5)',
+    backgroundColor: SepiaColors.surface.secondary,
     borderWidth: 1,
-    borderColor: 'rgba(255, 215, 0, 0.2)',
+    borderColor: SepiaColors.border.medium,
   },
   prayerName: {
-    color: '#FFFFFF',
+    color: SepiaColors.text.primary,
     fontSize: 16,
     marginLeft: 12,
     fontWeight: '500',
     letterSpacing: 0.5,
   },
   prayerTime: {
-    color: '#FFD700',
+    color: SepiaColors.accent.gold,
     fontSize: 16,
     fontWeight: 'bold',
     letterSpacing: 0.5,
   },
   circularCountdownContainer: {
     alignItems: 'center',
-    backgroundColor: 'rgba(26, 26, 26, 0.4)',
+    backgroundColor: SepiaColors.surface.transparent,
     borderWidth: 1,
-    borderColor: 'rgba(255, 215, 0, 0.1)',
-    shadowColor: "#000",
+    borderColor: SepiaColors.border.light,
+    shadowColor: SepiaColors.shadow.light,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 6,
@@ -1882,26 +1684,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 215, 0, 0.1)',
+    borderTopColor: SepiaColors.border.light,
   },
   footerText: {
-    color: '#AAAAAA',
+    color: SepiaColors.text.tertiary,
     fontSize: 14,
     letterSpacing: 0.5,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    backgroundColor: 'rgba(61, 52, 37, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
   modalContent: {
     width: '90%',
-    backgroundColor: '#1E1E1E',
+    backgroundColor: SepiaColors.surface.elevated,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 215, 0, 0.2)',
+    borderColor: SepiaColors.border.medium,
     overflow: 'hidden',
     maxHeight: '70%',
   },
@@ -1911,10 +1713,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    borderBottomColor: SepiaColors.border.light,
   },
   modalTitle: {
-    color: '#FFFFFF',
+    color: SepiaColors.text.primary,
     fontSize: 20,
     fontWeight: 'bold',
     letterSpacing: 0.5,
@@ -1925,18 +1727,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+    borderBottomColor: SepiaColors.border.light,
   },
   selectedRegionItem: {
-    backgroundColor: 'rgba(255, 215, 0, 0.1)',
+    backgroundColor: SepiaColors.special.highlight,
   },
   regionName: {
-    color: '#FFFFFF',
+    color: SepiaColors.text.primary,
     fontSize: 18,
     letterSpacing: 0.5,
   },
   selectedRegionName: {
-    color: '#FFD700',
+    color: SepiaColors.accent.gold,
     fontWeight: 'bold',
   },
   dropdownIcon: {
@@ -1944,15 +1746,17 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   settingsButton: {
-    backgroundColor: 'rgba(42, 42, 42, 0.8)',
+    backgroundColor: SepiaColors.surface.secondary,
     padding: 10,
     borderRadius: 20,
     marginRight: 10,
-    shadowColor: "#000",
+    shadowColor: SepiaColors.shadow.medium,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 4,
+    borderWidth: 1,
+    borderColor: SepiaColors.border.light,
   },
   countdownLoading: {
     flexDirection: 'row',
@@ -1961,22 +1765,24 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   countdownLoadingText: {
-    color: '#FFFFFF',
+    color: SepiaColors.text.secondary,
     fontSize: 16,
     marginLeft: 6,
     opacity: 0.8,
   },
   // Add new language button style
   languageButton: {
-    backgroundColor: 'rgba(42, 42, 42, 0.8)',
+    backgroundColor: SepiaColors.surface.secondary,
     padding: 10,
     borderRadius: 20,
     marginRight: 10,
-    shadowColor: "#000",
+    shadowColor: SepiaColors.shadow.medium,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 4,
+    borderWidth: 1,
+    borderColor: SepiaColors.border.light,
   },
   // Language selector styles
   languageItem: {
@@ -1985,23 +1791,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+    borderBottomColor: SepiaColors.border.light,
   },
   selectedLanguageItem: {
-    backgroundColor: 'rgba(255, 215, 0, 0.1)',
+    backgroundColor: SepiaColors.special.highlight,
   },
   languageName: {
-    color: '#FFFFFF',
+    color: SepiaColors.text.primary,
     fontSize: 18,
     letterSpacing: 0.5,
   },
   selectedLanguageName: {
-    color: '#FFD700',
+    color: SepiaColors.accent.gold,
     fontWeight: 'bold',
   },
   contentContainer: {
     flex: 1, // Add this to allow the container to expand properly
     width: '100%',
-    backgroundColor: '#121212',
+    backgroundColor: SepiaColors.background.primary,
   },
 });

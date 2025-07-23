@@ -2,12 +2,45 @@ import * as Notifications from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Battery from 'expo-battery';
 import * as IntentLauncher from 'expo-intent-launcher';
-import { Platform } from 'react-native';
+import { Platform, Vibration } from 'react-native';
 import { Asset } from 'expo-asset';
 import { setupNotificationChannels as setupChannels, getChannelForPrayer, CHANNEL_IDS } from './notificationChannels';
 
-// Preload custom sound
-const customSound = Asset.fromModule(require('../assets/sounds/azan.wav')).uri;
+// Store asset references
+const soundAssets = {
+  azan: require('../assets/sounds/azan.wav'),
+  beep: require('../assets/sounds/beep.wav')
+};
+
+// Preload and track assets
+let downloadedAssets = {};
+
+/**
+ * Preload sound assets so they're ready for use
+ */
+export async function preloadSoundAssets() {
+  try {
+    // Preload both sound assets
+    const azan = Asset.fromModule(soundAssets.azan);
+    const beep = Asset.fromModule(soundAssets.beep);
+    
+    await Promise.all([
+      azan.downloadAsync(),
+      beep.downloadAsync()
+    ]);
+    
+    downloadedAssets = {
+      azan,
+      beep
+    };
+    
+    console.log('Sound assets preloaded successfully');
+    return true;
+  } catch (error) {
+    console.error('Failed to preload sound assets:', error);
+    return false;
+  }
+}
 
 /**
  * Setup notification channels for Android
@@ -23,6 +56,9 @@ export async function setupNotificationChannels() {
  */
 export async function scheduleImmediateNotification(prayerName) {
   try {
+    // First preload the assets to ensure they're available
+    await preloadSoundAssets();
+    
     const useAzanSound = await AsyncStorage.getItem('use_azan_sound') === 'true';
     
     // Use the appropriate channel
@@ -42,6 +78,9 @@ export async function scheduleImmediateNotification(prayerName) {
     } else {
       vibrationPattern = [0, 500, 200, 500]; // Standard pattern for other prayers
     }
+    
+    // Vibrate immediately so the user gets feedback even if notification fails
+    Vibration.vibrate(vibrationPattern);
     
     await Notifications.scheduleNotificationAsync({
       content: {
@@ -69,6 +108,9 @@ export async function scheduleImmediateNotification(prayerName) {
     
     // Fallback with minimal options
     try {
+      // At least vibrate to provide feedback
+      Vibration.vibrate([0, 300, 200, 300]);
+      
       await Notifications.scheduleNotificationAsync({
         content: {
           title: `Test: ${prayerName} Prayer (Fallback)`,

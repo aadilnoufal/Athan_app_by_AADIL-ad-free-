@@ -3,8 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useColorScheme, Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { useEffect, useState, useRef } from "react";
-import { View, Text, StyleSheet, Animated, TouchableOpacity } from "react-native";
-import { Audio } from 'expo-av';
+import { View, Text, StyleSheet, Animated, TouchableOpacity, Vibration } from "react-native";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { playPrayerSound, preloadSounds, unloadSounds } from '../utils/audioHelper';
@@ -17,11 +16,13 @@ Notifications.setNotificationHandler({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
   }),
 });
 
 // Custom in-app notification component
-function InAppNotification({ title, body, onClose }) {
+function InAppNotification({ title, body, onClose }: { title: string; body: string; onClose: () => void }) {
   const translateY = useRef(new Animated.Value(-100)).current;
   
   useEffect(() => {
@@ -70,11 +71,11 @@ function InAppNotification({ title, body, onClose }) {
 }
 
 export default function RootLayout() {
-  const [notification, setNotification] = useState(null);
+  const [notification, setNotification] = useState<{title: string; body: string; data?: any} | null>(null);
   const [lastReceivedAt, setLastReceivedAt] = useState(0); // Track when last notification was received
   const [assetsLoaded, setAssetsLoaded] = useState(false);
-  const notificationListener = useRef();
-  const responseListener = useRef();
+  const notificationListener = useRef<any>(null);
+  const responseListener = useRef<any>(null);
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   
@@ -82,19 +83,12 @@ export default function RootLayout() {
   useEffect(() => {
     async function loadAssets() {
       try {
-        // Configure audio session
-        await Audio.setAudioModeAsync({
-          playsInSilentModeIOS: true,
-          staysActiveInBackground: true,
-          shouldDuckAndroid: true,
-        });
-        
-        // Preload sound assets
+        // Call preloadSounds from audioHelper
         await preloadSounds();
         setAssetsLoaded(true);
       } catch (error) {
-        console.error("Error preloading assets:", error);
-        // Continue even if preloading fails
+        console.error("Error loading assets:", error);
+        // Continue anyway to ensure app loads
         setAssetsLoaded(true);
       }
     }
@@ -116,20 +110,17 @@ export default function RootLayout() {
       data: { prayerName: 'Test' }
     });
     
-    try {
-      await playSimpleSound();
-    } catch (error) {
-      console.error("Error playing test sound", error);
-    }
+    // Also provide vibration feedback
+    Vibration.vibrate([0, 300, 150, 300]);
   };
 
-  // Simple function to play a sound directly
+  // Simple function to play a sound directly (now just vibrates)
   const playSimpleSound = async () => {
     try {
-      console.log("Playing simple sound");
-      await playPrayerSound('Test', true); // Test with Azan sound
+      console.log("Providing vibration feedback");
+      await playPrayerSound('Test', true); // This now just vibrates
     } catch (error) {
-      console.error("Failed to play sound", error);
+      console.error("Failed to provide feedback", error);
     }
   };
   
@@ -150,7 +141,7 @@ export default function RootLayout() {
     notificationListener.current = Notifications.addNotificationReceivedListener(
       notification => {
         console.log("Notification received in foreground:", notification);
-        const prayerName = notification.request.content.data?.prayerName || 'Prayer';
+        const prayerName = (notification.request.content.data?.prayerName as string) || 'Prayer';
         const useAzanSound = notification.request.content.data?.useAzanSound === true;
         
         // Only show new notifications (avoid duplication from quick re-renders)
@@ -165,9 +156,8 @@ export default function RootLayout() {
             data: notification.request.content.data || {}
           });
           
-          // Play the correct sound directly based on notification data
-          const soundType = prayerName === 'Sunrise' || !useAzanSound ? 'beep' : 'azan';
-          playPrayerSound(prayerName, useAzanSound);
+          // Provide vibration feedback
+          playPrayerSound(prayerName || 'Test', useAzanSound);
         }
       }
     );
@@ -192,27 +182,18 @@ export default function RootLayout() {
       }
     }, 2000);
     
-    // Cleanup function
+    // Cleanup function - FIXED: using subscription.remove() instead of removeNotificationSubscription
     return () => {
-      Notifications.removeNotificationSubscription(notificationListener.current);
-      Notifications.removeNotificationSubscription(responseListener.current);
+      if (notificationListener.current) {
+        notificationListener.current.remove();
+      }
+      if (responseListener.current) {
+        responseListener.current.remove();
+      }
       clearTimeout(timer);
     };
   }, [lastReceivedAt]);
   
-  // Attach global error handler to expo-notifications
-  useEffect(() => {
-    const errorListener = Notifications.addNotificationResponseReceivedListener(response => {
-      if (response.error) {
-        console.error("Notification error:", response.error);
-      }
-    });
-    
-    return () => {
-      Notifications.removeNotificationSubscription(errorListener);
-    };
-  }, []);
-
   // Expose test function globally for easier debugging (remove in production)
   if (__DEV__) {
     // @ts-ignore
