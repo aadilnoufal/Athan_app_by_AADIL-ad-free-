@@ -2,7 +2,7 @@
   "expo": {
     "name": "Prayer Times by AADIL",
     "slug": "prayer-times",
-    "version": "1.0.0",
+    "version": "2.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "userInterfaceStyle": "light",
@@ -34,7 +34,7 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#121212"
       },
-      "package": "com.aadil_noufal.prayertimes",
+      "package": "com.yourcompany.prayertimes",
       "versionCode": 3,
       "permissions": [
         "RECEIVE_BOOT_COMPLETED",
@@ -43,7 +43,7 @@
         "INTERNET",
         "ACCESS_NETWORK_STATE"
       ],
-      "linkingSchemes": ["com.aadil_noufal.prayertimes"]
+      "linkingSchemes": ["com.yourcompany.prayertimes"]
     },
     "web": {
       "favicon": "./assets/images/favicon.png"
