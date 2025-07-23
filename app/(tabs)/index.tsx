@@ -498,7 +498,6 @@ export default function Home() {
   useEffect(() => {
     setProgressPercent(0);
     progressAnimation.setValue(0);
-    setTotalSeconds(0);
     setElapsedSeconds(0);
     
     if (location && method !== undefined && tuningParams !== undefined) {
@@ -800,24 +799,36 @@ export default function Home() {
     const seconds = diffSeconds % 60;
     setCountdown(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
     
-    if (totalSeconds === 0 || diffSeconds > totalSeconds) {
-      setTotalSeconds(Math.min(diffSeconds, 21600));
-      setElapsedSeconds(0);
-    } else {
-      setElapsedSeconds(totalSeconds - diffSeconds);
-    }
+    // Only show progress when less than 1 hour (3600 seconds) remains
+    const oneHourInSeconds = 3600;
     
-    const progress = Math.max(0, Math.min(1, elapsedSeconds / totalSeconds));
-    if (Math.abs(progress - progressPercent) > 0.001) {
-      setProgressPercent(progress);
-      Animated.timing(progressAnimation, {
-        toValue: progress,
-        duration: 300,
-        useNativeDriver: false,
-        easing: Easing.out(Easing.ease)
-      }).start();
+    if (diffSeconds <= oneHourInSeconds) {
+      // Calculate progress for the last hour
+      const elapsedInLastHour = oneHourInSeconds - diffSeconds;
+      const progress = Math.max(0, Math.min(1, elapsedInLastHour / oneHourInSeconds));
+      
+      if (Math.abs(progress - progressPercent) > 0.001) {
+        setProgressPercent(progress);
+        setTotalSeconds(oneHourInSeconds);
+        setElapsedSeconds(elapsedInLastHour);
+        
+        Animated.timing(progressAnimation, {
+          toValue: progress,
+          duration: 300,
+          useNativeDriver: false,
+          easing: Easing.out(Easing.ease)
+        }).start();
+      }
+    } else {
+      // Reset progress when more than 1 hour remains
+      if (progressPercent !== 0) {
+        setProgressPercent(0);
+        setTotalSeconds(0);
+        setElapsedSeconds(0);
+        progressAnimation.setValue(0);
+      }
     }
-  }, [nextPrayer, currentDay, totalSeconds, elapsedSeconds, progressPercent]);
+  }, [nextPrayer, currentDay, progressPercent]);
   
   // Timer management for countdown
   useEffect(() => {
@@ -839,8 +850,9 @@ export default function Home() {
       setCountdownLoading(true);
       
       setTimeout(() => {
-        setTotalSeconds(0);
+        // Reset progress animation to 0 when prayer changes
         progressAnimation.setValue(0);
+        setProgressPercent(0);
         setCountdownLoading(false);
       }, 200);
     }
@@ -867,6 +879,10 @@ export default function Home() {
     
     const AnimatedCircle = Animated.createAnimatedComponent(Circle);
     
+    // Check if we should show progress (less than 1 hour remaining)
+    const shouldShowProgress = nextPrayer && 
+      differenceInSeconds(new Date(nextPrayer.date), new Date()) <= 3600;
+    
     return (
       <View style={{ width: size, height: size }}>
         <Svg width={size} height={size}>
@@ -879,19 +895,21 @@ export default function Home() {
             strokeWidth={strokeWidth}
           />
           
-          <AnimatedCircle
-            stroke={SepiaColors.accent.gold}
-            fill="none"
-            cx={size / 2}
-            cy={size / 2}
-            r={radius}
-            strokeWidth={strokeWidth}
-            strokeDasharray={`${circumference} ${circumference}`}
-            strokeDashoffset={animatedStrokeDashoffset}
-            strokeLinecap="round"
-            rotation="-90"
-            origin={`${size/2}, ${size/2}`}
-          />
+          {shouldShowProgress && (
+            <AnimatedCircle
+              stroke={SepiaColors.accent.gold}
+              fill="none"
+              cx={size / 2}
+              cy={size / 2}
+              r={radius}
+              strokeWidth={strokeWidth}
+              strokeDasharray={`${circumference} ${circumference}`}
+              strokeDashoffset={animatedStrokeDashoffset}
+              strokeLinecap="round"
+              rotation="-90"
+              origin={`${size/2}, ${size/2}`}
+            />
+          )}
         </Svg>
         
         <View style={styles.progressCenter}>
@@ -907,7 +925,12 @@ export default function Home() {
                   <Text style={styles.countdownLoadingText}>Calculating...</Text>
                 </View>
               ) : (
-                <Text style={styles.countdownText}>{countdown}</Text>
+                <>
+                  <Text style={styles.countdownText}>{countdown}</Text>
+                  {shouldShowProgress && (
+                    <Text style={styles.progressIndicatorText}>Final Hour</Text>
+                  )}
+                </>
               )}
             </>
           )}
@@ -1809,5 +1832,13 @@ const styles = StyleSheet.create({
     flex: 1, // Add this to allow the container to expand properly
     width: '100%',
     backgroundColor: SepiaColors.background.primary,
+  },
+  progressIndicatorText: {
+    color: SepiaColors.accent.gold,
+    fontSize: 12,
+    marginTop: 4,
+    fontWeight: '500',
+    letterSpacing: 0.5,
+    opacity: 0.8,
   },
 });
