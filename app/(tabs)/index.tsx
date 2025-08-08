@@ -39,11 +39,10 @@ import { SepiaColors } from '../../constants/sepiaColors';
 // Configure notification defaults
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
     shouldShowBanner: true,
     shouldShowList: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
   }),
 });
 
@@ -117,7 +116,10 @@ interface NotificationSettings {
 
 export default function Home() {
   const router = useRouter();
-  const { t, currentLang, changeLanguage, isRTL, availableLanguages } = useLanguage();
+  const { t, currentLang, changeLanguage, availableLanguages } = useLanguage();
+  
+  // Add isFirstLoad state to track first launch
+  const [isFirstLoad, setIsFirstLoad] = useState(true);
   
   // Core state
   const [prayerTimes, setPrayerTimes] = useState<PrayerData | null>(null);
@@ -254,6 +256,7 @@ export default function Home() {
       
       console.log('Scheduling notifications for today - starting with cancelling existing ones');
       
+      // Cancel all existing notifications to prevent duplicates
       await Notifications.cancelAllScheduledNotificationsAsync();
       
       // Use current prayer times from state instead of cache
@@ -263,33 +266,64 @@ export default function Home() {
       }
       
       const today = new Date();
+      let scheduledCount = 0;
+      let skippedCount = 0;
       
       for (const [prayer, timeStr] of Object.entries(prayerTimes.times)) {
-        if (!notificationSettings[prayer as keyof NotificationSettings]) continue;
+        if (!notificationSettings[prayer as keyof NotificationSettings]) {
+          console.log(`Skipping ${prayer} notification - disabled in settings`);
+          continue;
+        }
         
         const [hours, minutes] = (timeStr as string).split(':').map(Number);
         
         const prayerDate = new Date(today);
         prayerDate.setHours(hours, minutes, 0);
         
+        // The 5-minute check is now inside schedulePrayerNotification
+        // but we'll add an early check here to avoid unnecessary function calls
+        const fiveMinutesInMs = 5 * 60 * 1000; // 5 minutes in milliseconds
+        if (prayerDate.getTime() < now - fiveMinutesInMs) {
+          console.log(`${prayer} time (${hours}:${minutes}) has passed by more than 5 minutes - skipping`);
+          skippedCount++;
+          continue;
+        }
+        
         if (prayerDate > today) {
+          console.log(`Scheduling notification for ${prayer} at ${hours}:${minutes}`);
           await schedulePrayerNotification(prayer, prayerDate);
+          scheduledCount++;
+        } else {
+          console.log(`${prayer} time has already passed today - skipping`);
+          skippedCount++;
         }
       }
       
-      await scheduleTomorrowFajr();
+      // Only schedule tomorrow's Fajr if all today's prayers have passed
+      if (scheduledCount === 0 && skippedCount > 0) {
+        console.log('All of today\'s prayers have passed, scheduling tomorrow\'s Fajr');
+        await scheduleTomorrowFajr();
+      }
       
       await AsyncStorage.setItem('last_notification_scheduled', now.toString());
       
-      console.log('Notifications scheduled successfully');
+      console.log(`Notification scheduling complete: ${scheduledCount} scheduled, ${skippedCount} skipped`);
     } catch (error) {
       console.error('Error scheduling notifications:', error);
       await AsyncStorage.removeItem('last_notification_scheduled');
     }
   };
 
-  const schedulePrayerNotification = async (prayer: string, date: Date): Promise<void> => {
+  const schedulePrayerNotification = async (prayer: string, prayerDate: Date): Promise<void> => {
     if (!notificationsEnabled || !notificationSettings[prayer as keyof NotificationSettings]) return;
+    
+    // Skip notifications for prayer times that have passed by more than 5 minutes
+    const now = new Date();
+    const fiveMinutesInMs = 5 * 60 * 1000; // 5 minutes in milliseconds
+    if (prayerDate.getTime() < now.getTime() - fiveMinutesInMs) {
+      console.log(`Skipping notification for ${prayer} as it passed more than 5 minutes ago`);
+      return;
+    }
     
     let message = "";
     switch(prayer) {
@@ -334,7 +368,7 @@ export default function Home() {
         }
       },
       trigger: {
-        date: date.getTime(),
+        date: prayerDate.getTime(),
         channelId: channelId,
       } as any,
     });
@@ -344,10 +378,22 @@ export default function Home() {
     try {
       if (!notificationsEnabled || !notificationSettings['Fajr']) return;
       
-      // For now, skip tomorrow's Fajr since we removed caching
-      console.log('Skipping tomorrow Fajr scheduling (no cache available)');
-      return;
+      // If we have prayer times for today, use the same Fajr time for tomorrow
+      if (prayerTimes && prayerTimes.times && prayerTimes.times.Fajr) {
+        const [hours, minutes] = prayerTimes.times.Fajr.split(':').map(Number);
+        
+        // Create tomorrow's date
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        tomorrow.setHours(hours, minutes, 0, 0);
+        
+        console.log(`Scheduling tomorrow's Fajr at ${hours}:${minutes}`);
+        
+        await schedulePrayerNotification('Fajr', tomorrow);
+        return;
+      }
       
+      console.log('Could not schedule tomorrow\'s Fajr - no time data available');
     } catch (error) {
       console.error('Error scheduling tomorrow Fajr:', error);
     }
@@ -361,9 +407,45 @@ export default function Home() {
   // Reload region config when screen becomes focused (e.g., returning from settings)
   useFocusEffect(
     useCallback(() => {
-      console.log('Home screen focused, reloading region config...');
-      loadRegionConfig();
-    }, [])
+      console.log('Home screen focused, checking for region changes...');
+      
+      const checkForRegionChanges = async () => {
+        try {
+          const savedRegion = await AsyncStorage.getItem('selected_region');
+          const regionToUse = savedRegion || DEFAULT_REGION;
+          
+          // Only reload if the region actually changed
+          if (regionToUse !== regionId) {
+            console.log(`Region changed from ${regionId} to ${regionToUse}, reloading...`);
+            await loadRegionConfig();
+          } else {
+            console.log('No region change detected, skipping reload');
+            // If already have prayer times and no region change, don't set loading
+            if (prayerTimes) {
+              setLoading(false);
+            }
+          }
+        } catch (error) {
+          console.error('Error checking for region changes:', error);
+          // Fallback to current behavior if there's an error
+          await loadRegionConfig();
+        }
+      };
+      
+      checkForRegionChanges();
+      
+      // Safety mechanism: if we're still loading after 5 seconds and have prayer times, stop loading
+      const loadingTimeout = setTimeout(() => {
+        if (loading && prayerTimes) {
+          console.log('Safety timeout: stopping loading state when returning to home');
+          setLoading(false);
+        }
+      }, 5000);
+      
+      return () => {
+        clearTimeout(loadingTimeout);
+      };
+    }, [regionId, prayerTimes, loading])
   );
   
   const loadRegionConfig = async (): Promise<void> => {
@@ -377,35 +459,80 @@ export default function Home() {
       
       if (config) {
         console.log(`Setting region to: ${config.id}, location: ${config.location}`);
-        setRegionId(config.id);
-        setLocation(config.location);
-        setMethod(config.method);
-        setTuningParams(config.tuningParams);
         
-        // Clear prayer times to force refetch with new region
-        setPrayerTimes(null);
-        setLoading(true);
+        // Always apply config on first load to ensure data is displayed
+        if (isFirstLoad) {
+          console.log('First load detected, applying region config and fetching data...');
+          setRegionId(config.id);
+          setLocation(config.location);
+          setMethod(config.method);
+          setTuningParams(config.tuningParams);
+          setIsFirstLoad(false);
+          
+          // Set loading state for first load
+          setPrayerTimes(null);
+          setLoading(true);
+          
+          // Trigger an immediate fetch after setting the config
+          setTimeout(() => {
+            console.log('Triggering first data fetch...');
+            fetchPrayerTimes().catch(err => {
+              console.error('First fetch error:', err);
+              setLoading(false);
+            });
+          }, 500);
+          
+          return;
+        }
+        
+        // Regular flow for subsequent loads
+        const regionChanged = config.id !== regionId || config.location !== location;
+        
+        if (regionChanged) {
+          console.log('Region configuration changed, updating...');
+          setRegionId(config.id);
+          setLocation(config.location);
+          setMethod(config.method);
+          setTuningParams(config.tuningParams);
+          
+          // Clear prayer times to force refetch with new region
+          setPrayerTimes(null);
+          setLoading(true);
+        } else {
+          console.log('Region configuration unchanged, keeping current data');
+          // Don't set loading if region hasn't changed
+        }
       } else {
         const defaultConfig = getRegionConfig(DEFAULT_REGION);
         if (defaultConfig) {
-          setRegionId(DEFAULT_REGION);
-          setLocation(defaultConfig.location);
-          setMethod(defaultConfig.method);
-          setTuningParams(defaultConfig.tuningParams);
+          console.log('No config found, using default region');
+          const regionChanged = DEFAULT_REGION !== regionId || defaultConfig.location !== location || isFirstLoad;
           
-          // Clear prayer times to force refetch
-          setPrayerTimes(null);
-          setLoading(true);
+          if (regionChanged) {
+            setRegionId(DEFAULT_REGION);
+            setLocation(defaultConfig.location);
+            setMethod(defaultConfig.method);
+            setTuningParams(defaultConfig.tuningParams);
+            
+            // Clear prayer times to force refetch
+            setPrayerTimes(null);
+            setLoading(true);
+            setIsFirstLoad(false);
+          }
         }
       }
     } catch (error) {
       console.error('Error loading region config:', error);
       const defaultConfig = getRegionConfig(DEFAULT_REGION);
-      if (defaultConfig) {
+      if (defaultConfig && (defaultConfig.id !== regionId || isFirstLoad)) {
+        console.log('Error occurred, loading default region config');
         setRegionId(DEFAULT_REGION);
         setLocation(defaultConfig.location);
         setMethod(defaultConfig.method);
         setTuningParams(defaultConfig.tuningParams);
+        setPrayerTimes(null);
+        setLoading(true);
+        setIsFirstLoad(false);
       }
     }
   };
@@ -502,7 +629,53 @@ export default function Home() {
     
     if (location && method !== undefined && tuningParams !== undefined) {
       console.log(`Fetching prayer times for day +${currentDay}, location: ${location}`);
-      fetchPrayerTimes();
+      
+      // Using a more reliable way to fetch data with a retry mechanism for first load
+      const fetchDataWithRetry = async () => {
+        try {
+          await fetchPrayerTimes();
+        } catch (error) {
+          console.error('Error in data fetch effect:', error);
+          
+          // If this is first load or we have no prayer times, try one more time after a delay
+          if (!prayerTimes) {
+            console.log('Retrying data fetch in 2 seconds...');
+            setTimeout(() => {
+              fetchPrayerTimes().catch(err => {
+                console.error('Retry fetch error:', err);
+                setLoading(false);
+              });
+            }, 2000);
+          } else {
+            setLoading(false);
+          }
+        }
+      };
+      
+      fetchDataWithRetry();
+    } else {
+      // If we don't have location config yet, ensure we're not stuck loading
+      setTimeout(() => {
+        if (loading && (!location || method === undefined || tuningParams === undefined)) {
+          console.log('Configuration incomplete, stopping loading state');
+          
+          // If we're still in first load but have no config, force default config
+          if (isFirstLoad) {
+            console.log('First load with incomplete config, forcing default config...');
+            const defaultConfig = getRegionConfig(DEFAULT_REGION);
+            if (defaultConfig) {
+              setRegionId(DEFAULT_REGION);
+              setLocation(defaultConfig.location);
+              setMethod(defaultConfig.method);
+              setTuningParams(defaultConfig.tuningParams);
+              setIsFirstLoad(false);
+              return; // This will trigger the effect again with proper config
+            }
+          }
+          
+          setLoading(false);
+        }
+      }, 3000);
     }
     
     const countdownTimer = setInterval(() => {
@@ -517,16 +690,66 @@ export default function Home() {
       clearInterval(countdownTimer);
       clearInterval(dateCheckTimer);
     };
-  }, [currentDay, lastRefreshDate, location, method, tuningParams]);
+  }, [currentDay, lastRefreshDate, location, method, tuningParams, isFirstLoad]);
   
   // Prayer times fetching - NO CACHE, ALWAYS FRESH
   const fetchPrayerTimes = async () => {
     try {
       setLoading(true);
       console.log('Always fetching fresh data - no cache used');
-      await fetchAndCachePrayerTimes();
+      
+      // Add a timeout to prevent infinite loading
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Request timeout')), 15000); // 15 second timeout
+      });
+      
+      // Check if this is first load and add extra logging
+      if (isFirstLoad || !prayerTimes) {
+        console.log('Fetching prayer times for first load or after no data...');
+      }
+      
+      await Promise.race([fetchAndCachePrayerTimes(), timeoutPromise]);
     } catch (error) {
       console.error('Error fetching prayer times:', error);
+      
+      // If we have existing prayer times and this is just a refresh, keep the old data
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      if (prayerTimes && errorMessage !== 'Request timeout') {
+        console.log('Keeping existing prayer times due to fetch error');
+        setLoading(false);
+        return;
+      }
+      
+      // Create fallback data if this is first load or we have no prayer times
+      if (isFirstLoad || !prayerTimes) {
+        console.log('Error on first load, creating fallback data');
+        const today = new Date();
+        const fallbackTimes = {
+          date: format(today, 'dd MMM yyyy'),
+          hijriDate: 'Unknown',
+          hijriMonth: 'Unknown',
+          gregorianDate: format(today, 'dd-MM-yyyy'),
+          times: {
+            Fajr: '--:--',
+            Sunrise: '--:--',
+            Dhuhr: '--:--',
+            Asr: '--:--',
+            Maghrib: '--:--',
+            Isha: '--:--'
+          },
+          times12h: {
+            Fajr: '--:--',
+            Sunrise: '--:--',
+            Dhuhr: '--:--',
+            Asr: '--:--',
+            Maghrib: '--:--',
+            Isha: '--:--'
+          }
+        };
+        setPrayerTimes(fallbackTimes);
+        setIsFirstLoad(false);
+      }
+      
       Alert.alert(
         t('connectionError'),
         t('connectionErrorMessage'),
@@ -677,34 +900,40 @@ export default function Home() {
         return;
       }
       
-      // Fallback only when all retries fail
-      if (currentDay === 0) {
-        console.log('Creating fallback prayer times data');
-        const today = new Date();
-        const fallbackTimes = {
-          date: format(today, 'dd MMM yyyy'),
-          hijriDate: 'Unknown',
-          hijriMonth: 'Unknown',
-          gregorianDate: format(today, 'dd-MM-yyyy'),
-          times: {
-            Fajr: '--:--',
-            Sunrise: '--:--',
-            Dhuhr: '--:--',
-            Asr: '--:--',
-            Maghrib: '--:--',
-            Isha: '--:--'
-          },
-          times12h: {
-            Fajr: '--:--',
-            Sunrise: '--:--',
-            Dhuhr: '--:--',
-            Asr: '--:--',
-            Maghrib: '--:--',
-            Isha: '--:--'
-          }
-        };
-        setPrayerTimes(fallbackTimes);
+      // Fallback for any day when all retries fail
+      console.log('Creating fallback prayer times data after all retries failed');
+      const today = addDays(new Date(), currentDay);
+      const fallbackTimes = {
+        date: format(today, 'dd MMM yyyy'),
+        hijriDate: 'Unknown',
+        hijriMonth: 'Unknown',
+        gregorianDate: format(today, 'dd-MM-yyyy'),
+        times: {
+          Fajr: '--:--',
+          Sunrise: '--:--',
+          Dhuhr: '--:--',
+          Asr: '--:--',
+          Maghrib: '--:--',
+          Isha: '--:--'
+        },
+        times12h: {
+          Fajr: '--:--',
+          Sunrise: '--:--',
+          Dhuhr: '--:--',
+          Asr: '--:--',
+          Maghrib: '--:--',
+          Isha: '--:--'
+        }
+      };
+      
+      // Always set fallback data to prevent blank screen
+      setPrayerTimes(fallbackTimes);
+      
+      // If this was the first load, mark it as complete
+      if (isFirstLoad) {
+        setIsFirstLoad(false);
       }
+      
       setLoading(false);
     }
   };
@@ -991,7 +1220,7 @@ export default function Home() {
       onRequestClose={() => setShowLanguageSelector(false)}
     >
       <View style={styles.modalOverlay}>
-        <View style={[styles.modalContent, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+        <View style={styles.modalContent}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>{t('language')}</Text>
             <TouchableOpacity onPress={() => setShowLanguageSelector(false)}>
@@ -1197,6 +1426,12 @@ export default function Home() {
       
       if (currentDay === 0) {
         const systemDateStr = format(now, 'yyyy-MM-dd');
+        const appDateStr = format(currentDate, 'yyyy-MM-dd');
+        
+        if (systemDateStr !== appDateStr) {
+          console.log('Date changed while app was running');
+          forceCurrentDateRefresh();
+        }
       }
     };
 
@@ -1239,12 +1474,18 @@ export default function Home() {
 
   // Render the UI
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar 
-        barStyle="dark-content" 
-        backgroundColor={SepiaColors.background.primary} 
-        translucent={Platform.OS === 'android'} 
-      />
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+      {Platform.OS === 'android' ? (
+        <View style={{ 
+          height: StatusBar.currentHeight || 20, // Reduced default height from 24 to 20
+          backgroundColor: SepiaColors.background.primary 
+        }} />
+      ) : (
+        <StatusBar 
+          barStyle="dark-content" 
+          backgroundColor={SepiaColors.background.primary} 
+        />
+      )}
       
       <Stack.Screen 
         options={{ 
@@ -1445,22 +1686,29 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    backgroundColor: SepiaColors.background.primary,
-    width: '100%',
+    paddingHorizontal: 12, // Reduced horizontal padding to minimize unused space
+    paddingTop: 0, // Keep zero top padding
+    paddingBottom: 90, // Extra padding to account for tab bar height + safe area
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 14,
-    width: '100%',
-    backgroundColor: SepiaColors.surface.elevated,
-    borderBottomWidth: 1,
-    borderBottomColor: SepiaColors.border.light,
+    paddingVertical: 8, // Further reduced vertical padding
+    paddingHorizontal: 2, // Minimized horizontal padding for header
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: SepiaColors.text.primary,
+    flex: 1, // Allow title to take available space
   },
   headerButtons: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'flex-end', // Align buttons to the right
+    paddingRight: 0, // No right padding to avoid overflow
+    flexShrink: 0, // Don't allow buttons to shrink
   },
   refreshButton: {
     backgroundColor: SepiaColors.surface.secondary,
@@ -1477,12 +1725,6 @@ const styles = StyleSheet.create({
   },
   rotating: {
     transform: [{ rotate: '45deg' }],
-  },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: SepiaColors.text.primary,
-    letterSpacing: 0.5,
   },
   donateButton: {
     flexDirection: 'row',
@@ -1506,7 +1748,7 @@ const styles = StyleSheet.create({
   locationContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 10,
+    padding: 8, // Reduced padding
     backgroundColor: SepiaColors.surface.secondary,
     borderBottomWidth: 1,
     borderBottomColor: SepiaColors.border.light,
@@ -1523,14 +1765,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
+    paddingVertical: 8, // Reduced vertical padding
+    paddingHorizontal: 12, // Reduced horizontal padding
     backgroundColor: SepiaColors.surface.elevated,
     borderBottomWidth: 1,
     borderBottomColor: SepiaColors.border.light,
   },
   navButton: {
-    padding: 8,
+    padding: 6, // Reduced padding for more compact buttons
     borderRadius: 20,
     backgroundColor: SepiaColors.surface.secondary,
     borderWidth: 1,
@@ -1559,11 +1801,11 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   scrollViewContent: {
-    paddingHorizontal: 12,
-    paddingBottom: 24,
+    paddingHorizontal: 8, // Reduced horizontal padding
+    paddingBottom: 120, // Extra padding to ensure content is not hidden behind tab bar
   },
   dateContainer: {
-    marginVertical: 12,
+    marginVertical: 10, // Reduced vertical margin
     borderRadius: 16,
     overflow: 'hidden',
     backgroundColor: SepiaColors.surface.primary,
@@ -1574,7 +1816,7 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   dateInnerContainer: {
-    padding: 14,
+    padding: 12, // Reduced padding
     alignItems: 'center',
     backgroundColor: SepiaColors.surface.elevated,
     borderRadius: 16,
@@ -1796,9 +2038,9 @@ const styles = StyleSheet.create({
   // Add new language button style
   languageButton: {
     backgroundColor: SepiaColors.surface.secondary,
-    padding: 10,
+    padding: 8,
     borderRadius: 20,
-    marginRight: 10,
+    marginRight: 4, // Reduced margin to prevent overflow
     shadowColor: SepiaColors.shadow.medium,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
@@ -1806,6 +2048,10 @@ const styles = StyleSheet.create({
     elevation: 4,
     borderWidth: 1,
     borderColor: SepiaColors.border.light,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 36, // Fixed width to ensure proper sizing
+    height: 36, // Fixed height to match width
   },
   // Language selector styles
   languageItem: {

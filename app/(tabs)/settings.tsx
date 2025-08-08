@@ -54,7 +54,7 @@ interface NotificationSettings {
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const { t, currentLang, changeLanguage, isRTL, availableLanguages } = useLanguage();
+  const { t, currentLang, changeLanguage, availableLanguages } = useLanguage();
   
   // State for notifications
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
@@ -487,7 +487,14 @@ export default function SettingsScreen() {
           title: t('settings')
         }} 
       />
-      <StatusBar barStyle="dark-content" backgroundColor={SepiaColors.background.primary} />
+      {Platform.OS === 'android' ? (
+        <View style={{ 
+          height: StatusBar.currentHeight || 24, 
+          backgroundColor: SepiaColors.background.primary 
+        }} />
+      ) : (
+        <StatusBar barStyle="dark-content" backgroundColor={SepiaColors.background.primary} />
+      )}
       
       {/* Header */}
       <View style={styles.header}>
@@ -506,7 +513,7 @@ export default function SettingsScreen() {
       </View>
       
       <ScrollView 
-        style={[styles.scrollView, {direction: isRTL ? 'rtl' : 'ltr'}]}
+        style={styles.scrollView}
         showsVerticalScrollIndicator={false}
       >
         {/* Language Settings Section */}
@@ -814,6 +821,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: SepiaColors.background.primary,
+    paddingBottom: 90, // Account for tab bar height + safe area
   },
   header: {
     flexDirection: 'row',

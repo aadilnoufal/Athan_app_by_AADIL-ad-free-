@@ -1,6 +1,6 @@
 import { Asset } from 'expo-asset';
 import { Vibration } from 'react-native';
-import { Audio } from 'expo-audio'; // Import the Audio API from expo-audio
+import { Audio } from 'expo-av'; // Use expo-av instead of expo-audio
 
 // Define sound asset modules
 const soundModules = {
@@ -44,7 +44,7 @@ export async function preloadSounds() {
 /**
  * Get a sound object from the cache or create a new one
  * @param {string} soundKey - Key of the sound to load ('beep' or 'azan')
- * @returns {Promise<Audio.AudioPlayer>} - The loaded audio player object
+ * @returns {Promise<Audio.Sound>} - The loaded audio sound object
  */
 async function getSoundObject(soundKey) {
   try {
@@ -70,14 +70,19 @@ async function getSoundObject(soundKey) {
     await Audio.setAudioModeAsync({
       playsInSilentModeIOS: true,
       staysActiveInBackground: true,
+      shouldDuckAndroid: true,
+      playThroughEarpieceAndroid: false,
     });
     
-    // Create the audio player using the local URI
-    const audioPlayer = Audio.createAudioPlayer(asset.uri);
+    // Create the sound object using expo-av
+    const { sound } = await Audio.Sound.createAsync(
+      { uri: asset.uri },
+      { shouldPlay: false, isLooping: false }
+    );
     
-    loadedSounds[soundKey] = audioPlayer;
+    loadedSounds[soundKey] = sound;
     
-    return audioPlayer;
+    return sound;
   } catch (error) {
     console.error(`Failed to load ${soundKey} sound:`, error);
     throw error;
@@ -102,9 +107,9 @@ export async function playPrayerSound(prayerName, useAzanSound = true, vibrate =
     }
     
     try {
-      // Try to play actual sound using expo-audio
-      const audioPlayer = await getSoundObject(soundKey);
-      await audioPlayer.play();
+      // Try to play actual sound using expo-av
+      const sound = await getSoundObject(soundKey);
+      await sound.playAsync();
     } catch (soundError) {
       console.error(`Sound playback failed, using vibration only: ${soundError.message}`);
       // Vibration already happened above, so we don't need to do it again
@@ -132,10 +137,10 @@ export async function playTestSound(vibrate = true) {
     }
     
     try {
-      // Try to play the actual sound using expo-audio
+      // Try to play the actual sound using expo-av
       await preloadSounds(); // Make sure assets are preloaded
-      const audioPlayer = await getSoundObject('beep');
-      await audioPlayer.play();
+      const sound = await getSoundObject('beep');
+      await sound.playAsync();
       console.log("Sound played successfully");
       return true;
     } catch (soundError) {
@@ -163,11 +168,11 @@ export async function unloadSounds() {
   // Stop any ongoing vibration
   stopVibration();
   
-  // Release all audio player objects
+  // Release all sound objects
   for (const key in loadedSounds) {
     try {
-      // expo-audio doesn't require explicit unloading
-      // Just remove the reference
+      // Unload the sound object properly
+      await loadedSounds[key].unloadAsync();
       delete loadedSounds[key];
     } catch (e) {
       console.warn(`Error releasing sound ${key}:`, e);

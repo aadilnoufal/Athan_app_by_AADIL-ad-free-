@@ -1,6 +1,5 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { I18nManager } from 'react-native';
 import { languages, getAllTranslations } from '../translations';
 
 // Create the language context
@@ -13,7 +12,7 @@ export const useLanguage = () => useContext(LanguageContext);
 export const LanguageProvider = ({ children }) => {
   const [currentLang, setCurrentLang] = useState('en'); // Default to English
   const [translations, setTranslations] = useState(getAllTranslations('en'));
-  const [isRTL, setIsRTL] = useState(false);
+  const [isRTL, setIsRTL] = useState(false); // Always false - RTL disabled
 
   // Load saved language preference on mount
   useEffect(() => {
@@ -41,16 +40,8 @@ export const LanguageProvider = ({ children }) => {
         // Update state
         setCurrentLang(langId);
         setTranslations(getAllTranslations(langId));
-        setIsRTL(languages[langId].rtl);
-        
-        // Update the app direction for RTL support
-        // Note: This might cause a reload in some cases
-        if (I18nManager.isRTL !== languages[langId].rtl) {
-          I18nManager.forceRTL(languages[langId].rtl);
-          
-          // For an ideal user experience, we might want to reload the app here,
-          // but that would depend on the specific requirements and platform
-        }
+        // RTL is always disabled to prevent UI mirroring
+        setIsRTL(false);
       }
     } catch (error) {
       console.error('Error changing language:', error);

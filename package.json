@@ -5,8 +5,8 @@
   "scripts": {
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "web": "expo start --web",
     "test": "jest --watchAll",
     "lint": "expo lint"
@@ -23,7 +23,7 @@
     "expo": "53.0.20",
     "expo-application": "~6.1.5",
     "expo-asset": "~11.1.5",
-    "expo-audio": "^0.4.8",
+    "expo-av": "~15.1.7",
     "expo-battery": "~9.1.4",
     "expo-blur": "~14.1.5",
     "expo-constants": "~17.1.6",

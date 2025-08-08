@@ -13,11 +13,10 @@ import { LanguageProvider } from '../contexts/LanguageContext';
 // Configure notifications to always show in foreground
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
     shouldShowBanner: true,
     shouldShowList: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
   }),
 });
 
@@ -210,8 +209,8 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <StatusBar 
           style={isDark ? 'light' : 'dark'} 
-          backgroundColor="#121212" 
-          translucent={Platform.OS === 'android'} 
+          backgroundColor={Platform.OS === 'android' ? 'transparent' : undefined} // Use transparent for Android
+          translucent={true} // Always use translucent for edge-to-edge UI
         />
         <Stack 
           screenOptions={{
@@ -244,7 +243,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(30, 30, 30, 0.95)',
     padding: 16,
     margin: 8,
-    marginTop: Constants.statusBarHeight + 10 || 40, // Account for status bar height
+    marginTop: Constants.statusBarHeight + 8 || 36, // Reduced margin above status bar
     borderRadius: 12,
     flexDirection: 'row',
     justifyContent: 'space-between',

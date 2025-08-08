@@ -2,6 +2,7 @@ import * as Notifications from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Battery from 'expo-battery';
 import * as IntentLauncher from 'expo-intent-launcher';
+import Constants from 'expo-constants';
 import { Platform, Vibration } from 'react-native';
 import { Asset } from 'expo-asset';
 import { setupNotificationChannels as setupChannels, getChannelForPrayer, CHANNEL_IDS } from './notificationChannels';
@@ -185,7 +186,8 @@ export async function schedulePrayerNotification(title, body, triggerDate, praye
 export function setupForegroundNotificationHandler() {
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
-      shouldShowAlert: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
       shouldPlaySound: true,
       shouldSetBadge: false,
     }),
@@ -220,16 +222,21 @@ export async function checkAndRequestNotificationPermissions() {
 export async function requestBatteryOptimizationExemption() {
   if (Platform.OS === 'android') {
     try {
-      const batteryOptimizationEnabled = await Battery.isBatteryOptimizationEnabledAsync();
-      
-      if (batteryOptimizationEnabled) {
-        // Open battery optimization settings
-        await IntentLauncher.startActivityAsync(
-          IntentLauncher.ActivityAction.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS
-        );
-      }
+      // Use a more specific intent that should be available on most devices
+      await IntentLauncher.startActivityAsync(
+        'android.settings.APPLICATION_DETAILS_SETTINGS',
+        {
+          data: 'package:' + Constants.manifest?.android?.package || 'com.yourapp.name'
+        }
+      );
     } catch (error) {
       console.error('Failed to request battery optimization exemption:', error);
+      // Fallback: try opening general battery optimization settings
+      try {
+        await IntentLauncher.startActivityAsync('android.settings.IGNORE_BATTERY_OPTIMIZATION_SETTINGS');
+      } catch (fallbackError) {
+        console.error('Fallback battery settings also failed:', fallbackError);
+      }
     }
   }
 }

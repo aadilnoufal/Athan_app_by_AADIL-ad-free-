@@ -12,7 +12,7 @@ export const languages = {
   ar: {
     id: 'ar',
     name: 'العربية', // Arabic
-    rtl: true, // Right-to-left language
+    rtl: false, // Disabled RTL to prevent UI mirroring
     translations: ar
   }
 };

@@ -22,8 +22,6 @@
       "infoPlist": {
         "UIBackgroundModes": [
           "fetch",
-          "remote-notification",
-          "fetch",
           "remote-notification"
         ],
         "ITSAppUsesNonExemptEncryption": false
@@ -35,15 +33,27 @@
         "backgroundColor": "#121212"
       },
       "package": "com.yourcompany.prayertimes",
-      "versionCode": 3,
+      "versionCode": 6,
+      "compileSdkVersion": 35,
+      "targetSdkVersion": 35,
+      "minSdkVersion": 24,
+      "buildToolsVersion": "35.0.0",
       "permissions": [
         "RECEIVE_BOOT_COMPLETED",
-        "SCHEDULE_EXACT_ALARM",
+        "SCHEDULE_EXACT_ALARM", 
         "VIBRATE",
         "INTERNET",
-        "ACCESS_NETWORK_STATE"
+        "ACCESS_NETWORK_STATE",
+        "WAKE_LOCK",
+        "FOREGROUND_SERVICE",
+        "POST_NOTIFICATIONS",
+        "USE_EXACT_ALARM",
+        "FOREGROUND_SERVICE_MEDIA_PLAYBACK",
+        "REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"
       ],
-      "linkingSchemes": ["com.yourcompany.prayertimes"]
+      "allowBackup": true,
+      "edgeToEdgeEnabled": true,
+      "softwareKeyboardLayoutMode": "pan"
     },
     "web": {
       "favicon": "./assets/images/favicon.png"
@@ -65,7 +75,8 @@
     "extra": {
       "eas": {
         "projectId": "f0bad73e-5773-4af0-b9b3-c829ee9495ec"
-      }
+      },
+      "comment": "Android folder removed - EAS Build handles Android project generation from app.json configuration"
     },
     "newArchEnabled": true,
     "owner": "aadiln"

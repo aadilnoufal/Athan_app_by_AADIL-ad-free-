@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { useColorScheme, View, Dimensions } from 'react-native';
+import { useColorScheme, View, Dimensions, StyleSheet } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useEffect, useState } from 'react';
@@ -29,12 +29,17 @@ export default function TabLayout() {
   const isSmallScreen = width < 375; // Small phones like iPhone SE
   const isLargeScreen = width >= 414; // Large phones like iPhone Pro Max
   
-  // Calculate responsive values
+  // Calculate optimized responsive values
   const getTabBarHeight = () => {
-    if (isTablet) return isLandscape ? 70 : 85;
-    if (isLargeScreen) return isLandscape ? 65 : 75;
-    if (isSmallScreen) return isLandscape ? 50 : 60;
-    return isLandscape ? 60 : 70;
+    // Base height plus safe area insets for proper spacing
+    let baseHeight = 0;
+    if (isTablet) baseHeight = isLandscape ? 60 : 75;
+    else if (isLargeScreen) baseHeight = isLandscape ? 55 : 65;
+    else if (isSmallScreen) baseHeight = isLandscape ? 45 : 55;
+    else baseHeight = isLandscape ? 50 : 60;
+    
+    // Add bottom inset to ensure tab bar is above system navigation
+    return baseHeight + (insets?.bottom || 0);
   };
   
   const getIconSize = () => {
@@ -52,23 +57,17 @@ export default function TabLayout() {
   };
   
   const getPadding = () => {
-    if (isTablet) return { top: isLandscape ? 8 : 15, bottom: isLandscape ? 8 : 15 };
-    if (isLargeScreen) return { top: isLandscape ? 6 : 12, bottom: isLandscape ? 6 : 12 };
-    if (isSmallScreen) return { top: isLandscape ? 2 : 6, bottom: isLandscape ? 2 : 6 };
-    return { top: isLandscape ? 4 : 10, bottom: isLandscape ? 4 : 10 };
+    // Optimize padding values to reduce unused space
+    if (isTablet) return { top: isLandscape ? 6 : 12, bottom: isLandscape ? 6 : 12 }; // Reduced padding
+    if (isLargeScreen) return { top: isLandscape ? 4 : 10, bottom: isLandscape ? 4 : 10 }; // Reduced padding
+    if (isSmallScreen) return { top: isLandscape ? 2 : 4, bottom: isLandscape ? 2 : 4 }; // Reduced padding
+    return { top: isLandscape ? 3 : 8, bottom: isLandscape ? 3 : 8 }; // Reduced padding
   };
 
   const padding = getPadding();
 
   return (
-    <>
-      {/* Status bar background for edge-to-edge - sepia theme */}
-      <View 
-        style={{ 
-          height: insets.top, 
-          backgroundColor: SepiaColors.background.primary
-        }} 
-      />
+    <View style={styles.container}>
       <Tabs
         screenOptions={{
           headerShown: false, // This hides the header for all tab screens
@@ -78,24 +77,29 @@ export default function TabLayout() {
             backgroundColor: SepiaColors.surface.elevated, // Light sepia background
             borderTopColor: SepiaColors.border.medium, // Subtle brown border
             borderTopWidth: 1,
-            height: getTabBarHeight(), // Responsive height based on device
-            paddingBottom: padding.bottom + (insets.bottom > 0 ? Math.min(insets.bottom / 2, 8) : 0), // Adaptive bottom padding
+            height: getTabBarHeight(), // Height includes safe area insets
             paddingTop: padding.top,
-            paddingHorizontal: isTablet ? 20 : isSmallScreen ? 4 : 8, // Responsive horizontal padding
-            // Add shadow for better visual separation with sepia tones
+            paddingBottom: Math.max(padding.bottom, 8), // Minimum padding for tap targets
+            paddingHorizontal: isTablet ? 16 : isSmallScreen ? 2 : 6,
+            // Ensure proper positioning above system navigation
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            // Keep visual separation with sepia tones
             shadowColor: SepiaColors.shadow.medium,
             shadowOffset: { width: 0, height: -2 },
             shadowOpacity: 0.3,
             shadowRadius: 4,
-            elevation: 5, // Android shadow
+            elevation: 8, // Higher elevation for Android to ensure it's above other elements
           },
           tabBarLabelStyle: {
             fontSize: getFontSize(),
             fontWeight: '500',
-            marginTop: isSmallScreen ? 2 : 4, // Adjust label spacing
+            marginTop: isSmallScreen ? 1 : 2, // Reduced label spacing
           },
           tabBarIconStyle: {
-            marginBottom: isSmallScreen ? -1 : -3, // Adjust icon position
+            marginBottom: isSmallScreen ? 0 : -2, // Adjusted icon position
           },
         }}
       >
@@ -116,7 +120,7 @@ export default function TabLayout() {
           }}
         />
       </Tabs>
-    </>
+    </View>
   );
 }
 
@@ -126,5 +130,14 @@ function TabBarIcon(props: {
   iconSize: number;
 }) {
   const { iconSize, ...restProps } = props;
-  return <FontAwesome size={iconSize} style={{ marginBottom: -3 }} {...restProps} />;
+  return <FontAwesome size={iconSize} style={{ marginBottom: -2 }} {...restProps} />; // Adjusted icon margin
 }
+
+// Styles for optimal tab bar positioning
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: SepiaColors.background.primary, // Match background color to avoid visual gaps
+    paddingBottom: 0, // Let the tab bar handle its own positioning
+  }
+});
