@@ -30,21 +30,37 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { useLanguage } from '../../contexts/LanguageContext';
-import { setupNotificationChannels, getChannelForPrayer } from '../../utils/notificationChannels';
-// Import our new prayer time tuner utility
+// Import prayer time utilities
 import { applyTuningParameters, applyLocalDataCityAdjustments, extractCityIdFromRegionId } from '../../utils/prayerTimeTuner';
 import { getPrayerTimesFromLocalData, hasLocalDataForDate } from '../../utils/localPrayerData';
 import { SepiaColors } from '../../constants/sepiaColors';
-
-// Configure notification defaults
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-});
+// Import time utilities for improved timezone and countdown handling
+import { 
+  findNextPrayer, 
+  calculateTimeRemaining, 
+  convertTo12HourFormat,
+  isSamePrayerTime 
+} from '../../utils/timeUtils';
+// Import Notifee prayer notification services (enterprise-grade reliability)
+import { 
+  initializeNotifeePrayerNotifications,
+  updateNotifeePrayerNotifications,
+  cancelAllNotifeePrayerNotifications,
+  getScheduledNotifeePrayerNotifications,
+  scheduleImmediateNotifeeNotification,
+  scheduleNotifeeTestNotification,
+  getNotifeeServiceStatus,
+  requestExactAlarmPermission,
+  debugNotifeeNotifications,
+  checkAndHandleBatteryOptimization,
+  checkAndHandlePowerManager
+} from '../../utils/notifeePrayerService';
+// Import background task utilities
+import { 
+  setupBackgroundTask,
+  unregisterBackgroundTask,
+  getBackgroundFetchStatus 
+} from '../../utils/backgroundTask';
 
 // Get screen dimensions to make components responsive
 const { width: screenWidth } = Dimensions.get('window');
@@ -178,13 +194,55 @@ export default function Home() {
     }, 600);
   };
 
-  // Notification setup and management
+  // Enhanced notification setup and management
+  const notificationInitialized = useRef(false);
+  
   useEffect(() => {
-    if (Platform.OS === 'android') {
-      setupNotificationChannels();
+    // Prevent multiple notification system initializations
+    if (notificationInitialized.current) {
+      return;
     }
     
-    checkNotificationSettings();
+    notificationInitialized.current = true;
+    
+    const initializeNotifications = async () => {
+      // Initialize the Notifee notification service (enterprise-grade reliability)
+      console.log('🔧 Initializing Notifee prayer notification system...');
+      const initialized = await initializeNotifeePrayerNotifications();
+      
+      if (!initialized) {
+        console.warn('Failed to initialize Notifee notifications - continuing without notifications');
+        return;
+      }
+      
+      // Request exact alarm permission for Android 12+
+      await requestExactAlarmPermission();
+      
+      // Check and handle battery optimization (optional - don't block initialization)
+      setTimeout(() => {
+        checkAndHandleBatteryOptimization();
+      }, 3000); // Delay to avoid overwhelming user with permission requests
+      
+      // Check and handle power manager (optional - don't block initialization)
+      setTimeout(() => {
+        checkAndHandlePowerManager();
+      }, 6000); // Further delay to spread out permission requests
+      
+      // Check and update notification settings
+      await checkNotificationSettings();
+      
+      // Setup background task for notification management
+      const backgroundSetup = await setupBackgroundTask();
+      if (!backgroundSetup) {
+        console.warn('Background task setup failed - notifications may not work when app is closed');
+      }
+      
+      // Check background fetch status
+      const bgStatus = await getBackgroundFetchStatus();
+      console.log('Background fetch status:', bgStatus.statusText);
+    };
+    
+    initializeNotifications();
     
     const checkForSettingsChanges = async () => {
       try {
@@ -192,216 +250,250 @@ export default function Home() {
         const notifSettings = await AsyncStorage.getItem('notification_settings');
         
         if (notifEnabled !== null) {
-          setNotificationsEnabled(notifEnabled === 'true');
+          const isEnabled = notifEnabled === 'true';
+          if (isEnabled !== notificationsEnabled) {
+            setNotificationsEnabled(isEnabled);
+            
+            if (isEnabled && prayerTimes) {
+              // If notifications were just enabled, clear timestamp and schedule them
+              console.log('Notifications enabled, clearing timestamp and scheduling...');
+              await AsyncStorage.removeItem('last_notification_scheduled');
+              setTimeout(() => scheduleNotificationsForToday(), 1000);
+            } else if (!isEnabled) {
+              // If disabled, cancel all notifications
+              console.log('Notifications disabled, cancelling all...');
+              await Notifications.cancelAllScheduledNotificationsAsync();
+              await unregisterBackgroundTask();
+            }
+          }
         }
         
         if (notifSettings !== null) {
-          setNotificationSettings(JSON.parse(notifSettings));
+          const parsed = JSON.parse(notifSettings);
+          setNotificationSettings(prev => ({ ...prev, ...parsed }));
+        }
+
+        // Check for force reschedule flag from background task
+        const forceReschedule = await AsyncStorage.getItem('force_notification_reschedule');
+        if (forceReschedule === 'true' && notificationsEnabled && prayerTimes) {
+          console.log('Background task requested notification reschedule');
+          await AsyncStorage.removeItem('force_notification_reschedule');
+          await AsyncStorage.removeItem('last_notification_scheduled'); // Clear timestamp
+          setTimeout(() => scheduleNotificationsForToday(), 500);
         }
       } catch (error) {
         console.error('Error checking notification settings:', error);
       }
     };
     
-    const settingsInterval = setInterval(checkForSettingsChanges, 3000);
+    const settingsInterval = setInterval(checkForSettingsChanges, 10000);
     
     const notificationListener = async () => {
       const updateFlag = await AsyncStorage.getItem('notifications_updated');
       
       if (updateFlag) {
         await AsyncStorage.removeItem('notifications_updated');
+        await AsyncStorage.removeItem('last_notification_scheduled'); // Clear timestamp for fresh scheduling
         await checkNotificationSettings();
         await scheduleNotificationsForToday();
+      }
+
+      // Check notification health
+      if (notificationsEnabled && prayerTimes) {
+        const status = await getScheduledNotifeePrayerNotifications();
+        
+        // If we have no scheduled notifications but should have them, reschedule
+        if (status.length === 0) {
+          const now = new Date();
+          const hasRemainingPrayers = Object.entries(prayerTimes.times).some(([prayer, timeStr]) => {
+            if (!timeStr || timeStr === '--:--') return false;
+            
+            const [hours, minutes] = timeStr.split(':').map(Number);
+            if (isNaN(hours) || isNaN(minutes)) return false;
+            
+            const prayerDate = new Date();
+            prayerDate.setHours(hours, minutes, 0, 0);
+            return prayerDate > now && notificationSettings[prayer as keyof NotificationSettings];
+          });
+          
+          if (hasRemainingPrayers) {
+            console.log('Health check: Missing notifications, forcing reschedule...');
+            // Clear the timestamp to allow immediate rescheduling
+            await AsyncStorage.removeItem('last_notification_scheduled');
+            setTimeout(() => scheduleNotificationsForToday(), 1000);
+          }
+        } else {
+          console.log(`Health check: ${status.length} notifications are properly scheduled`);
+        }
       }
     };
     
     const flagsInterval = setInterval(() => {
       notificationListener();
-    }, 2000);
+    }, 60000); // Check every 60 seconds to reduce frequency
     
     return () => {
       clearInterval(settingsInterval);
       clearInterval(flagsInterval);
     };
-  }, []);
+  }, []); // Remove dependency array to prevent re-initialization
 
-  // Check if notifications are enabled and load user preferences
+  // Enhanced notification settings check with permission verification
   const checkNotificationSettings = async () => {
     try {
+      console.log('🔍 ===== CHECKING NOTIFICATION SETTINGS =====');
+      // Check notification permissions using Notifee service status instead of scheduled count
+      const serviceStatus = await getNotifeeServiceStatus();
+      console.log('🔍 Notifee service status check:', serviceStatus);
+      
+      // Check if permissions are actually granted (not just if notifications are scheduled)
+      const hasPermissions = serviceStatus && serviceStatus.permissionsGranted;
+      
+      if (!hasPermissions) {
+        console.log('❌ Notification permissions not granted, disabling notifications');
+        setNotificationsEnabled(false);
+        await AsyncStorage.setItem('notifications_enabled', 'false');
+        return;
+      }
+
+      console.log('✅ Notification permissions are granted, checking settings...');
       const notifEnabled = await AsyncStorage.getItem('notifications_enabled');
       const notifSettings = await AsyncStorage.getItem('notification_settings');
       
       if (notifEnabled !== null) {
-        setNotificationsEnabled(notifEnabled === 'true');
+        const isEnabled = notifEnabled === 'true';
+        console.log(`📱 Notification enabled from storage: ${isEnabled}`);
+        setNotificationsEnabled(isEnabled);
+      } else {
+        // Default to enabled if permission is granted but no setting exists
+        console.log('📱 No notification setting found, defaulting to enabled');
+        setNotificationsEnabled(true);
+        await AsyncStorage.setItem('notifications_enabled', 'true');
       }
       
       if (notifSettings !== null) {
         setNotificationSettings(JSON.parse(notifSettings));
+      } else {
+        // Set default notification settings
+        const defaultSettings = {
+          Fajr: true,
+          Sunrise: false,
+          Dhuhr: true,
+          Asr: true,
+          Maghrib: true,
+          Isha: true
+        };
+        setNotificationSettings(defaultSettings);
+        await AsyncStorage.setItem('notification_settings', JSON.stringify(defaultSettings));
       }
+
+      // Log notification status for debugging
+      const debugStatus = await getScheduledNotifeePrayerNotifications();
+      console.log(`Notifee notification settings loaded - Enabled: ${notifEnabled === 'true'}, Scheduled: ${debugStatus.length}`);
+      
     } catch (error) {
       console.error('Error loading notification settings:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Error details:', errorMessage);
+      
+      // Only disable notifications if it's a permission-related error
+      // Don't disable for background task or other unrelated errors
+      if (errorMessage.includes('permission') || errorMessage.includes('Permission')) {
+        console.log('🚫 Disabling notifications due to permission error');
+        setNotificationsEnabled(false);
+      } else {
+        console.log('⚠️ Non-critical error, keeping notifications enabled');
+        // Still try to set default enabled state if permissions are available
+        try {
+          const notificationStatus = await getScheduledNotifeePrayerNotifications();
+          // Assume permissions are granted if we can check scheduled notifications
+          setNotificationsEnabled(true);
+          await AsyncStorage.setItem('notifications_enabled', 'true');
+        } catch (fallbackError) {
+          console.error('Fallback permission check failed:', fallbackError);
+          setNotificationsEnabled(false);
+        }
+      }
     }
   };
+
+  // Add cooldown mechanism to prevent infinite scheduling loops
+  const lastScheduleAttempt = useRef<number>(0);
+  const SCHEDULE_COOLDOWN = 5000; // 5 seconds cooldown between scheduling attempts
+
+  // Add global notification cooldown to prevent spam (CRITICAL FIX)
+  const lastNotificationDelivered = useRef<number>(0);
+  const NOTIFICATION_COOLDOWN = 60000; // 60 seconds cooldown between actual notifications
 
   const scheduleNotificationsForToday = async () => {
     try {
-      if (!notificationsEnabled) return;
-      
-      const lastScheduled = await AsyncStorage.getItem('last_notification_scheduled');
+      // Implement cooldown to prevent infinite loops
       const now = Date.now();
-      if (lastScheduled && now - parseInt(lastScheduled) < 10000) {
-        console.log('Notifications were recently scheduled, skipping');
+      if (now - lastScheduleAttempt.current < SCHEDULE_COOLDOWN) {
+        console.log(`⏱️ Schedule cooldown active, skipping (${SCHEDULE_COOLDOWN/1000}s cooldown)`);
         return;
       }
+      lastScheduleAttempt.current = now;
       
-      console.log('Scheduling notifications for today - starting with cancelling existing ones');
+      console.log(`🔄 ===== SCHEDULING NOTIFICATIONS FOR TODAY =====`);
+      console.log(`🔄 notificationsEnabled: ${notificationsEnabled}`);
+      console.log(`🔄 prayerTimes available: ${!!(prayerTimes && prayerTimes.times)}`);
+      console.log(`🔄 notificationSettings:`, notificationSettings);
       
-      // Cancel all existing notifications to prevent duplicates
-      await Notifications.cancelAllScheduledNotificationsAsync();
+      // If notifications are disabled but service is working, check service status
+      if (!notificationsEnabled) {
+        console.log('🔍 Notifications disabled, checking if service is actually working...');
+        try {
+          const serviceStatus = await getNotifeeServiceStatus();
+          if (serviceStatus && serviceStatus.permissionsGranted && serviceStatus.initialized) {
+            console.log('✅ Service is working, enabling notifications and continuing...');
+            setNotificationsEnabled(true);
+            await AsyncStorage.setItem('notifications_enabled', 'true');
+          } else {
+            console.log('❌ Service not working, genuinely disabled');
+            return;
+          }
+        } catch (error) {
+          console.log('❌ Could not check service status, skipping scheduling');
+          return;
+        }
+      }
       
-      // Use current prayer times from state instead of cache
+      // Use the new improved notification system
       if (!prayerTimes || !prayerTimes.times) {
-        console.log('No prayer data available for scheduling notifications');
+        console.log('❌ No prayer data available for scheduling notifications');
         return;
       }
       
-      const today = new Date();
-      let scheduledCount = 0;
-      let skippedCount = 0;
+      console.log('✅ All conditions met, calling updateNotifeePrayerNotifications...');
+      // Pass notification settings to the scheduling function
+      await updateNotifeePrayerNotifications(prayerTimes.times, notificationSettings);
+      console.log('✅ Notifee notification system updated successfully');
+      console.log('📋 Final notification settings used:', notificationSettings);
       
-      for (const [prayer, timeStr] of Object.entries(prayerTimes.times)) {
-        if (!notificationSettings[prayer as keyof NotificationSettings]) {
-          console.log(`Skipping ${prayer} notification - disabled in settings`);
-          continue;
-        }
-        
-        const [hours, minutes] = (timeStr as string).split(':').map(Number);
-        
-        const prayerDate = new Date(today);
-        prayerDate.setHours(hours, minutes, 0);
-        
-        // The 5-minute check is now inside schedulePrayerNotification
-        // but we'll add an early check here to avoid unnecessary function calls
-        const fiveMinutesInMs = 5 * 60 * 1000; // 5 minutes in milliseconds
-        if (prayerDate.getTime() < now - fiveMinutesInMs) {
-          console.log(`${prayer} time (${hours}:${minutes}) has passed by more than 5 minutes - skipping`);
-          skippedCount++;
-          continue;
-        }
-        
-        if (prayerDate > today) {
-          console.log(`Scheduling notification for ${prayer} at ${hours}:${minutes}`);
-          await schedulePrayerNotification(prayer, prayerDate);
-          scheduledCount++;
-        } else {
-          console.log(`${prayer} time has already passed today - skipping`);
-          skippedCount++;
-        }
-      }
-      
-      // Only schedule tomorrow's Fajr if all today's prayers have passed
-      if (scheduledCount === 0 && skippedCount > 0) {
-        console.log('All of today\'s prayers have passed, scheduling tomorrow\'s Fajr');
-        await scheduleTomorrowFajr();
-      }
-      
-      await AsyncStorage.setItem('last_notification_scheduled', now.toString());
-      
-      console.log(`Notification scheduling complete: ${scheduledCount} scheduled, ${skippedCount} skipped`);
     } catch (error) {
-      console.error('Error scheduling notifications:', error);
-      await AsyncStorage.removeItem('last_notification_scheduled');
+      console.error('❌ Error with new notification system:', error);
     }
   };
 
-  const schedulePrayerNotification = async (prayer: string, prayerDate: Date): Promise<void> => {
-    if (!notificationsEnabled || !notificationSettings[prayer as keyof NotificationSettings]) return;
-    
-    // Skip notifications for prayer times that have passed by more than 5 minutes
-    const now = new Date();
-    const fiveMinutesInMs = 5 * 60 * 1000; // 5 minutes in milliseconds
-    if (prayerDate.getTime() < now.getTime() - fiveMinutesInMs) {
-      console.log(`Skipping notification for ${prayer} as it passed more than 5 minutes ago`);
+  // Note: Individual prayer scheduling functions have been moved to 
+  // the improved notification service for better reliability
+
+  // Region configuration management
+  const regionLoadingRef = useRef(false);
+  
+  useEffect(() => {
+    // Prevent multiple region config loads
+    if (regionLoadingRef.current) {
       return;
     }
     
-    let message = "";
-    switch(prayer) {
-      case 'Fajr': message = t('fajrMessage'); break;
-      case 'Sunrise': message = t('sunriseMessage'); break;
-      case 'Dhuhr': message = t('dhuhrMessage'); break;
-      case 'Asr': message = t('asrMessage'); break;
-      case 'Maghrib': message = t('maghribMessage'); break;
-      case 'Isha': message = t('ishaMessage'); break;
-      default: message = `${t('next')}: ${prayer}`;
-    }
-    
-    const useAzanSound = await AsyncStorage.getItem('use_azan_sound') !== 'false';
-    
-    const channelId = Platform.OS === 'android' 
-      ? getChannelForPrayer(prayer, useAzanSound)
-      : undefined;
-    
-    const soundName = (prayer === 'Sunrise' || !useAzanSound) ? 'beep.wav' : 'azan.wav';
-    
-    let vibrationPattern;
-    if (prayer === 'Fajr') {
-      vibrationPattern = [0, 500, 200, 500, 200, 500];
-    } else if (prayer === 'Sunrise') {
-      vibrationPattern = [0, 300];
-    } else {
-      vibrationPattern = [0, 500, 200, 500];
-    }
-    
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title: t(prayer),
-        body: message,
-        sound: soundName,
-        priority: Notifications.AndroidNotificationPriority.HIGH,
-        vibrate: vibrationPattern,
-        data: { 
-          prayerName: prayer,
-          useAzanSound: useAzanSound,
-          customSound: true,
-          vibrationPattern: vibrationPattern
-        }
-      },
-      trigger: {
-        date: prayerDate.getTime(),
-        channelId: channelId,
-      } as any,
+    regionLoadingRef.current = true;
+    loadRegionConfig().finally(() => {
+      setTimeout(() => {
+        regionLoadingRef.current = false;
+      }, 1000); // Allow reload after 1 second
     });
-  };
-
-  const scheduleTomorrowFajr = async (): Promise<void> => {
-    try {
-      if (!notificationsEnabled || !notificationSettings['Fajr']) return;
-      
-      // If we have prayer times for today, use the same Fajr time for tomorrow
-      if (prayerTimes && prayerTimes.times && prayerTimes.times.Fajr) {
-        const [hours, minutes] = prayerTimes.times.Fajr.split(':').map(Number);
-        
-        // Create tomorrow's date
-        const tomorrow = new Date();
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        tomorrow.setHours(hours, minutes, 0, 0);
-        
-        console.log(`Scheduling tomorrow's Fajr at ${hours}:${minutes}`);
-        
-        await schedulePrayerNotification('Fajr', tomorrow);
-        return;
-      }
-      
-      console.log('Could not schedule tomorrow\'s Fajr - no time data available');
-    } catch (error) {
-      console.error('Error scheduling tomorrow Fajr:', error);
-    }
-  };
-
-  // Region configuration management
-  useEffect(() => {
-    loadRegionConfig();
   }, []);
 
   // Reload region config when screen becomes focused (e.g., returning from settings)
@@ -579,8 +671,18 @@ export default function Home() {
       // Fetch fresh data (no cache)
       await fetchAndCachePrayerTimes();
       
+      // Only reschedule notifications if they are enabled and we haven't scheduled recently
       if (notificationsEnabled) {
-        await scheduleNotificationsForToday();
+        const lastScheduled = await AsyncStorage.getItem('last_notification_scheduled');
+        const now = Date.now();
+        
+        // Only reschedule if it's been more than 1 minute since last scheduling to prevent spam
+        if (!lastScheduled || now - parseInt(lastScheduled) > 60000) {
+          console.log('Refresh: Rescheduling notifications after cache clear');
+          await scheduleNotificationsForToday();
+        } else {
+          console.log('Refresh: Skipping notification rescheduling - recently scheduled');
+        }
       }
       
       if (showAlerts) {
@@ -812,6 +914,8 @@ export default function Home() {
           
           if (currentDay === 0 && notificationsEnabled) {
             setTimeout(async () => {
+              console.log('Clearing old notifications and scheduling fresh ones for updated prayer times');
+              await AsyncStorage.removeItem('last_notification_scheduled');
               await scheduleNotificationsForToday();
             }, 1000);
           }
@@ -875,6 +979,8 @@ export default function Home() {
         
         if (currentDay === 0 && notificationsEnabled) {
           setTimeout(async () => {
+            console.log('Clearing old notifications and scheduling fresh ones for updated prayer times');
+            await AsyncStorage.removeItem('last_notification_scheduled');
             await scheduleNotificationsForToday();
           }, 1000);
         }
@@ -938,6 +1044,132 @@ export default function Home() {
     }
   };
 
+  // Prayer Time Monitoring System - Automatically detects when prayer times arrive
+  const lastTriggeredPrayer = useRef<string | null>(null);
+  
+  useEffect(() => {
+    if (!prayerTimes || !prayerTimes.times || !nextPrayer) return;
+    
+    let prayerMonitorTimer: NodeJS.Timeout | null = null;
+    
+    const checkPrayerTimeArrival = async () => {
+      const now = new Date();
+      const prayerTime = new Date(nextPrayer.date);
+      
+      // Only check for today's prayers (currentDay === 0)
+      if (currentDay !== 0) return;
+      
+      // Create a unique key for this prayer time to prevent duplicate triggers
+      const prayerKey = `${nextPrayer.name}-${prayerTime.getTime()}`;
+      
+      // Check if we already processed this prayer time
+      if (lastTriggeredPrayer.current === prayerKey) {
+        return;
+      }
+      
+      // Check if prayer time has passed (with 10 second buffer to catch it quickly)
+      const timeDiff = now.getTime() - prayerTime.getTime();
+      const tenSeconds = 10 * 1000;
+      
+      if (timeDiff >= -tenSeconds) { // Changed to -10 seconds to catch slightly early
+        console.log(`🕌 Prayer Time Detected: ${nextPrayer.name} at ${nextPrayer.time} (${Math.floor(timeDiff / 1000)}s ${timeDiff < 0 ? 'before' : 'after'})`);
+        
+        // Mark this prayer as processed to prevent loops - do this FIRST
+        lastTriggeredPrayer.current = prayerKey;
+        
+        // IMMEDIATELY stop the monitoring timer to prevent duplicate triggers
+        if (prayerMonitorTimer) {
+          clearInterval(prayerMonitorTimer);
+          prayerMonitorTimer = null;
+          console.log('⛔ Stopped prayer monitoring to prevent notification spam');
+        }
+        
+        // Deliver immediate notification for this prayer (DISABLED - Notifee scheduled handles this)
+        if (notificationsEnabled && notificationSettings[nextPrayer.name]) {
+          console.log(`📨 Prayer time arrived: ${nextPrayer.name} - Notifee scheduled notification will handle this`);
+          console.log(`🚫 Skipping immediate notification to prevent duplicates with scheduled notifications`);
+          // Disabled to prevent duplicate notifications:
+          // const result = await scheduleImmediateNotifeeNotification(nextPrayer.name);
+        }
+        
+        // Auto-trigger prayer time actions immediately
+        console.log('🔄 Updating prayer times due to prayer time arrival...');
+        
+        // Clear notification timestamp to force rescheduling
+        await AsyncStorage.removeItem('last_notification_scheduled');
+        
+        // Immediately update to next prayer to fix countdown stuck at 00:00:00
+        if (prayerTimes) {
+          console.log('⏱️ Immediately updating next prayer to fix countdown');
+          updateNextPrayer(prayerTimes);
+        }
+        
+        // Fetch fresh prayer times (this should advance to next prayer)
+        console.log('🔄 Fetching fresh prayer times after prayer time arrival');
+        await fetchPrayerTimes(); // This will update the next prayer
+        
+        // Wait briefly for data to update and next prayer to advance
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // Force update next prayer calculation to ensure it advances
+        if (prayerTimes) {
+          console.log('🔄 Force advancing to next prayer after current one passed');
+          updateNextPrayer(prayerTimes);
+        }
+        
+        // Reschedule notifications after data is updated (force reschedule)
+        console.log('📅 Prayer monitoring: Forcing notification reschedule after prayer time passed');
+        await AsyncStorage.removeItem('last_notification_scheduled');
+        await scheduleNotificationsForToday();
+        
+        // Final update to ensure everything is in sync
+        if (prayerTimes) {
+          console.log('✅ Final update: Ensuring next prayer is properly set');
+          updateNextPrayer(prayerTimes);
+        }
+        
+        // Only restart monitoring after 30 seconds and if next prayer actually changed
+        setTimeout(() => {
+          if (!prayerMonitorTimer) {
+            const newNextPrayer = nextPrayer;
+            // Only restart monitoring if we successfully advanced to next prayer
+            if (newNextPrayer && newNextPrayer.name !== prayerKey.split('-')[0]) {
+              console.log('🔄 Restarting prayer time monitoring for next prayer:', newNextPrayer.name);
+              prayerMonitorTimer = setInterval(() => {
+                checkPrayerTimeArrival();
+              }, 15000);
+            } else {
+              console.log('⚠️ Next prayer did not advance, waiting longer before restart');
+              // Try again after more time if prayer didn't advance
+              setTimeout(() => {
+                if (!prayerMonitorTimer && prayerTimes) {
+                  updateNextPrayer(prayerTimes);
+                  prayerMonitorTimer = setInterval(() => {
+                    checkPrayerTimeArrival();
+                  }, 15000);
+                }
+              }, 30000);
+            }
+          }
+        }, 30000); // Wait 30 seconds before restarting monitoring
+      }
+    };
+    
+    // Check every 15 seconds for prayer time arrival (increased frequency)
+    prayerMonitorTimer = setInterval(() => {
+      checkPrayerTimeArrival();
+    }, 15000);
+    
+    // Also check immediately (but only once per prayer)
+    checkPrayerTimeArrival();
+    
+    return () => {
+      if (prayerMonitorTimer) {
+        clearInterval(prayerMonitorTimer);
+      }
+    };
+  }, [nextPrayer, prayerTimes, currentDay]);
+
   // Pre-fetch disabled - No caching system active
   const prefetchDay = async (dayOffset: number): Promise<void> => {
     // Prefetching disabled since we removed caching completely
@@ -945,71 +1177,46 @@ export default function Home() {
     return;
   };
 
-  // Determine next prayer and set countdown
+  // Simplified and improved next prayer calculation
   const updateNextPrayer = (data: PrayerData): void => {
-    if (!data || !data.times) return;
-    
-    const now = new Date();
-    const today = new Date();
-    const prayers: PrayerTime[] = [];
-    
-    Object.entries(data.times).forEach(([prayer, timeStr]) => {
-      const [hour, minute] = timeStr.split(':').map(Number);
-      const prayerDate = new Date(today);
-      
-      if (currentDay > 0) {
-        prayerDate.setDate(prayerDate.getDate() + currentDay);
-      }
-      prayerDate.setHours(hour, minute, 0);
-      
-      prayers.push({
-        name: prayer,
-        time: data.times12h ? data.times12h[prayer] : convertTo12HourFormat(timeStr),
-        timeRaw: timeStr,
-        date: prayerDate
-      });
-    });
-    
-    prayers.sort((a, b) => a.date.getTime() - b.date.getTime());
-    
-    let next = null;
-    
-    if (currentDay === 0) {
-      // Find the next prayer that hasn't passed today
-      next = prayers.find(prayer => prayer.date > now);
-      
-      // Only show "Fajr (Tomorrow)" if ALL prayers for today have passed
-      if (!next) {
-        // Use today's Fajr time but set for tomorrow as fallback
-        const todayFajr = prayers.find(prayer => prayer.name === 'Fajr');
-        if (todayFajr) {
-          const fajrDate = new Date(todayFajr.date);
-          fajrDate.setDate(fajrDate.getDate() + 1);
-          next = {
-            name: 'Fajr (Tomorrow)',
-            time: todayFajr.time,
-            date: fajrDate
-          };
-        }
-      }
-    } else {
-      // For future days, show the first prayer of that day
-      next = prayers[0];
-      if (next) {
-        next = {
-          name: next.name,
-          time: next.time,
-          date: next.date
-        };
-      }
+    if (!data || !data.times) {
+      console.log('⚠️ updateNextPrayer: No prayer data available');
+      return;
     }
     
+    console.log('🔄 Calculating next prayer time...');
+    
+    // Use the improved utility function
+    const next = findNextPrayer(data.times, data.times12h, currentDay) as NextPrayer | null;
+    
     if (next) {
-      setNextPrayer(next);
+      // Only update if the prayer is actually different (prevents unnecessary re-renders)
+      const isDifferent = !nextPrayer || 
+        nextPrayer.name !== next.name || 
+        !isSamePrayerTime(nextPrayer.date, next.date);
+      
+      if (isDifferent) {
+        console.log(`🔄 Next prayer updated: ${next.name} at ${next.time}`);
+        setNextPrayer(next);
+        
+        // Reset countdown when prayer changes to fix stuck countdown
+        setCountdown('');
+        setCountdownLoading(true);
+        
+        console.log(`🔄 Prayer changed from ${nextPrayer?.name || 'none'} to ${next.name} - countdown reset`);
+      } else {
+        console.log(`⏱️ Next prayer unchanged: ${next.name} at ${next.time}`);
+      }
+    } else {
+      console.log('⚠️ Could not determine next prayer time');
     }
   };
 
   // Update countdown timer to next prayer
+  const lastCountdownLog = useRef<string>('');
+  const countdownTriggeredRefresh = useRef<string>('');
+  const safetyMechanismTriggered = useRef<string>('');
+  
   const updateCountdown = useCallback(() => {
     if (!nextPrayer) return;
     
@@ -1019,14 +1226,153 @@ export default function Home() {
     const diffSeconds = Math.max(0, differenceInSeconds(prayerTime, now));
     
     if (diffSeconds <= 0) {
-      fetchPrayerTimes();
+      // Prayer time has passed! 
+      
+      // Only log this once per prayer to prevent spam
+      const logKey = `${nextPrayer.name}-passed`;
+      if (lastCountdownLog.current !== logKey) {
+        console.log(`⏰ Countdown: ${nextPrayer.name} prayer time has passed`);
+        lastCountdownLog.current = logKey;
+      }
+      
+      // If prayer monitoring hasn't caught this yet, trigger a refresh after a short delay
+      const refreshKey = `${nextPrayer.name}-${prayerTime.getTime()}`;
+      if (countdownTriggeredRefresh.current !== refreshKey && currentDay === 0) {
+        countdownTriggeredRefresh.current = refreshKey;
+        console.log('⏰ Countdown triggered prayer time refresh (backup system)');
+        
+        // Special handling for Isha prayer - transition to tomorrow's Fajr
+        if (nextPrayer.name === 'Isha' && prayerTimes && prayerTimes.times['Fajr']) {
+          console.log('🌙 Last prayer of the day (Isha) detected, transitioning to Fajr tomorrow');
+          const fajrTimeStr = prayerTimes.times['Fajr'];
+          if (fajrTimeStr && fajrTimeStr !== '--:--') {
+            const [hour, minute] = fajrTimeStr.split(':').map(Number);
+            if (!isNaN(hour) && !isNaN(minute)) {
+              const fajrDate = new Date();
+              fajrDate.setDate(fajrDate.getDate() + 1);
+              fajrDate.setHours(hour, minute, 0, 0);
+              
+              // Reset all tracking variables first to ensure clean transition
+              countdownTriggeredRefresh.current = '';
+              lastTriggeredPrayer.current = null;
+              safetyMechanismTriggered.current = '';
+              
+              // Set next prayer to tomorrow's Fajr
+              console.log(`🌅 Setting next prayer to Fajr (Tomorrow) at ${hour}:${minute.toString().padStart(2, '0')}`);
+              setNextPrayer({
+                name: 'Fajr (Tomorrow)',
+                time: prayerTimes.times12h ? prayerTimes.times12h['Fajr'] : convertTo12HourFormat(fajrTimeStr),
+                date: fajrDate
+              });
+              
+              // Reset countdown to force refresh
+              setCountdown('');
+              
+              // Force a fresh data fetch to ensure we have tomorrow's data
+              setTimeout(() => {
+                console.log('Fetching fresh data for tomorrow');
+                // We'll stay on currentDay=0 but with updated nextPrayer
+                fetchPrayerTimes();
+              }, 2000);
+              
+              console.log('✅ Successfully transitioned to Fajr (Tomorrow) after Isha');
+              return;
+            }
+          }
+        }
+        
+        // Backup notification system disabled to prevent spam - main system will handle notifications
+        console.log(`�️ Backup system: Notification handled by main system to prevent spam`);
+        // The main prayer monitoring system above already sent notification, no backup needed
+        
+        // Clear notification timestamp for backup system too
+        setTimeout(async () => {
+          await AsyncStorage.removeItem('last_notification_scheduled');
+          
+          // Immediately update next prayer from backup system too
+          if (prayerTimes) {
+            console.log('Backup system: Immediately updating next prayer to fix countdown');
+            updateNextPrayer(prayerTimes);
+          }
+          
+          fetchPrayerTimes();
+          
+          // Also reschedule notifications after backup refresh
+          setTimeout(async () => {
+            console.log('Countdown backup: Notification rescheduling disabled to prevent duplicates');
+            // Disabled: await scheduleNotificationsForToday();
+            // The main prayer monitoring system already handles notifications
+          }, 1000);
+        }, 5000); // Give prayer monitoring system time to catch it first
+      }
+      
+      // Show that time has passed but try to update if we have prayer times
+      setCountdown('00:00:00');
+      
+      // Enhanced safety mechanism: If countdown is stuck at 00:00:00, force a complete system reset
+      // Generate a unique key with timestamp to prevent multiple triggers in succession
+      const safetyKey = `safety-${nextPrayer.name}-${Date.now()}`;
+      if (prayerTimes && countdown === '00:00:00' && safetyMechanismTriggered.current !== safetyKey) {
+        // Mark this safety operation as in progress
+        safetyMechanismTriggered.current = safetyKey;
+        console.log(`🔄 Safety mechanism triggered once for: ${nextPrayer.name}`);
+        
+        // Execute a comprehensive recovery sequence
+        setTimeout(async () => {
+          console.log('🔄 Safety mechanism: Complete prayer system reset in progress');
+          
+          // 1. Reset tracking variables to force fresh state
+          lastTriggeredPrayer.current = null;
+          countdownTriggeredRefresh.current = '';
+          
+          // 2. Force next prayer update
+          updateNextPrayer(prayerTimes);
+          
+          // 3. Force notification reschedule
+          await AsyncStorage.removeItem('last_notification_scheduled');
+          
+          // 4. Perform a complete fresh data fetch
+          await fetchPrayerTimes();
+          
+          // 5. Reschedule notifications with fresh data (only if truly stuck, not during normal prayer transitions)
+          if (notificationsEnabled && countdown === '00:00:00') {
+            console.log('🔄 Safety mechanism: Rescheduling notifications due to stuck countdown');
+            await scheduleNotificationsForToday();
+          } else {
+            console.log('🔄 Safety mechanism: Skipping notification reschedule during normal prayer transition');
+          }
+          
+          console.log('✅ Safety mechanism: System reset complete');
+          
+          // Reset the safety flag after 30 seconds to prevent rapid retriggering
+          // but allow future safety mechanisms if truly needed
+          setTimeout(() => {
+            if (safetyMechanismTriggered.current === safetyKey) {
+              safetyMechanismTriggered.current = '';
+              console.log('🔓 Safety mechanism unlocked for future use if needed');
+            }
+          }, 30000);
+        }, 3000);
+      }
+      
       return;
+    }
+    
+    // Reset log key when prayer is active
+    const activeLogKey = `${nextPrayer.name}-active`;
+    if (lastCountdownLog.current !== activeLogKey) {
+      lastCountdownLog.current = activeLogKey;
     }
     
     const hours = Math.floor(diffSeconds / 3600);
     const minutes = Math.floor((diffSeconds % 3600) / 60);
     const seconds = diffSeconds % 60;
-    setCountdown(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
+    const timeDisplay = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    
+    // Only update countdown if it's actually different (prevents glitching)
+    if (countdown !== timeDisplay) {
+      setCountdown(timeDisplay);
+    }
     
     // Only show progress when less than 1 hour (3600 seconds) remains
     const oneHourInSeconds = 3600;
@@ -1036,7 +1382,8 @@ export default function Home() {
       const elapsedInLastHour = oneHourInSeconds - diffSeconds;
       const progress = Math.max(0, Math.min(1, elapsedInLastHour / oneHourInSeconds));
       
-      if (Math.abs(progress - progressPercent) > 0.001) {
+      // Only update progress if significantly different (prevents micro-updates)
+      if (Math.abs(progress - progressPercent) > 0.01) {
         setProgressPercent(progress);
         setTotalSeconds(oneHourInSeconds);
         setElapsedSeconds(elapsedInLastHour);
@@ -1057,7 +1404,7 @@ export default function Home() {
         progressAnimation.setValue(0);
       }
     }
-  }, [nextPrayer, currentDay, progressPercent]);
+  }, [nextPrayer, currentDay, progressPercent, countdown]);
   
   // Timer management for countdown
   useEffect(() => {
@@ -1073,17 +1420,21 @@ export default function Home() {
     };
   }, [updateCountdown, nextPrayer]);
 
-  // Reset progress when next prayer changes
+  // Reset progress when next prayer changes (improved stability)
   useEffect(() => {
     if (nextPrayer) {
+      // Only show loading very briefly to prevent glitching
       setCountdownLoading(true);
       
-      setTimeout(() => {
+      // Shorter timeout to reduce glitching
+      const resetTimeout = setTimeout(() => {
         // Reset progress animation to 0 when prayer changes
         progressAnimation.setValue(0);
         setProgressPercent(0);
         setCountdownLoading(false);
-      }, 200);
+      }, 150); // Reduced to 150ms for faster response
+      
+      return () => clearTimeout(resetTimeout);
     }
   }, [nextPrayer]);
 
@@ -1468,8 +1819,86 @@ export default function Home() {
     checkDayChange();
   }, [currentDate, notificationsEnabled, currentDay]);
 
+  // Enhanced debug function to check notification status with comprehensive Notifee debugging
+  const debugNotifications = async () => {
+    try {
+      console.log('🔍 STARTING COMPREHENSIVE NOTIFEE DEBUG...');
+      
+      // Use the comprehensive debugging function
+      const debugResult = await debugNotifeeNotifications();
+      const bgStatus = await getBackgroundFetchStatus();
+      
+      if (debugResult.error) {
+        Alert.alert('Debug Error', debugResult.error);
+        return;
+      }
+      
+      const { status, debugInfo, recommendations } = debugResult;
+      
+      // Add background task info
+      let fullDebugInfo = debugInfo;
+      fullDebugInfo += `\n🔄 Background Task: ${bgStatus.statusText}\n`;
+      fullDebugInfo += `📍 Background Status: ${bgStatus.status}\n`;
+      
+      // Add current time info
+      const now = new Date();
+      const currentTimeStr = now.toLocaleTimeString();
+      fullDebugInfo += `\n⏰ Current Time: ${currentTimeStr}\n`;
+      fullDebugInfo += `🔔 Notifications Enabled: ${notificationsEnabled ? '✅ Yes' : '❌ No'}\n`;
+
+      // Add prayer settings for reference
+      if (notificationSettings) {
+        fullDebugInfo += `\n⚙️ PRAYER SETTINGS:\n`;
+        Object.entries(notificationSettings).forEach(([prayer, enabled]) => {
+          fullDebugInfo += `${prayer}: ${enabled ? '✅' : '❌'}\n`;
+        });
+      }
+
+      // Add prayer times for reference
+      if (prayerTimes && prayerTimes.times) {
+        fullDebugInfo += `\n🕐 TODAY'S PRAYER TIMES:\n`;
+        Object.entries(prayerTimes.times).forEach(([prayer, time]) => {
+          const [hours, minutes] = time.split(':').map(Number);
+          const prayerTimeInMinutes = hours * 60 + minutes;
+          const currentTimeInMinutes = now.getHours() * 60 + now.getMinutes();
+          const status = prayerTimeInMinutes > currentTimeInMinutes ? '⏳ Upcoming' : '✅ Passed';
+          fullDebugInfo += `${prayer}: ${time} ${status}\n`;
+        });
+      }
+
+      // Add recommendations if any
+      if (recommendations && recommendations.length > 0) {
+        fullDebugInfo += `\n💡 RECOMMENDATIONS:\n`;
+        recommendations.forEach((rec, index) => {
+          fullDebugInfo += `${index + 1}. ${rec}\n`;
+        });
+      }
+
+      Alert.alert('Notifee Debug', fullDebugInfo, [
+        { text: 'Clear All & Reschedule', onPress: async () => {
+          await cancelAllNotifeePrayerNotifications();
+          setTimeout(() => scheduleNotificationsForToday(), 1000);
+          Alert.alert('Done', 'All Notifee notifications cleared and rescheduled');
+        }},
+        { text: 'Reschedule Only', onPress: () => scheduleNotificationsForToday() },
+        { text: 'Close' }
+      ]);
+    } catch (error) {
+      Alert.alert('Debug Error', `Failed to get debug info: ${error}`);
+    }
+  };
+
   const handleClearCache = (): void => {
     clearCache(true);
+  };
+
+  // Enhanced refresh button with long press debug
+  const handleRefreshPress = () => {
+    handleClearCache();
+  };
+
+  const handleRefreshLongPress = () => {
+    debugNotifications();
   };
 
   // Render the UI
@@ -1507,7 +1936,8 @@ export default function Home() {
           <View style={styles.headerButtons}>
             <TouchableOpacity 
               style={styles.refreshButton} 
-              onPress={handleClearCache}
+              onPress={handleRefreshPress}
+              onLongPress={handleRefreshLongPress}
               disabled={refreshing}
             >
               <MaterialCommunityIcons 

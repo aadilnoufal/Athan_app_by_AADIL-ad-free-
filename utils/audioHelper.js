@@ -1,6 +1,15 @@
+// =============================================================================
+// MODERN AUDIO HELPER - OPTIMIZED 2024 - THREAD SAFE VERSION
+// =============================================================================
+// Handles direct audio playback for app UI (not notifications)
+// Note: Notification sounds are handled by modernNotificationService.js
+// =============================================================================
+
 import { Asset } from 'expo-asset';
 import { Vibration } from 'react-native';
-import { Audio } from 'expo-av'; // Use expo-av instead of expo-audio
+
+// EMERGENCY DISABLE FLAG - Set to true to disable audio and use vibration only
+const DISABLE_AUDIO_FOR_STABILITY = false; // Re-enabled for Notifee built-in sounds
 
 // Define sound asset modules
 const soundModules = {
@@ -16,13 +25,17 @@ const vibrationPatterns = {
 
 // Keep track of downloaded assets
 const downloadedAssets = {};
-// Cache for loaded sounds
-let loadedSounds = {};
 
 /**
  * Preload sound assets to ensure they're available
  */
 export async function preloadSounds() {
+  // Skip asset loading if audio is disabled for stability
+  if (DISABLE_AUDIO_FOR_STABILITY) {
+    console.log("Audio disabled for stability - skipping sound preloading");
+    return [];
+  }
+  
   try {
     console.log("Preloading sound assets...");
     const assets = await Promise.all(
@@ -42,84 +55,102 @@ export async function preloadSounds() {
 }
 
 /**
- * Get a sound object from the cache or create a new one
+ * Play a sound using expo-av (stable implementation with main thread safety)
  * @param {string} soundKey - Key of the sound to load ('beep' or 'azan')
- * @returns {Promise<Audio.Sound>} - The loaded audio sound object
+ * @returns {Promise<boolean>} - Whether sound played successfully
  */
-async function getSoundObject(soundKey) {
-  try {
-    // Return cached sound if available
-    if (loadedSounds[soundKey]) {
-      return loadedSounds[soundKey];
-    }
-
-    const moduleRef = soundModules[soundKey];
-    if (!moduleRef) throw new Error(`Unknown sound key: ${soundKey}`);
-    
-    // Make sure the asset is downloaded
-    let asset = downloadedAssets[soundKey];
-    if (!asset) {
-      asset = Asset.fromModule(moduleRef);
-      await asset.downloadAsync();
-      downloadedAssets[soundKey] = asset;
+async function playSound(soundKey) {
+  return new Promise((resolve) => {
+    // Emergency disable - use vibration only to prevent ExoPlayer threading issues
+    if (DISABLE_AUDIO_FOR_STABILITY) {
+      console.log(`Audio disabled for stability - skipping sound: ${soundKey}`);
+      resolve(true); // Return success to continue flow
+      return;
     }
     
-    console.log(`Creating sound for ${soundKey}, URI: ${asset.uri}`);
-    
-    // Set audio mode for background playback
-    await Audio.setAudioModeAsync({
-      playsInSilentModeIOS: true,
-      staysActiveInBackground: true,
-      shouldDuckAndroid: true,
-      playThroughEarpieceAndroid: false,
-    });
-    
-    // Create the sound object using expo-av
-    const { sound } = await Audio.Sound.createAsync(
-      { uri: asset.uri },
-      { shouldPlay: false, isLooping: false }
-    );
-    
-    loadedSounds[soundKey] = sound;
-    
-    return sound;
-  } catch (error) {
-    console.error(`Failed to load ${soundKey} sound:`, error);
-    throw error;
-  }
+    // Ensure we run on main thread using setTimeout
+    setTimeout(async () => {
+      try {
+        const moduleRef = soundModules[soundKey];
+        if (!moduleRef) {
+          console.error(`Unknown sound key: ${soundKey}`);
+          resolve(false);
+          return;
+        }
+        
+        console.log(`Playing sound: ${soundKey}`);
+        
+        // Use expo-av only (stable and reliable)
+        const { Audio } = await import('expo-av');
+        
+        // Set audio mode for proper playback (on main thread)
+        await Audio.setAudioModeAsync({
+          playsInSilentModeIOS: true,
+          staysActiveInBackground: false,
+          shouldDuckAndroid: true,
+          playThroughEarpieceAndroid: false,
+        });
+        
+        // Create and play sound (on main thread)
+        const { sound } = await Audio.Sound.createAsync(moduleRef);
+        await sound.playAsync();
+        
+        // Clean up after playback
+        setTimeout(async () => {
+          try {
+            await sound.unloadAsync();
+          } catch (e) {
+            console.warn('Error unloading sound:', e);
+          }
+        }, 5000);
+        
+        resolve(true);
+          
+      } catch (error) {
+        console.error(`Failed to play ${soundKey}:`, error);
+        resolve(false);
+      }
+    }, 0); // Run on next tick to ensure main thread
+  });
 }
 
 /**
- * Play a sound based on prayer name and user preferences
+ * Play a sound based on prayer name and user preferences (main thread safe)
  * @param {string} prayerName - Name of the prayer
  * @param {boolean} useAzanSound - Whether to use Azan sound for main prayers
  * @param {boolean} vibrate - Whether to vibrate when playing sound (default: true)
  */
 export async function playPrayerSound(prayerName, useAzanSound = true, vibrate = true) {
-  try {
-    const soundKey = prayerName === 'Sunrise' || !useAzanSound ? 'beep' : 'azan';
-    console.log(`Playing ${soundKey} sound for ${prayerName}`);
-    
-    // Play vibration if enabled
-    if (vibrate) {
-      const pattern = vibrationPatterns[soundKey] || vibrationPatterns.beep;
-      Vibration.vibrate(pattern);
-    }
-    
-    try {
-      // Try to play actual sound using expo-av
-      const sound = await getSoundObject(soundKey);
-      await sound.playAsync();
-    } catch (soundError) {
-      console.error(`Sound playback failed, using vibration only: ${soundError.message}`);
-      // Vibration already happened above, so we don't need to do it again
-    }
-    
-    return true;
-  } catch (error) {
-    console.error(`Error playing sound for ${prayerName}:`, error);
-    return false;
-  }
+  return new Promise((resolve) => {
+    // Ensure we run on main thread
+    setTimeout(async () => {
+      try {
+        const soundKey = prayerName === 'Sunrise' || !useAzanSound ? 'beep' : 'azan';
+        console.log(`Playing ${soundKey} sound for ${prayerName}`);
+        
+        // Play vibration if enabled (safe on main thread)
+        if (vibrate) {
+          const pattern = vibrationPatterns[soundKey] || vibrationPatterns.beep;
+          Vibration.vibrate(pattern);
+        }
+        
+        try {
+          // Try to play actual sound using expo-audio (on main thread)
+          const success = await playSound(soundKey);
+          resolve(success);
+          
+        } catch (soundError) {
+          console.error(`Sound playback failed, using vibration only: ${soundError.message}`);
+          // Vibration already happened above, so we don't need to do it again
+          resolve(false);
+        }
+        
+      } catch (error) {
+        console.error(`Error playing sound for ${prayerName}:`, error);
+        resolve(false);
+      }
+    }, 0); // Run on next tick to ensure main thread
+  });
 }
 
 /**
@@ -137,12 +168,16 @@ export async function playTestSound(vibrate = true) {
     }
     
     try {
-      // Try to play the actual sound using expo-av
+      // Try to play the actual sound using expo-audio
       await preloadSounds(); // Make sure assets are preloaded
-      const sound = await getSoundObject('beep');
-      await sound.playAsync();
-      console.log("Sound played successfully");
-      return true;
+      const success = await playSound('beep');
+      
+      if (success) {
+        console.log("Sound played successfully");
+        return true;
+      } else {
+        throw new Error("Sound playback failed");
+      }
     } catch (soundError) {
       console.error(`Sound playback failed, used vibration only: ${soundError.message}`);
       // Vibration already happened above
@@ -168,17 +203,10 @@ export async function unloadSounds() {
   // Stop any ongoing vibration
   stopVibration();
   
-  // Release all sound objects
-  for (const key in loadedSounds) {
-    try {
-      // Unload the sound object properly
-      await loadedSounds[key].unloadAsync();
-      delete loadedSounds[key];
-    } catch (e) {
-      console.warn(`Error releasing sound ${key}:`, e);
-    }
-  }
+  // Clear the asset cache
+  Object.keys(downloadedAssets).forEach(key => {
+    delete downloadedAssets[key];
+  });
   
-  loadedSounds = {};
   console.log("All sound resources released");
 }

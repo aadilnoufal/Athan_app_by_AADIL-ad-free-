@@ -1,3 +1,0 @@
-Removed: app-example/, test-city-extraction.js, scripts/, app-example/components/__tests__/, app-example/components/__tests__/__snapshots__/, app-example/components/ui/, app-example/hooks/, app-example/constants/, app-example/scripts/reset-project.js, FIXES_COMPLETED.md, EXPO_GO_LIMITATIONS.md, RESPONSIVE_LAYOUT.md, S25_LAYOUT_FIXES.md, SEPIA_THEME.md, UAE_REMOVAL_SUMMARY.md, YEAR_BASED_PRAYER_LOGIC.md, LOCAL_PRAYER_DATA.md, ANDROID_15_UPDATE.md, duplicate README.md (kept only main README).
-
-Next: Clean up code in app/(tabs)/index.tsx.

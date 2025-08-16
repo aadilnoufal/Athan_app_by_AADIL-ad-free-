@@ -25,12 +25,16 @@ import {
   parseRegionId
 } from '../config/prayerTimeConfig';
 import { 
-  scheduleImmediateNotification, 
-  setupNotificationChannels, 
-  requestBatteryOptimizationExemption, 
-  checkAndRequestNotificationPermissions, 
-  setupForegroundNotificationHandler 
-} from '../../utils/notificationService';
+  scheduleNotifeeTestNotification,
+  initializeNotifeePrayerNotifications,
+  getScheduledNotifeePrayerNotifications,
+  cancelAllNotifeePrayerNotifications,
+  updateNotifeePrayerNotifications,
+  getNotifeeServiceStatus,
+  requestExactAlarmPermission,
+  checkAndHandleBatteryOptimization,
+  checkAndHandlePowerManager
+} from '../../utils/notifeePrayerService';
 import { playTestSound } from '../../utils/audioHelper';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { SepiaColors } from '../../constants/sepiaColors';
@@ -70,6 +74,9 @@ export default function SettingsScreen() {
   // Add state for notification sound preference
   const [useAzanSound, setUseAzanSound] = useState(true);
   
+  // Add notification status state for debugging
+  const [notificationStatus, setNotificationStatus] = useState<any>(null);
+  
   // Location selection state
   const [regionId, setRegionId] = useState(DEFAULT_REGION);
   const [selectedCountry, setSelectedCountry] = useState('');
@@ -88,9 +95,19 @@ export default function SettingsScreen() {
   
   // Load saved settings when component mounts
   useEffect(() => {
-    loadSettings();
-    setupNotificationChannels();
-    setupForegroundNotificationHandler(); // Add this to handle in-app notifications
+    const initializeApp = async () => {
+      await loadSettings();
+      // Initialize Notifee notification system (better reliability)
+      try {
+        await initializeNotifeePrayerNotifications();
+        await requestExactAlarmPermission(); // For Android 12+
+      } catch (error) {
+        console.log('Error initializing Notifee notifications:', error);
+      }
+      // Modern service handles foreground notifications automatically
+    };
+    
+    initializeApp();
   }, []);
   
   const loadSettings = async () => {
@@ -179,6 +196,18 @@ export default function SettingsScreen() {
         if (!permissionGranted) {
           return; // Don't enable if permission not granted
         }
+        
+        // Initialize the Notifee notification service
+        console.log('🔧 Initializing Notifee notification service...');
+        const initialized = await initializeNotifeePrayerNotifications();
+        if (!initialized) {
+          Alert.alert(
+            'Notifee Setup Failed',
+            'Unable to initialize Notifee notification service. Please check permissions.',
+            [{ text: 'OK' }]
+          );
+          return;
+        }
       }
       
       setNotificationsEnabled(value);
@@ -188,9 +217,11 @@ export default function SettingsScreen() {
       if (value) {
         // Let the home screen know to schedule notifications
         await AsyncStorage.setItem('notifications_updated', Date.now().toString());
+        console.log('✅ Notifications enabled and service initialized');
       } else {
-        // Cancel all notifications if they're being disabled
-        await Notifications.cancelAllScheduledNotificationsAsync();
+        // Cancel all Notifee notifications if they're being disabled
+        await cancelAllNotifeePrayerNotifications();
+        console.log('❌ All Notifee notifications cancelled');
       }
     } catch (error) {
       console.error('Error toggling notifications:', error);
@@ -244,20 +275,25 @@ export default function SettingsScreen() {
   // Add a function to test notifications
   const testNotification = async () => {
     try {
-      // First ensure channels are set up (Android)
-      await setupNotificationChannels();
+      // Initialize Notifee notification system
+      await initializeNotifeePrayerNotifications();
       
-      // Request battery optimization exemption (Android)
-      await requestBatteryOptimizationExemption();
+      // Schedule a test notification using Notifee service
+      const result = await scheduleNotifeeTestNotification();
       
-      // Schedule a test notification
-      await scheduleImmediateNotification('Test');
-      
-      Alert.alert(
-        'Test Notification Sent',
-        'You should receive a notification in about 5 seconds. If not, please check your notification permissions.',
-        [{ text: 'OK' }]
-      );
+      if (result) {
+        Alert.alert(
+          'Notifee Test Scheduled',
+          'You should receive a Notifee notification shortly. If not, please check your notification permissions.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        Alert.alert(
+          'Notifee Test Failed',
+          'Failed to schedule test notification. Please check permissions.',
+          [{ text: 'OK' }]
+        );
+      }
     } catch (error) {
       console.error('Error sending test notification:', error);
       Alert.alert(
@@ -314,10 +350,10 @@ export default function SettingsScreen() {
   // Add a function to test in-app notification
   const testInAppNotification = async () => {
     try {
-      // Check for notification permissions first
-      const hasPermission = await checkAndRequestNotificationPermissions();
+      // Check for notification permissions using Notifee service
+      const result = await initializeNotifeePrayerNotifications();
       
-      if (hasPermission) {
+      if (result) {
         // If we have global.showTestNotification function (from _layout.tsx)
         if (global.showTestNotification) {
           global.showTestNotification();
@@ -339,6 +375,88 @@ export default function SettingsScreen() {
       }
     } catch (error) {
       console.error("Error testing in-app notification:", error);
+    }
+  };
+
+  // Check notification service status
+  const checkNotificationStatus = async () => {
+    try {
+      const status = await getNotifeeServiceStatus();
+      setNotificationStatus(status);
+      
+      Alert.alert(
+        'Notification Status',
+        `Initialized: ${status.initialized ? '✅' : '❌'}\n` +
+        `Permissions: ${status.permissionsGranted ? '✅' : '❌'}\n` +
+        `Scheduled: ${status.scheduledCount} notifications\n` +
+        `Sound: ${status.soundPreference || 'Default'}\n` +
+        `${status.error ? `Error: ${status.error}` : ''}`,
+        [{ text: 'OK' }]
+      );
+    } catch (error) {
+      console.error('Error checking notification status:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      Alert.alert('Error', `Failed to check notification status: ${errorMessage}`);
+    }
+  };
+
+  // Reset all notifications with simplified service
+  const resetNotifications = async () => {
+    try {
+      console.log('🔄 Starting notification reset...');
+      
+      // First clear all existing Notifee notifications
+      await cancelAllNotifeePrayerNotifications();
+      
+      Alert.alert(
+        'Notifications Reset',
+        `Successfully cancelled all prayer notifications. The app will reschedule notifications automatically when you return to the home page.`,
+        [{ text: 'OK' }]
+      );
+        
+      console.log('✅ Notification reset completed successfully');
+    } catch (error) {
+      console.error('❌ Error resetting notifications:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      Alert.alert('Error', `Failed to reset notifications: ${errorMessage}`);
+    }
+  };
+
+  // Force schedule notifications by getting prayer times and scheduling them
+  const forceScheduleNotifications = async () => {
+    try {
+      console.log('🚀 Force scheduling notifications...');
+      
+      // First enable notifications
+      await AsyncStorage.setItem('notifications_enabled', 'true');
+      
+      // Get today's prayer times from local storage (assuming they're cached)
+      const todayKey = `prayer_${new Date().toISOString().split('T')[0]}`;
+      const cachedTimes = await AsyncStorage.getItem(todayKey);
+      
+      if (cachedTimes) {
+        const prayerData = JSON.parse(cachedTimes);
+        console.log('📅 Found cached prayer times:', prayerData);
+        
+        await updateNotifeePrayerNotifications(prayerData, notificationSettings as any);
+        
+        Alert.alert(
+          'Success!',
+          `Successfully scheduled Notifee prayer notifications for today!`,
+          [{ text: 'OK' }]
+        );
+        console.log('✅ Force scheduling completed successfully');
+      } else {
+        Alert.alert(
+          'No Prayer Data',
+          'No cached prayer times found. Please go to the home screen first to load prayer times, then try again.',
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (error) {
+      console.error('❌ Error force scheduling notifications:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      Alert.alert('Error', `Failed to force schedule notifications: ${errorMessage}`);
     }
   };
 
@@ -412,7 +530,7 @@ export default function SettingsScreen() {
       
       // Clear any existing cached data (just in case)
       const cachedKeys = await AsyncStorage.getAllKeys();
-      const prayerTimeKeys = cachedKeys.filter(key => 
+      const prayerTimeKeys = cachedKeys.filter((key: string) => 
         key.startsWith('prayer_') || 
         key.startsWith('last_updated_') ||
         key === 'cached_prayer_data' ||
@@ -463,7 +581,7 @@ export default function SettingsScreen() {
         { 
           text: t('oneTimeSupport'), 
           onPress: () => {
-            Linking.openURL('https://nas.io/checkout-global?communityId=640f2dbae2d22dff16a554d9&communityCode=AADIL_NOUFAL&requestor=signupRequestor&linkClicked=https%3A%2F%2Fnas.io%2Fportal%2Fproducts%2F67e825d377e3fc39a8ba9b0d%3Ftab%3Dcontent&sourceInfoType=folder&sourceInfoOrigin=67e825d377e3fc39a8ba9b0d').catch(err => 
+            Linking.openURL('https://nas.io/checkout-global?communityId=640f2dbae2d22dff16a554d9&communityCode=AADIL_NOUFAL&requestor=signupRequestor&linkClicked=https%3A%2F%2Fnas.io%2Fportal%2Fproducts%2F67e825d377e3fc39a8ba9b0d%3Ftab%3Dcontent&sourceInfoType=folder&sourceInfoOrigin=67e825d377e3fc39a8ba9b0d').catch((err: Error) => 
               console.error('An error occurred while opening the link:', err)
             );
           } 
@@ -471,7 +589,7 @@ export default function SettingsScreen() {
         { 
           text: t('monthlySupport'), 
           onPress: () => {
-            Linking.openURL('https://nas.io/checkout-global?communityId=67e828db202755d3615d3a6b&communityCode=AD_FREE_ATHAN&requestor=signupRequestor&linkClicked=https%3A%2F%2Fnas.io%2Fcheckout-widget%3FcommunityCode%3DAD_FREE_ATHAN%26communitySlug%3D%252Fad-free-athan%26buttonText%3DJoin%2520as%2520member%26buttonTextColorHex%3D%2523000%26buttonBgColorHex%3D%2523fccb1d%26widgetTheme%3Dlight%26backgroundColorHex%3D%2523fff%2522%2520width%3D%2522100%25%2522%2520height%3D%2522320%2522%2520frameborder%3D%25220%2522%2520referrerpolicy%3D%2522no-referrer&fromWidget=1').catch(err => 
+            Linking.openURL('https://nas.io/checkout-global?communityId=67e828db202755d3615d3a6b&communityCode=AD_FREE_ATHAN&requestor=signupRequestor&linkClicked=https%3A%2F%2Fnas.io%2Fcheckout-widget%3FcommunityCode%3DAD_FREE_ATHAN%26communitySlug%3D%252Fad-free-athan%26buttonText%3DJoin%2520as%2520member%26buttonTextColorHex%3D%2523000%26buttonBgColorHex%3D%2523fccb1d%26widgetTheme%3Dlight%26backgroundColorHex%3D%2523fff%2522%2520width%3D%2522100%25%2522%2520height%3D%2522320%2522%2520frameborder%3D%25220%2522%2520referrerpolicy%3D%2522no-referrer&fromWidget=1').catch((err: Error) => 
               console.error('An error occurred while opening the link:', err)
             );
           } 
@@ -578,7 +696,7 @@ export default function SettingsScreen() {
                     </View>
                     <Switch
                       value={notificationSettings[prayer]}
-                      onValueChange={(value) => togglePrayerNotification(prayer, value)}
+                      onValueChange={(value: boolean) => togglePrayerNotification(prayer, value)}
                       trackColor={{ false: SepiaColors.special.disabled, true: SepiaColors.accent.gold }}
                       thumbColor={notificationSettings[prayer] ? SepiaColors.accent.gold : SepiaColors.surface.secondary}
                     />
@@ -602,8 +720,8 @@ export default function SettingsScreen() {
                 />
               </View>
 
-              {/* Test buttons container */}
-              <View style={styles.testButtonsContainer}>
+              {/* Test Notification Button */}
+              <View style={[styles.testButtonsContainer, { marginTop: 15 }]}>
                 <TouchableOpacity 
                   style={styles.testButton}
                   onPress={testNotification}
@@ -611,21 +729,14 @@ export default function SettingsScreen() {
                   <MaterialCommunityIcons name="bell-ring" size={20} color={SepiaColors.text.inverse} />
                   <Text style={styles.testButtonText}>{t('testNotification')}</Text>
                 </TouchableOpacity>
-
+                
+                {/* Notification Status Button */}
                 <TouchableOpacity 
-                  style={[styles.testButton, {marginTop: 10}]}
-                  onPress={testDirectSound}
+                  style={[styles.testButton, { backgroundColor: SepiaColors.accent.gold }]}
+                  onPress={checkNotificationStatus}
                 >
-                  <MaterialCommunityIcons name="volume-high" size={20} color={SepiaColors.text.inverse} />
-                  <Text style={styles.testButtonText}>{t('testSound')}</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity 
-                  style={[styles.testButton, {marginTop: 10}]}
-                  onPress={testInAppNotification}
-                >
-                  <MaterialCommunityIcons name="message-alert" size={20} color={SepiaColors.text.inverse} />
-                  <Text style={styles.testButtonText}>{t('testInAppAlert')}</Text>
+                  <MaterialCommunityIcons name="information-outline" size={20} color={SepiaColors.text.inverse} />
+                  <Text style={styles.testButtonText}>Status</Text>
                 </TouchableOpacity>
               </View>
             </>
