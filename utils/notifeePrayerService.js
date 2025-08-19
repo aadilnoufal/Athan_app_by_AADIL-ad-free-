@@ -83,43 +83,71 @@ const requestAlarmPermission = async () => {
 const checkBatteryOptimization = async () => {
   if (Platform.OS === 'android') {
     try {
-      // Check if battery optimization is enabled
-      const batteryOptimizationEnabled = await notifee.isBatteryOptimizationEnabled();
-      console.log('🔋 Battery optimization enabled:', batteryOptimizationEnabled);
-      
-      if (batteryOptimizationEnabled) {
-        Alert.alert(
-          'Battery Optimization Detected',
-          'To ensure prayer notifications work reliably, please disable battery optimization for this app.',
-          [
-            {
-              text: 'Open Settings',
-              onPress: async () => {
-                await notifee.openBatteryOptimizationSettings();
+      // Check if user has chosen to not ask again about battery optimization
+      const dontAskAgain = await AsyncStorage.getItem('battery_optimization_dont_ask');
+      if (dontAskAgain === 'true') {
+        console.log('🔋 User chose not to ask about battery optimization again');
+      } else {
+        // Check if battery optimization is enabled
+        const batteryOptimizationEnabled = await notifee.isBatteryOptimizationEnabled();
+        console.log('🔋 Battery optimization enabled:', batteryOptimizationEnabled);
+        
+        if (batteryOptimizationEnabled) {
+          Alert.alert(
+            'Battery Optimization Detected',
+            'To ensure prayer notifications work reliably, please disable battery optimization for this app.',
+            [
+              {
+                text: 'Open Settings',
+                onPress: async () => {
+                  await notifee.openBatteryOptimizationSettings();
+                },
               },
-            },
-            { text: 'Later', style: 'cancel' },
-          ]
-        );
+              {
+                text: 'Don\'t Ask Again',
+                onPress: async () => {
+                  await AsyncStorage.setItem('battery_optimization_dont_ask', 'true');
+                  console.log('🔋 User chose not to ask about battery optimization again');
+                },
+                style: 'destructive',
+              },
+              { text: 'Later', style: 'cancel' },
+            ]
+          );
+        }
       }
 
-      // Check device-specific power management
-      const powerManagerInfo = await notifee.getPowerManagerInfo();
-      if (powerManagerInfo.activity) {
-        console.log('⚡ Power manager info:', powerManagerInfo);
-        Alert.alert(
-          'Power Management Settings',
-          'Please add this app to auto-start/whitelist to ensure notifications work properly.',
-          [
-            {
-              text: 'Open Settings', 
-              onPress: async () => {
-                await notifee.openPowerManagerSettings();
+      // Check if user has chosen to not ask again about power management
+      const powerDontAskAgain = await AsyncStorage.getItem('power_management_dont_ask');
+      if (powerDontAskAgain === 'true') {
+        console.log('⚡ User chose not to ask about power management again');
+      } else {
+        // Check device-specific power management
+        const powerManagerInfo = await notifee.getPowerManagerInfo();
+        if (powerManagerInfo.activity) {
+          console.log('⚡ Power manager info:', powerManagerInfo);
+          Alert.alert(
+            'Power Management Settings',
+            'Please add this app to auto-start/whitelist to ensure notifications work properly.',
+            [
+              {
+                text: 'Open Settings', 
+                onPress: async () => {
+                  await notifee.openPowerManagerSettings();
+                },
               },
-            },
-            { text: 'Later', style: 'cancel' },
-          ]
-        );
+              {
+                text: 'Don\'t Ask Again',
+                onPress: async () => {
+                  await AsyncStorage.setItem('power_management_dont_ask', 'true');
+                  console.log('⚡ User chose not to ask about power management again');
+                },
+                style: 'destructive',
+              },
+              { text: 'Later', style: 'cancel' },
+            ]
+          );
+        }
       }
     } catch (error) {
       console.log('⚠️ Battery optimization check failed:', error);
@@ -1019,6 +1047,13 @@ export async function checkAndHandleBatteryOptimization() {
   if (Platform.OS !== 'android') return true;
   
   try {
+    // Check if user has chosen to not ask again
+    const dontAskAgain = await AsyncStorage.getItem('battery_optimization_dont_ask');
+    if (dontAskAgain === 'true') {
+      console.log('🔋 User chose not to ask about battery optimization again');
+      return true;
+    }
+
     const batteryOptimizationEnabled = await notifee.isBatteryOptimizationEnabled();
     if (batteryOptimizationEnabled) {
       Alert.alert(
@@ -1028,6 +1063,14 @@ export async function checkAndHandleBatteryOptimization() {
           {
             text: 'Open Settings',
             onPress: async () => await notifee.openBatteryOptimizationSettings(),
+          },
+          {
+            text: 'Don\'t Ask Again',
+            onPress: async () => {
+              await AsyncStorage.setItem('battery_optimization_dont_ask', 'true');
+              console.log('🔋 User chose not to ask about battery optimization again');
+            },
+            style: 'destructive',
           },
           {
             text: 'Later',
@@ -1052,6 +1095,13 @@ export async function checkAndHandlePowerManager() {
   if (Platform.OS !== 'android') return true;
   
   try {
+    // Check if user has chosen to not ask again
+    const dontAskAgain = await AsyncStorage.getItem('power_management_dont_ask');
+    if (dontAskAgain === 'true') {
+      console.log('⚡ User chose not to ask about power management again');
+      return true;
+    }
+
     const powerManagerInfo = await notifee.getPowerManagerInfo();
     if (powerManagerInfo.activity) {
       Alert.alert(
@@ -1061,6 +1111,14 @@ export async function checkAndHandlePowerManager() {
           {
             text: 'Open Settings',
             onPress: async () => await notifee.openPowerManagerSettings(),
+          },
+          {
+            text: 'Don\'t Ask Again',
+            onPress: async () => {
+              await AsyncStorage.setItem('power_management_dont_ask', 'true');
+              console.log('⚡ User chose not to ask about power management again');
+            },
+            style: 'destructive',
           },
           {
             text: 'Later',
@@ -1376,3 +1434,40 @@ export const runNotificationSystemTest = async () => {
 
 // Initialize event handlers when module loads
 setupNotifeeEventHandlers();
+
+/**
+ * Reset battery optimization and power management "don't ask again" preferences
+ * Useful for settings screen to allow users to reset their choices
+ */
+export async function resetDontAskAgainPreferences() {
+  try {
+    await AsyncStorage.removeItem('battery_optimization_dont_ask');
+    await AsyncStorage.removeItem('power_management_dont_ask');
+    console.log('✅ Reset "don\'t ask again" preferences for battery optimization and power management');
+    return true;
+  } catch (error) {
+    console.error('❌ Error resetting "don\'t ask again" preferences:', error);
+    return false;
+  }
+}
+
+/**
+ * Check current "don't ask again" preferences status
+ */
+export async function getDontAskAgainStatus() {
+  try {
+    const batteryDontAsk = await AsyncStorage.getItem('battery_optimization_dont_ask');
+    const powerDontAsk = await AsyncStorage.getItem('power_management_dont_ask');
+    
+    return {
+      batteryOptimization: batteryDontAsk === 'true',
+      powerManagement: powerDontAsk === 'true'
+    };
+  } catch (error) {
+    console.error('❌ Error checking "don\'t ask again" status:', error);
+    return {
+      batteryOptimization: false,
+      powerManagement: false
+    };
+  }
+}

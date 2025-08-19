@@ -4,68 +4,68 @@
  */
 
 export const SepiaColors = {
-  // Primary background colors
+  // Primary background colors - Even lighter sepia tones
   background: {
-    primary: '#FAF7F0',      // Very light cream/sepia
-    secondary: '#F5F2E8',    // Slightly warmer cream
-    tertiary: '#F0EDE0',     // Light beige
-    overlay: 'rgba(240, 237, 224, 0.95)', // Semi-transparent overlay
+    primary: '#FEFCF6',      // Ultra light cream/sepia
+    secondary: '#FDFAF2',    // Very light warm cream
+    tertiary: '#FBF8F0',     // Light warm beige
+    overlay: 'rgba(253, 250, 242, 0.95)', // Semi-transparent overlay
   },
   
-  // Card and container backgrounds
+  // Card and container backgrounds - Lighter sepia surfaces
   surface: {
-    primary: '#F5F2E8',      // Light cream for cards
-    secondary: '#EDE9DC',    // Slightly darker cream
-    elevated: '#F8F5ED',     // Elevated surfaces
-    transparent: 'rgba(245, 242, 232, 0.8)', // Semi-transparent surfaces
+    primary: '#FDFAF2',      // Very light cream for cards
+    secondary: '#F8F5E8',    // Light cream with slight sepia
+    elevated: '#FEFCF6',     // Elevated surfaces - even lighter
+    transparent: 'rgba(253, 250, 242, 0.85)', // Semi-transparent surfaces
   },
   
-  // Text colors
+  // Text colors - Warmer sepia tones
   text: {
-    primary: '#3D3425',      // Dark brown for main text
-    secondary: '#5A4F3A',    // Medium brown for secondary text
-    tertiary: '#8B7355',     // Light brown for subtle text
-    inverse: '#FAF7F0',      // Light text on dark backgrounds
-    muted: '#9B8B73',        // Muted text
+    primary: '#4A3E2A',      // Warm dark brown for main text
+    secondary: '#6B5B42',    // Warm medium brown for secondary text
+    tertiary: '#8B7B5C',     // Warm light brown for subtle text
+    inverse: '#FEFCF6',      // Light text on dark backgrounds
+    muted: '#A89775',        // Warm muted text
   },
   
-  // Accent colors
+  // Accent colors - Lighter, more golden sepia accents
   accent: {
-    gold: '#D4AF37',         // Warm gold for highlights
-    darkGold: '#B8941F',     // Darker gold for active states
-    amber: '#E6C547',        // Light amber
-    copper: '#B87333',       // Copper accent
+    gold: '#E6C547',         // Lighter warm gold for highlights
+    darkGold: '#D4B335',     // Softer dark gold for active states
+    amber: '#F2D865',        // Light warm amber
+    copper: '#D4A574',       // Lighter copper accent
   },
   
-  // Border colors
+  // Border colors - Softer, lighter borders
   border: {
-    light: 'rgba(139, 115, 85, 0.15)',    // Very subtle borders
-    medium: 'rgba(139, 115, 85, 0.25)',   // Medium borders
-    dark: 'rgba(139, 115, 85, 0.4)',      // Darker borders
-    accent: 'rgba(212, 175, 55, 0.3)',    // Gold accent borders
+    light: 'rgba(139, 123, 92, 0.12)',    // Very subtle borders
+    medium: 'rgba(139, 123, 92, 0.20)',   // Light medium borders
+    dark: 'rgba(139, 123, 92, 0.30)',     // Softer dark borders
+    accent: 'rgba(230, 197, 71, 0.25)',   // Light gold accent borders
   },
   
-  // Shadow colors
+  // Shadow colors - Softer shadows
   shadow: {
-    light: 'rgba(61, 52, 37, 0.1)',       // Light shadows
-    medium: 'rgba(61, 52, 37, 0.15)',     // Medium shadows
-    dark: 'rgba(61, 52, 37, 0.25)',       // Dark shadows
+    light: 'rgba(74, 62, 42, 0.08)',      // Very light shadows
+    medium: 'rgba(74, 62, 42, 0.12)',     // Light medium shadows
+    dark: 'rgba(74, 62, 42, 0.18)',       // Soft dark shadows
   },
   
-  // Status colors (keeping some color for important states)
+  // Status colors - Light sepia-toned status colors
   status: {
-    success: '#8FBC8F',      // Muted sage green
-    warning: '#DEB887',      // Burlywood
-    error: '#CD853F',        // Peru/brown for errors
-    info: '#B8941F',         // Dark gold for info
+    success: '#A8C4A2',      // Light sage green with sepia tone
+    warning: '#E6D4A1',      // Light warm burlywood
+    error: '#D4A574',        // Light warm brown for errors
+    info: '#D4B335',         // Light gold for info
   },
   
-  // Special elements
+  // Special elements - Lighter sepia special colors
   special: {
-    nextPrayer: '#D4AF37',   // Gold for next prayer highlight
-    active: '#B8941F',       // Dark gold for active states
-    disabled: '#C4B299',     // Muted beige for disabled states
-    highlight: 'rgba(212, 175, 55, 0.2)', // Gold highlight overlay
+    nextPrayer: '#E6C547',   // Light gold for next prayer highlight
+    active: '#D4B335',       // Light gold for active states
+    disabled: '#D6C7A8',     // Light muted beige for disabled states
+    highlight: 'rgba(230, 197, 71, 0.15)', // Very light gold highlight overlay
   }
 };
 

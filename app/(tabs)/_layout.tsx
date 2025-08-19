@@ -72,11 +72,11 @@ export default function TabLayout() {
         screenOptions={{
           headerShown: false, // This hides the header for all tab screens
           tabBarActiveTintColor: SepiaColors.accent.gold, // Gold for active tabs
-          tabBarInactiveTintColor: SepiaColors.text.tertiary, // Muted brown for inactive tabs
+          tabBarInactiveTintColor: SepiaColors.text.secondary, // Elegant muted color for inactive tabs
           tabBarStyle: {
-            backgroundColor: SepiaColors.surface.elevated, // Light sepia background
-            borderTopColor: SepiaColors.border.medium, // Subtle brown border
-            borderTopWidth: 1,
+            backgroundColor: SepiaColors.surface.elevated, // Use sepia surface color instead of transparent
+            borderTopColor: SepiaColors.border.accent, // Light gold border
+            borderTopWidth: 0.5,
             height: getTabBarHeight(), // Height includes safe area insets
             paddingTop: padding.top,
             paddingBottom: Math.max(padding.bottom, 8), // Minimum padding for tap targets
@@ -86,17 +86,18 @@ export default function TabLayout() {
             bottom: 0,
             left: 0,
             right: 0,
-            // Keep visual separation with sepia tones
-            shadowColor: SepiaColors.shadow.medium,
-            shadowOffset: { width: 0, height: -2 },
-            shadowOpacity: 0.3,
-            shadowRadius: 4,
-            elevation: 8, // Higher elevation for Android to ensure it's above other elements
+            // Soft sepia shadow
+            shadowColor: SepiaColors.shadow.light,
+            shadowOffset: { width: 0, height: -1 },
+            shadowOpacity: 0.1,
+            shadowRadius: 8,
+            elevation: 3,
           },
           tabBarLabelStyle: {
             fontSize: getFontSize(),
-            fontWeight: '500',
+            fontWeight: '600', // Slightly bolder for better readability
             marginTop: isSmallScreen ? 1 : 2, // Reduced label spacing
+            letterSpacing: 0.3, // Add elegant letter spacing
           },
           tabBarIconStyle: {
             marginBottom: isSmallScreen ? 0 : -2, // Adjusted icon position
