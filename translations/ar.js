@@ -38,13 +38,6 @@ export default {
   testSound: 'اختبار الصوت',
   testInAppAlert: 'اختبار تنبيه داخل التطبيق',
   
-  // Theme settings
-  theme: 'المظهر',
-  darkMode: 'الوضع المظلم',
-  lightMode: 'الوضع الفاتح',
-  switchToDark: 'التبديل إلى الوضع المظلم',
-  switchToLight: 'التبديل إلى الوضع الفاتح',
-  
   // Location settings
   locationSettings: 'إعدادات الموقع',
   selectLocation: 'حدد موقعك للحصول على مواقيت صلاة دقيقة.',

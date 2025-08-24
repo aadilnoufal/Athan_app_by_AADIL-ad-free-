@@ -42,6 +42,7 @@ import {
 import { playTestSound } from '../../utils/audioHelper';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { SepiaColors } from '../../constants/sepiaColors';
+import { useTheme } from '../../contexts/ThemeContext';
 
 // Define interfaces
 interface LanguageItem {
@@ -66,6 +67,10 @@ const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 export default function SettingsScreen() {
   const router = useRouter();
   const { t, currentLang, changeLanguage, availableLanguages } = useLanguage();
+  const { isDark, toggleTheme, colors } = useTheme();
+  const C = colors; // alias
+  // Theme-aware dynamic styles
+  const styles = React.useMemo(() => createSettingsStyles(colors, isDark), [colors, isDark]);
   
   // ✨ MAGICAL ANIMATIONS ✨
   const [breathingAnimation] = useState(new Animated.Value(1));
@@ -106,24 +111,25 @@ export default function SettingsScreen() {
   // State for UI sections
   const [expandedSection, setExpandedSection] = useState('');
   
-  // Time-based gradient colors for dynamic backgrounds
+  // Time-based gradient colors for dynamic backgrounds (light mode only)
   const getTimeBasedGradient = () => {
     const hour = new Date().getHours();
     
     if (hour >= 5 && hour < 7) { // Fajr time - ultra soft dawn
-      return [SepiaColors.background.primary, SepiaColors.background.secondary, SepiaColors.surface.secondary];
+      return [C.background.primary, C.background.secondary, C.surface.secondary];
     } else if (hour >= 7 && hour < 12) { // Morning - ultra light warm
-      return [SepiaColors.background.primary, SepiaColors.surface.elevated, SepiaColors.background.tertiary];
+      return [C.background.primary, C.surface.elevated, C.background.tertiary];
     } else if (hour >= 12 && hour < 15) { // Midday - bright light sepia
-      return [SepiaColors.surface.elevated, SepiaColors.background.secondary, SepiaColors.surface.secondary];
+      return [C.surface.elevated, C.background.secondary, C.surface.secondary];
     } else if (hour >= 15 && hour < 18) { // Afternoon - light golden sepia
-      return [SepiaColors.background.secondary, SepiaColors.background.tertiary, SepiaColors.surface.secondary];
+      return [C.background.secondary, C.background.tertiary, C.surface.secondary];
     } else if (hour >= 18 && hour < 20) { // Maghrib - light sunset sepia
-      return [SepiaColors.background.tertiary, SepiaColors.surface.secondary, '#F5F1E6'];
+      return [C.background.tertiary, C.surface.secondary, '#F5F1E6'];
     } else { // Night/Isha - slightly deeper but still light sepia
-      return [SepiaColors.surface.secondary, SepiaColors.surface.secondary, '#F2EEE1'];
+      return [C.surface.secondary, C.surface.secondary, '#F2EEE1'];
     }
   };
+  const gradientColors = isDark ? [C.background.primary, C.background.secondary, C.surface.primary] : getTimeBasedGradient();
 
   // ✨ MAGICAL BUTTON COMPONENT ✨
   const MagicalButton = ({ 
@@ -131,7 +137,7 @@ export default function SettingsScreen() {
     disabled = false, 
     style, 
     children, 
-    glowColor = SepiaColors.accent.gold 
+    glowColor = C.accent.gold 
   }: {
     onPress?: () => void;
     disabled?: boolean;
@@ -155,7 +161,7 @@ export default function SettingsScreen() {
         disabled={disabled}
         style={[
           {
-            backgroundColor: 'rgba(255, 255, 255, 0.08)',
+            backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)',
             borderWidth: 0.5,
             borderColor: `${glowColor}30`,
             borderRadius: 16,
@@ -217,7 +223,8 @@ export default function SettingsScreen() {
         >
           {t('settings')}
         </Animated.Text>
-        <View style={styles.backButton} />
+  {/* Spacer only (removed decorative circle) */}
+  <View style={{ width: 32, height: 32 }} />
       </View>
     </Animated.View>
   );
@@ -798,12 +805,12 @@ export default function SettingsScreen() {
       {Platform.OS === 'android' ? (
         <View style={{ 
           height: StatusBar.currentHeight || 20, 
-          backgroundColor: SepiaColors.background.primary 
+          backgroundColor: C.background.primary 
         }} />
       ) : (
         <StatusBar 
-          barStyle="dark-content" 
-          backgroundColor={SepiaColors.background.primary} 
+          barStyle={isDark ? 'light-content' : 'dark-content'} 
+          backgroundColor={C.background.primary} 
         />
       )}
       
@@ -816,7 +823,7 @@ export default function SettingsScreen() {
       
       {/* ✨ MAGICAL GRADIENT BACKGROUND ✨ */}
       <ExpoLinearGradient
-        colors={getTimeBasedGradient() as any}
+        colors={gradientColors as any}
         style={StyleSheet.absoluteFillObject}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
@@ -831,6 +838,34 @@ export default function SettingsScreen() {
           contentContainerStyle={styles.enhancedScrollViewContent}
           showsVerticalScrollIndicator={false}
         >
+        {/* Appearance / Theme Section with normal toggle */}
+        <Animated.View style={[
+          styles.enhancedSection,
+          {
+            transform: [{ scale: shimmerAnimation.interpolate({
+              inputRange: [0, 0.5, 1],
+              outputRange: [1, 1.02, 1],
+            })}]
+          }
+        ]}>
+          <View style={styles.sectionHeader}>
+            <MaterialCommunityIcons 
+              name={isDark ? 'weather-night' : 'white-balance-sunny'} 
+              size={20} 
+              color={C.accent.gold} 
+            />
+            <Text style={styles.enhancedSectionTitle}>{t('appearance') || 'Appearance'}</Text>
+          </View>
+          <View style={styles.enhancedSettingContainer}>
+            <Text style={styles.enhancedSettingLabel}>{t('darkMode') || 'Dark Mode'}</Text>
+            <Switch
+              value={isDark}
+              onValueChange={toggleTheme}
+              trackColor={{ false: C.special.disabled, true: C.accent.gold }}
+              thumbColor={isDark ? C.accent.gold : C.surface.secondary}
+            />
+          </View>
+        </Animated.View>
         {/* ✨ ENHANCED LANGUAGE SETTINGS SECTION ✨ */}
         <Animated.View style={[
           styles.enhancedSection,
@@ -845,7 +880,7 @@ export default function SettingsScreen() {
             <MaterialCommunityIcons 
               name="web" 
               size={20} 
-              color={SepiaColors.accent.gold} 
+              color={C.accent.gold} 
             />
             <Text style={styles.enhancedSectionTitle}>{t('language')}</Text>
           </View>
@@ -860,7 +895,7 @@ export default function SettingsScreen() {
                   styles.enhancedLanguageOption,
                   currentLang === typedLang.id && styles.selectedEnhancedLanguageOption
                 ]}
-                glowColor={currentLang === typedLang.id ? SepiaColors.accent.amber : SepiaColors.accent.gold}
+                glowColor={currentLang === typedLang.id ? C.accent.amber : C.accent.gold}
               >
                 <Text style={[
                   styles.enhancedLanguageName,
@@ -869,7 +904,7 @@ export default function SettingsScreen() {
                   {typedLang.name}
                 </Text>
                 {currentLang === typedLang.id && (
-                  <MaterialCommunityIcons name="check" size={20} color={SepiaColors.accent.gold} />
+                  <MaterialCommunityIcons name="check" size={20} color={C.accent.gold} />
                 )}
               </MagicalButton>
             );
@@ -890,7 +925,7 @@ export default function SettingsScreen() {
             <MaterialCommunityIcons 
               name="bell-outline" 
               size={20} 
-              color={SepiaColors.accent.gold} 
+              color={C.accent.gold} 
             />
             <Text style={styles.enhancedSectionTitle}>{t('notifications')}</Text>
           </View>
@@ -908,8 +943,8 @@ export default function SettingsScreen() {
             <Switch
               value={notificationsEnabled}
               onValueChange={toggleNotifications}
-              trackColor={{ false: SepiaColors.special.disabled, true: SepiaColors.accent.gold }}
-              thumbColor={notificationsEnabled ? SepiaColors.accent.gold : SepiaColors.surface.secondary}
+              trackColor={{ false: C.special.disabled, true: C.accent.gold }}
+              thumbColor={notificationsEnabled ? C.accent.gold : C.surface.secondary}
             />
           </Animated.View>
 
@@ -947,7 +982,7 @@ export default function SettingsScreen() {
                             'weather-night'
                           }
                           size={20}
-                          color={SepiaColors.accent.gold}
+                          color={C.accent.gold}
                         />
                       </View>
                       <Text style={styles.enhancedPrayerLabel}>{t(prayer)}</Text>
@@ -955,8 +990,8 @@ export default function SettingsScreen() {
                     <Switch
                       value={notificationSettings[prayer]}
                       onValueChange={(value: boolean) => togglePrayerNotification(prayer, value)}
-                      trackColor={{ false: SepiaColors.special.disabled, true: SepiaColors.accent.gold }}
-                      thumbColor={notificationSettings[prayer] ? SepiaColors.accent.gold : SepiaColors.surface.secondary}
+                      trackColor={{ false: C.special.disabled, true: C.accent.gold }}
+                      thumbColor={notificationSettings[prayer] ? C.accent.gold : C.surface.secondary}
                     />
                   </Animated.View>
                 ))}
@@ -978,8 +1013,8 @@ export default function SettingsScreen() {
                 <Switch
                   value={useAzanSound}
                   onValueChange={toggleSoundPreference}
-                  trackColor={{ false: SepiaColors.special.disabled, true: SepiaColors.accent.gold }}
-                  thumbColor={useAzanSound ? SepiaColors.accent.gold : SepiaColors.surface.secondary}
+                  trackColor={{ false: C.special.disabled, true: C.accent.gold }}
+                  thumbColor={useAzanSound ? C.accent.gold : C.surface.secondary}
                 />
               </Animated.View>
 
@@ -988,19 +1023,19 @@ export default function SettingsScreen() {
                 <MagicalButton 
                   style={styles.enhancedTestButton}
                   onPress={testNotification}
-                  glowColor={SepiaColors.accent.amber}
+                  glowColor={C.accent.amber}
                 >
-                  <MaterialCommunityIcons name="bell-ring" size={18} color={SepiaColors.text.inverse} />
+                  <MaterialCommunityIcons name="bell-ring" size={18} color={C.text.inverse} />
                   <Text style={styles.enhancedTestButtonText}>{t('testNotification')}</Text>
                 </MagicalButton>
                 
                 {/* Enhanced Notification Status Button */}
                 <MagicalButton 
-                  style={[styles.enhancedTestButton, { marginTop: 10, backgroundColor: SepiaColors.accent.copper }]}
+                  style={[styles.enhancedTestButton, { marginTop: 10, backgroundColor: C.accent.copper }]}
                   onPress={checkNotificationStatus}
-                  glowColor={SepiaColors.accent.copper}
+                  glowColor={C.accent.copper}
                 >
-                  <MaterialCommunityIcons name="information-outline" size={18} color={SepiaColors.text.inverse} />
+                  <MaterialCommunityIcons name="information-outline" size={18} color={C.text.inverse} />
                   <Text style={styles.enhancedTestButtonText}>Status</Text>
                 </MagicalButton>
               </View>
@@ -1022,7 +1057,7 @@ export default function SettingsScreen() {
             <MaterialCommunityIcons 
               name="map-marker" 
               size={20} 
-              color={SepiaColors.accent.gold} 
+              color={C.accent.gold} 
             />
             <Text style={styles.enhancedSectionTitle}>{t('locationSettings')}</Text>
           </View>
@@ -1034,7 +1069,7 @@ export default function SettingsScreen() {
           <MagicalButton 
             style={styles.enhancedLocationSelector}
             onPress={() => toggleSection('country')}
-            glowColor={SepiaColors.accent.amber}
+            glowColor={C.accent.amber}
           >
             <View style={styles.enhancedLocationSelectorHeader}>
               <Text style={styles.enhancedLocationLabel}>{t('country')}</Text>
@@ -1045,7 +1080,7 @@ export default function SettingsScreen() {
                 <MaterialCommunityIcons 
                   name={expandedSection === 'country' ? 'chevron-up' : 'chevron-down'} 
                   size={20} 
-                  color={SepiaColors.accent.gold} 
+                  color={C.accent.gold} 
                 />
               </View>
             </View>
@@ -1069,7 +1104,7 @@ export default function SettingsScreen() {
                     selectedCountry === country.id && styles.selectedEnhancedOptionItem
                   ]}
                   onPress={() => selectCountry(country.id)}
-                  glowColor={selectedCountry === country.id ? SepiaColors.accent.amber : SepiaColors.accent.gold}
+                  glowColor={selectedCountry === country.id ? C.accent.amber : C.accent.gold}
                 >
                   <Text style={[
                     styles.enhancedOptionName,
@@ -1078,7 +1113,7 @@ export default function SettingsScreen() {
                     {country.name}
                   </Text>
                   {selectedCountry === country.id && (
-                    <MaterialCommunityIcons name="check" size={18} color={SepiaColors.accent.gold} />
+                    <MaterialCommunityIcons name="check" size={18} color={C.accent.gold} />
                   )}
                 </MagicalButton>
               ))}
@@ -1089,7 +1124,7 @@ export default function SettingsScreen() {
           <MagicalButton 
             style={[styles.enhancedLocationSelector, { marginTop: 16 }]}
             onPress={() => toggleSection('state')}
-            glowColor={SepiaColors.accent.amber}
+            glowColor={C.accent.amber}
           >
             <View style={styles.enhancedLocationSelectorHeader}>
               <Text style={styles.enhancedLocationLabel}>{t('state')}</Text>
@@ -1100,7 +1135,7 @@ export default function SettingsScreen() {
                 <MaterialCommunityIcons 
                   name={expandedSection === 'state' ? 'chevron-up' : 'chevron-down'} 
                   size={20} 
-                  color={SepiaColors.accent.gold} 
+                  color={C.accent.gold} 
                 />
               </View>
             </View>
@@ -1124,7 +1159,7 @@ export default function SettingsScreen() {
                     selectedState === state.id && styles.selectedEnhancedOptionItem
                   ]}
                   onPress={() => selectState(state.id)}
-                  glowColor={selectedState === state.id ? SepiaColors.accent.amber : SepiaColors.accent.gold}
+                  glowColor={selectedState === state.id ? C.accent.amber : C.accent.gold}
                 >
                   <Text style={[
                     styles.enhancedOptionName,
@@ -1133,7 +1168,7 @@ export default function SettingsScreen() {
                     {state.name}
                   </Text>
                   {selectedState === state.id && (
-                    <MaterialCommunityIcons name="check" size={18} color={SepiaColors.accent.gold} />
+                    <MaterialCommunityIcons name="check" size={18} color={C.accent.gold} />
                   )}
                 </MagicalButton>
               ))}
@@ -1144,7 +1179,7 @@ export default function SettingsScreen() {
           <MagicalButton 
             style={[styles.enhancedLocationSelector, { marginTop: 16 }]}
             onPress={() => toggleSection('city')}
-            glowColor={SepiaColors.accent.amber}
+            glowColor={C.accent.amber}
           >
             <View style={styles.enhancedLocationSelectorHeader}>
               <Text style={styles.enhancedLocationLabel}>{t('city')}</Text>
@@ -1155,7 +1190,7 @@ export default function SettingsScreen() {
                 <MaterialCommunityIcons 
                   name={expandedSection === 'city' ? 'chevron-up' : 'chevron-down'} 
                   size={20} 
-                  color={SepiaColors.accent.gold} 
+                  color={C.accent.gold} 
                 />
               </View>
             </View>
@@ -1179,7 +1214,7 @@ export default function SettingsScreen() {
                     selectedCity === city.id && styles.selectedEnhancedOptionItem
                   ]}
                   onPress={() => selectCity(city.id)}
-                  glowColor={selectedCity === city.id ? SepiaColors.accent.amber : SepiaColors.accent.gold}
+                  glowColor={selectedCity === city.id ? C.accent.amber : C.accent.gold}
                 >
                   <Text style={[
                     styles.enhancedOptionName,
@@ -1188,7 +1223,7 @@ export default function SettingsScreen() {
                     {city.name}
                   </Text>
                   {selectedCity === city.id && (
-                    <MaterialCommunityIcons name="check" size={18} color={SepiaColors.accent.gold} />
+                    <MaterialCommunityIcons name="check" size={18} color={C.accent.gold} />
                   )}
                 </MagicalButton>
               ))}
@@ -1202,7 +1237,7 @@ export default function SettingsScreen() {
               transform: [{ scale: breathingAnimation }]
             }
           ]}>
-            <MaterialCommunityIcons name="map-marker" size={20} color={SepiaColors.accent.gold} />
+            <MaterialCommunityIcons name="map-marker" size={20} color={C.accent.gold} />
             <Text style={styles.enhancedLocationSummaryText}>
               {cities.find(c => c.id === selectedCity)?.name || 'City'}, {' '}
               {states.find(s => s.id === selectedState)?.name || 'State'}, {' '}
@@ -1214,9 +1249,9 @@ export default function SettingsScreen() {
           <MagicalButton 
             style={styles.enhancedUpdateLocationButton}
             onPress={updateRegionId}
-            glowColor={SepiaColors.accent.amber}
+            glowColor={C.accent.amber}
           >
-            <MaterialCommunityIcons name="map-marker-check" size={18} color={SepiaColors.text.inverse} />
+            <MaterialCommunityIcons name="map-marker-check" size={18} color={C.text.inverse} />
             <Text style={styles.enhancedUpdateLocationButtonText}>{t('updateLocation')}</Text>
           </MagicalButton>
         </Animated.View>
@@ -1235,7 +1270,7 @@ export default function SettingsScreen() {
             <MaterialCommunityIcons 
               name="information-outline" 
               size={20} 
-              color={SepiaColors.accent.gold} 
+              color={C.accent.gold} 
             />
             <Text style={styles.enhancedSectionTitle}>{t('about')}</Text>
           </View>
@@ -1256,9 +1291,9 @@ export default function SettingsScreen() {
               <MagicalButton 
                 style={styles.enhancedSupportButton} 
                 onPress={openDonation}
-                glowColor={SepiaColors.accent.amber}
+                glowColor={C.accent.amber}
               >
-                <MaterialCommunityIcons name="gift" size={18} color={SepiaColors.text.inverse} />
+                <MaterialCommunityIcons name="gift" size={18} color={C.text.inverse} />
                 <Text style={styles.enhancedSupportButtonText}>{t('supportApp')}</Text>
               </MagicalButton>
             </View>
@@ -1273,11 +1308,27 @@ export default function SettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+// Factory to create theme-aware styles so dark mode updates instantly
+const createSettingsStyles = (colors: any, isDark: boolean) => {
+  const goldRGB = '218, 165, 32';
+  // Surfaces adapt subtly between themes
+  const cardBg = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.06)';
+  const subCardBg = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.04)';
+  const faintLayer = isDark ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.03)';
+  const optionBg = isDark ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.02)';
+  const goldTint = (alpha: number) => `rgba(${goldRGB}, ${alpha})`;
+  const selectionBg = isDark ? goldTint(0.10) : goldTint(0.08);
+  const selectionBorder = isDark ? goldTint(0.35) : goldTint(0.25);
+  const subtleBorder = isDark ? goldTint(0.25) : goldTint(0.15);
+  const faintBorder = isDark ? goldTint(0.18) : goldTint(0.10);
+  const extraFaintBorder = isDark ? goldTint(0.12) : goldTint(0.08);
+  const translucentGoldLayer = isDark ? goldTint(0.05) : goldTint(0.1);
+
+  return StyleSheet.create({
   // ✨ ENHANCED LAYOUT STYLES FROM HOMEPAGE ✨
   safeArea: {
     flex: 1,
-    backgroundColor: SepiaColors.background.primary,
+    backgroundColor: colors.background.primary,
   },
   container: {
     flex: 1,
@@ -1305,7 +1356,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: SepiaColors.accent.gold,
+    backgroundColor: colors.accent.gold,
     borderRadius: 20,
   },
   
@@ -1319,12 +1370,12 @@ const styles = StyleSheet.create({
   
   // ✨ ENHANCED SECTION STYLES ✨
   enhancedSection: {
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    backgroundColor: cardBg,
     borderRadius: 20,
     padding: 20,
     marginBottom: 20,
     borderWidth: 0.5,
-    borderColor: 'rgba(218, 165, 32, 0.15)',
+    borderColor: subtleBorder,
     position: 'relative',
     overflow: 'hidden',
   },
@@ -1334,10 +1385,10 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     paddingBottom: 10,
     borderBottomWidth: 0.5,
-    borderBottomColor: 'rgba(218, 165, 32, 0.15)',
+    borderBottomColor: subtleBorder,
   },
   enhancedSectionTitle: {
-    color: SepiaColors.text.primary,
+    color: colors.text.primary,
     fontSize: 18,
     fontWeight: '700',
     marginLeft: 10,
@@ -1353,22 +1404,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 12,
     marginBottom: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    backgroundColor: subCardBg,
     borderWidth: 0.5,
-    borderColor: 'rgba(218, 165, 32, 0.1)',
+    borderColor: faintBorder,
   },
   selectedEnhancedLanguageOption: {
-    backgroundColor: 'rgba(218, 165, 32, 0.08)',
-    borderColor: 'rgba(218, 165, 32, 0.25)',
+    backgroundColor: selectionBg,
+    borderColor: selectionBorder,
   },
   enhancedLanguageName: {
-    color: SepiaColors.text.primary,
+    color: colors.text.primary,
     fontSize: 16,
     fontWeight: '600',
     letterSpacing: 0.3,
   },
   selectedEnhancedLanguageName: {
-    color: SepiaColors.accent.darkGold,
+    color: colors.accent.darkGold,
     fontWeight: '700',
   },
   
@@ -1380,13 +1431,13 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 16,
     borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    backgroundColor: subCardBg,
     borderWidth: 0.5,
-    borderColor: 'rgba(218, 165, 32, 0.15)',
+    borderColor: subtleBorder,
     marginBottom: 12,
   },
   enhancedSettingLabel: {
-    color: SepiaColors.text.primary,
+    color: colors.text.primary,
     fontSize: 16,
     fontWeight: '600',
     letterSpacing: 0.3,
@@ -1394,15 +1445,15 @@ const styles = StyleSheet.create({
   
   // Enhanced Prayer Notification Styles
   enhancedPrayerNotificationSettings: {
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    backgroundColor: faintLayer,
     borderRadius: 16,
     padding: 12,
     marginBottom: 12,
     borderWidth: 0.5,
-    borderColor: 'rgba(218, 165, 32, 0.1)',
+    borderColor: faintBorder,
   },
   enhancedSettingSubtitle: {
-    color: SepiaColors.text.secondary,
+    color: colors.text.secondary,
     fontSize: 14,
     fontWeight: '500',
     marginBottom: 12,
@@ -1415,10 +1466,10 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 12,
     borderRadius: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    backgroundColor: optionBg,
     marginBottom: 8,
     borderWidth: 0.5,
-    borderColor: 'rgba(218, 165, 32, 0.08)',
+    borderColor: extraFaintBorder,
   },
   enhancedPrayerLabelContainer: {
     flexDirection: 'row',
@@ -1429,13 +1480,13 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: 'rgba(218, 165, 32, 0.1)',
+    backgroundColor: goldTint(isDark ? 0.12 : 0.10),
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
   },
   enhancedPrayerLabel: {
-    color: SepiaColors.text.primary,
+    color: colors.text.primary,
     fontSize: 15,
     fontWeight: '500',
     letterSpacing: 0.3,
@@ -1449,9 +1500,9 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 16,
     borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    backgroundColor: subCardBg,
     borderWidth: 0.5,
-    borderColor: 'rgba(218, 165, 32, 0.15)',
+    borderColor: subtleBorder,
     marginTop: 12,
   },
   enhancedSoundPrefTextContainer: {
@@ -1459,7 +1510,7 @@ const styles = StyleSheet.create({
     paddingRight: 12,
   },
   enhancedSettingDescription: {
-    color: SepiaColors.text.secondary,
+    color: colors.text.secondary,
     fontSize: 12,
     marginTop: 4,
     letterSpacing: 0.2,
@@ -1475,14 +1526,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: SepiaColors.accent.gold,
+    backgroundColor: colors.accent.gold,
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 16,
     minWidth: 180,
   },
   enhancedTestButtonText: {
-    color: SepiaColors.text.inverse,
+    color: colors.text.inverse,
     fontSize: 14,
     fontWeight: '700',
     marginLeft: 8,
@@ -1491,7 +1542,7 @@ const styles = StyleSheet.create({
   
   // Enhanced Section Description
   enhancedSectionDescription: {
-    color: SepiaColors.text.secondary,
+    color: colors.text.secondary,
     fontSize: 14,
     marginBottom: 16,
     letterSpacing: 0.3,
@@ -1500,12 +1551,12 @@ const styles = StyleSheet.create({
   
   // Enhanced Location Selector Styles
   enhancedLocationSelector: {
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    backgroundColor: subCardBg,
     borderRadius: 12,
     paddingVertical: 14,
     paddingHorizontal: 16,
     borderWidth: 0.5,
-    borderColor: 'rgba(218, 165, 32, 0.15)',
+    borderColor: subtleBorder,
     marginBottom: 8,
   },
   enhancedLocationSelectorHeader: {
@@ -1514,7 +1565,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   enhancedLocationLabel: {
-    color: SepiaColors.text.secondary,
+    color: colors.text.secondary,
     fontSize: 12,
     fontWeight: '500',
     letterSpacing: 0.5,
@@ -1523,13 +1574,13 @@ const styles = StyleSheet.create({
   enhancedLocationSelection: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(218, 165, 32, 0.08)',
+    backgroundColor: selectionBg,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
   enhancedLocationValue: {
-    color: SepiaColors.text.primary,
+    color: colors.text.primary,
     fontSize: 15,
     fontWeight: '600',
     marginRight: 8,
@@ -1538,12 +1589,12 @@ const styles = StyleSheet.create({
   
   // Enhanced Options Container Styles
   enhancedOptionsContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    backgroundColor: optionBg,
     borderRadius: 12,
     padding: 8,
     marginBottom: 12,
     borderWidth: 0.5,
-    borderColor: 'rgba(218, 165, 32, 0.1)',
+    borderColor: faintBorder,
   },
   enhancedOptionItem: {
     flexDirection: 'row',
@@ -1553,22 +1604,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 8,
     marginBottom: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    backgroundColor: optionBg,
     borderWidth: 0.5,
-    borderColor: 'rgba(218, 165, 32, 0.08)',
+    borderColor: extraFaintBorder,
   },
   selectedEnhancedOptionItem: {
-    backgroundColor: 'rgba(218, 165, 32, 0.08)',
-    borderColor: 'rgba(218, 165, 32, 0.25)',
+    backgroundColor: selectionBg,
+    borderColor: selectionBorder,
   },
   enhancedOptionName: {
-    color: SepiaColors.text.primary,
+    color: colors.text.primary,
     fontSize: 15,
     fontWeight: '500',
     letterSpacing: 0.3,
   },
   selectedEnhancedOptionName: {
-    color: SepiaColors.accent.darkGold,
+    color: colors.accent.darkGold,
     fontWeight: '600',
   },
   
@@ -1576,15 +1627,15 @@ const styles = StyleSheet.create({
   enhancedLocationSummary: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(218, 165, 32, 0.06)',
+    backgroundColor: goldTint(isDark ? 0.08 : 0.06),
     borderRadius: 12,
     padding: 14,
     marginTop: 16,
     borderWidth: 0.5,
-    borderColor: 'rgba(218, 165, 32, 0.2)',
+    borderColor: selectionBorder,
   },
   enhancedLocationSummaryText: {
-    color: SepiaColors.text.primary,
+    color: colors.text.primary,
     fontSize: 14,
     fontWeight: '500',
     marginLeft: 12,
@@ -1598,7 +1649,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: SepiaColors.accent.gold,
+    backgroundColor: colors.accent.gold,
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 16,
@@ -1606,7 +1657,7 @@ const styles = StyleSheet.create({
     minWidth: 180,
   },
   enhancedUpdateLocationButtonText: {
-    color: SepiaColors.text.inverse,
+    color: colors.text.inverse,
     fontSize: 14,
     fontWeight: '700',
     marginLeft: 8,
@@ -1615,14 +1666,14 @@ const styles = StyleSheet.create({
   
   // Enhanced About Section Styles
   enhancedAboutContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    backgroundColor: faintLayer,
     borderRadius: 16,
     padding: 16,
     borderWidth: 0.5,
-    borderColor: 'rgba(218, 165, 32, 0.1)',
+    borderColor: faintBorder,
   },
   enhancedAppVersion: {
-    color: SepiaColors.accent.gold,
+    color: colors.accent.gold,
     fontSize: 16,
     fontWeight: '600',
     marginBottom: 12,
@@ -1630,7 +1681,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   enhancedAboutText: {
-    color: SepiaColors.text.secondary,
+    color: colors.text.secondary,
     fontSize: 14,
     lineHeight: 22,
     marginBottom: 20,
@@ -1644,24 +1695,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: SepiaColors.accent.gold,
+    backgroundColor: colors.accent.gold,
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 16,
     minWidth: 160,
   },
   enhancedSupportButtonText: {
-    color: SepiaColors.text.inverse,
+    color: colors.text.inverse,
     fontSize: 14,
     fontWeight: '700',
     marginLeft: 8,
     letterSpacing: 0.3,
   },
+
+  // =============================================================
+  // The remaining (legacy/original) styles are kept mostly intact
+  // but with palette references switched to current theme colors
+  // for consistency across dark / light modes.
+  // =============================================================
   
   // Original styles with homepage enhancements
   container_old: {
     flex: 1,
-    backgroundColor: SepiaColors.background.primary, // Main sepia background like homepage
+    backgroundColor: colors.background.primary, // Main background like homepage
     paddingBottom: 90, // Account for tab bar height + safe area
   },
   header: {
@@ -1682,13 +1739,13 @@ const styles = StyleSheet.create({
     width: 32, // Reduced from 36 to 32
     height: 32, // Reduced from 36 to 32
     borderRadius: 16, // Reduced from 18 to 16
-    backgroundColor: 'rgba(218, 165, 32, 0.1)',
+    backgroundColor: goldTint(isDark ? 0.12 : 0.10),
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
   },
   headerTitle: {
-    color: SepiaColors.text.primary,
+    color: colors.text.primary,
     fontSize: 16, // Reduced from 20 to 16
     fontWeight: '600', // Reduced from 700 to 600
     letterSpacing: 0.3, // Reduced from 0.5 to 0.3
@@ -1702,21 +1759,21 @@ const styles = StyleSheet.create({
   section: {
     margin: 8, // Reduced spacing like homepage
     padding: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)', // Exact same as homepage cards
+    backgroundColor: cardBg, // Themed card
     borderRadius: 20,
     borderWidth: 0.5,
-    borderColor: 'rgba(218, 165, 32, 0.15)',
+    borderColor: subtleBorder,
     marginBottom: 12, // Add bottom margin for spacing
   },
   sectionTitle: {
-    color: SepiaColors.accent.gold,
+    color: colors.accent.gold,
     fontSize: 18,
     fontWeight: '700',
     marginBottom: 12, // Reduced from 16
     letterSpacing: 0.5,
   },
   sectionDescription: {
-    color: SepiaColors.text.secondary,
+    color: colors.text.secondary,
     fontSize: 14, // Reduced from 16
     marginBottom: 12, // Reduced from 16
     letterSpacing: 0.3,
@@ -1731,13 +1788,13 @@ const styles = StyleSheet.create({
     borderBottomColor: 'rgba(218, 165, 32, 0.15)', // Subtle gold border
   },
   settingLabel: {
-    color: SepiaColors.text.primary,
+    color: colors.text.primary,
     fontSize: 16,
     fontWeight: '600', // Increased from 500
     letterSpacing: 0.3,
   },
   settingSubtitle: {
-    color: SepiaColors.text.primary,
+    color: colors.text.primary,
     fontSize: 15, // Reduced from 16
     fontWeight: '600', // Increased from 500
     marginVertical: 8, // Reduced from 10
@@ -1768,7 +1825,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   prayerLabel: {
-    color: SepiaColors.text.primary,
+    color: colors.text.primary,
     fontSize: 15, // Reduced from 16
     fontWeight: '600',
     letterSpacing: 0.3,
@@ -1788,7 +1845,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12, // Reduced from 14
   },
   locationLabel: {
-    color: SepiaColors.text.primary,
+    color: colors.text.primary,
     fontSize: 15, // Reduced from 16
     fontWeight: '600', // Increased from 500
     letterSpacing: 0.3,
@@ -1830,13 +1887,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(218, 165, 32, 0.1)', // Subtle gold highlight
   },
   optionName: {
-    color: SepiaColors.text.primary,
+    color: colors.text.primary,
     fontSize: 15, // Reduced from 16
     fontWeight: '500',
     letterSpacing: 0.3,
   },
   selectedOptionName: {
-    color: SepiaColors.accent.gold,
+    color: colors.accent.gold,
     fontWeight: '700', // Increased from bold
     letterSpacing: 0.3,
   },
@@ -1851,7 +1908,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(218, 165, 32, 0.2)', // Subtle gold border
   },
   locationSummaryText: {
-    color: SepiaColors.text.primary,
+    color: colors.text.primary,
     fontSize: 15, // Reduced from 16
     marginLeft: 10,
     flex: 1,
@@ -1868,14 +1925,14 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(218, 165, 32, 0.1)',
   },
   appVersion: {
-    color: SepiaColors.text.primary,
+    color: colors.text.primary,
     fontSize: 16, // Reduced from 18
     fontWeight: '700', // Increased from bold
     marginBottom: 10, // Reduced from 12
     letterSpacing: 0.5,
   },
   aboutText: {
-    color: SepiaColors.text.secondary,
+    color: colors.text.secondary,
     fontSize: 14, // Reduced from 16
     textAlign: 'center',
     lineHeight: 22, // Reduced from 24
@@ -1898,14 +1955,14 @@ const styles = StyleSheet.create({
     // Remove all shadow/elevation properties for clean look
   },
   supportButtonText: {
-    color: SepiaColors.text.inverse,
+    color: colors.text.inverse,
     fontSize: 15, // Reduced from 16
     fontWeight: '700', // Increased from bold
     marginLeft: 6, // Reduced from 8
     letterSpacing: 0.3,
   },
   settingDescription: {
-    color: SepiaColors.text.tertiary,
+    color: colors.text.tertiary,
     fontSize: 13, // Reduced from 14
     marginTop: 3, // Reduced from 4
     letterSpacing: 0.3,
@@ -1934,7 +1991,7 @@ const styles = StyleSheet.create({
     // Remove all shadow/elevation properties for clean look
   },
   testButtonText: {
-    color: SepiaColors.text.inverse,
+    color: colors.text.inverse,
     fontSize: 14, // Reduced from 16
     fontWeight: '700', // Increased from bold
     marginLeft: 6, // Reduced from 8
@@ -1953,7 +2010,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(218, 165, 32, 0.1)', // Subtle gold highlight
   },
   languageName: {
-    color: SepiaColors.text.primary,
+    color: colors.text.primary,
     fontSize: 16, // Reduced from 18
     fontWeight: '600', // Increased from 500
     letterSpacing: 0.3,
@@ -1972,7 +2029,7 @@ const styles = StyleSheet.create({
     marginTop: 12, // Reduced from 16
   },
   updateLocationButtonText: {
-    color: SepiaColors.text.inverse,
+    color: colors.text.inverse,
     fontSize: 14, // Reduced from 16
     fontWeight: '700', // Increased from bold
     marginLeft: 6, // Reduced from 8
@@ -1990,9 +2047,10 @@ const styles = StyleSheet.create({
   soundPrefTextContainer: {
     flex: 1,
     paddingRight: 12, // Reduced from 16
-    backgroundColor: 'rgba(255, 255, 255, 0.03)', // Subtle background
+    backgroundColor: faintLayer, // Subtle background themed
     borderRadius: 12,
     padding: 8,
     marginRight: 8,
   },
-});
+  });
+};

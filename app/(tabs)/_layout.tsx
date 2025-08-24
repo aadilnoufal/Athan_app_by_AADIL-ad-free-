@@ -4,11 +4,14 @@ import { FontAwesome } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useEffect, useState } from 'react';
 import { SepiaColors } from '../../constants/sepiaColors';
+import { useTheme } from '../../contexts/ThemeContext';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const insets = useSafeAreaInsets();
+  const { colors, isDark: themeIsDark } = useTheme();
+  const darkMode = themeIsDark; // prefer theme toggle over system
   
   // Dynamic screen dimensions that update on orientation change
   const [screenData, setScreenData] = useState(Dimensions.get('window'));
@@ -71,11 +74,11 @@ export default function TabLayout() {
       <Tabs
         screenOptions={{
           headerShown: false, // This hides the header for all tab screens
-          tabBarActiveTintColor: SepiaColors.accent.gold, // Gold for active tabs
-          tabBarInactiveTintColor: SepiaColors.text.secondary, // Elegant muted color for inactive tabs
+          tabBarActiveTintColor: darkMode ? colors.accent.gold : SepiaColors.accent.gold,
+          tabBarInactiveTintColor: darkMode ? colors.text.tertiary : SepiaColors.text.secondary,
           tabBarStyle: {
-            backgroundColor: SepiaColors.surface.elevated, // Use sepia surface color instead of transparent
-            borderTopColor: SepiaColors.border.accent, // Light gold border
+            backgroundColor: darkMode ? colors.surface.elevated : SepiaColors.surface.elevated,
+            borderTopColor: darkMode ? colors.border.accent : SepiaColors.border.accent,
             borderTopWidth: 0.5,
             height: getTabBarHeight(), // Height includes safe area insets
             paddingTop: padding.top,
@@ -87,9 +90,9 @@ export default function TabLayout() {
             left: 0,
             right: 0,
             // Soft sepia shadow
-            shadowColor: SepiaColors.shadow.light,
+            shadowColor: darkMode ? colors.shadow.dark : SepiaColors.shadow.light,
             shadowOffset: { width: 0, height: -1 },
-            shadowOpacity: 0.1,
+            shadowOpacity: darkMode ? 0.35 : 0.1,
             shadowRadius: 8,
             elevation: 3,
           },

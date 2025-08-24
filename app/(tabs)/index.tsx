@@ -37,6 +37,7 @@ import { useLanguage } from '../../contexts/LanguageContext';
 import { applyTuningParameters, applyLocalDataCityAdjustments, extractCityIdFromRegionId } from '../../utils/prayerTimeTuner';
 import { getPrayerTimesFromLocalData, hasLocalDataForDate } from '../../utils/localPrayerData';
 import { SepiaColors } from '../../constants/sepiaColors';
+import { useTheme } from '../../contexts/ThemeContext';
 
 // Get screen dimensions for magical effects
 const { width: screenWidth } = Dimensions.get('window');
@@ -137,6 +138,432 @@ interface NotificationSettings {
 }
 
 export default function Home() {
+  // Theme integration (phase 1)
+  const { colors, isDark, toggleTheme } = useTheme();
+  // Shorthand alias used during gradual migration from static SepiaColors styles
+  const C = colors;
+  // Dynamic themed styles (migrated from static StyleSheet at file end) so dark mode uses proper contrast
+  const styles = React.useMemo(() => StyleSheet.create({
+    safeArea: {
+      flex: 1,
+      backgroundColor: C.background.primary,
+    },
+    container: {
+      flex: 1,
+      paddingHorizontal: 12,
+      paddingTop: 0,
+      paddingBottom: 90,
+      backgroundColor: 'transparent',
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: 4,
+      paddingHorizontal: 2,
+    },
+    headerTitle: {
+      fontSize: 18,
+      fontWeight: '600',
+      color: C.text.primary,
+      flex: 1,
+    },
+    headerButtons: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'flex-end',
+      paddingRight: 0,
+      flexShrink: 0,
+    },
+    refreshButton: {
+      backgroundColor: `${C.surface.secondary}CC`,
+      padding: 6,
+      borderRadius: 20,
+      marginRight: 6,
+      borderWidth: 1,
+      borderColor: C.border.light,
+    },
+    rotating: { transform: [{ rotate: '45deg' }] },
+    donateButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: C.accent.gold,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 20,
+    },
+    donateText: {
+      color: C.text.inverse,
+      marginLeft: 6,
+      fontWeight: 'bold',
+      letterSpacing: 0.5,
+    },
+    locationContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: 8,
+      backgroundColor: `${C.surface.secondary}AA`,
+      borderBottomWidth: 1,
+      borderBottomColor: `${C.border.light}80`,
+    },
+    locationText: {
+      color: C.text.primary,
+      marginLeft: 8,
+      fontSize: 16,
+      fontWeight: '500',
+      letterSpacing: 0.5,
+      textTransform: 'capitalize',
+    },
+    dateNav: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      backgroundColor: `${C.surface.elevated}88`,
+      borderBottomWidth: 1,
+      borderBottomColor: `${C.border.light}60`,
+    },
+    navButton: {
+      padding: 4,
+      borderRadius: 20,
+      backgroundColor: C.surface.secondary,
+      borderWidth: 1,
+      borderColor: C.border.light,
+    },
+    dateText: {
+      color: C.text.primary,
+      fontSize: 16,
+      fontWeight: 'bold',
+      letterSpacing: 0.5,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: C.background.primary,
+    },
+    loadingText: {
+      color: C.text.secondary,
+      marginTop: 16,
+      fontSize: 16,
+      letterSpacing: 0.5,
+    },
+    scrollView: { flex: 1, width: '100%' },
+    scrollViewContent: { paddingHorizontal: 8, paddingBottom: 120 },
+    dateContainer: {
+      marginVertical: 6,
+      borderRadius: 16,
+      overflow: 'hidden',
+      backgroundColor: `${C.surface.primary}DD`,
+    },
+    dateInnerContainer: {
+      padding: 8,
+      alignItems: 'center',
+      backgroundColor: `${C.surface.elevated}BB`,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: `${C.border.accent}60`,
+    },
+    gregorianDate: {
+      color: C.text.primary,
+      fontSize: 16,
+      fontWeight: 'bold',
+      letterSpacing: 0.5,
+    },
+    hijriDate: {
+      color: C.text.secondary,
+      fontSize: 12,
+      marginTop: 4,
+      fontWeight: '400',
+      letterSpacing: 0.5,
+    },
+    countdownContainer: {
+      padding: 12,
+      alignItems: 'center',
+      backgroundColor: C.surface.primary,
+      margin: 12,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: C.border.medium,
+    },
+    nextPrayerText: {
+      color: C.text.primary,
+      fontSize: 16,
+      textAlign: 'center',
+      letterSpacing: 0.5,
+      fontWeight: '500',
+    },
+    nextPrayerTime: {
+      color: C.accent.gold,
+      fontSize: 26,
+      fontWeight: 'bold',
+      marginVertical: 6,
+      textAlign: 'center',
+      letterSpacing: 1,
+    },
+    countdownText: {
+      color: C.text.primary,
+      fontSize: 42,
+      fontWeight: '300',
+      letterSpacing: 2,
+      textAlign: 'center',
+    },
+    timesContainer: { paddingHorizontal: 4, paddingVertical: 10 },
+    prayerItem: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: 14,
+      paddingHorizontal: 16,
+      backgroundColor: `${C.surface.primary}CC`,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: `${C.border.light}80`,
+    },
+    nextPrayerItem: {
+      backgroundColor: `${C.special.highlight}EE`,
+      borderWidth: 0.5,
+      borderColor: C.accent.gold,
+    },
+    prayerNameContainer: { flexDirection: 'row', alignItems: 'center' },
+    iconContainer: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: C.surface.secondary,
+      borderWidth: 1,
+      borderColor: C.border.medium,
+    },
+    prayerName: {
+      color: C.text.primary,
+      fontSize: 16,
+      marginLeft: 12,
+      fontWeight: '500',
+      letterSpacing: 0.5,
+    },
+    prayerTime: {
+      color: C.accent.gold,
+      fontSize: 16,
+      fontWeight: 'bold',
+      letterSpacing: 0.5,
+    },
+    circularCountdownContainer: {
+      alignItems: 'center',
+      backgroundColor: C.surface.transparent,
+      borderWidth: 1,
+      borderColor: C.border.light,
+    },
+    progressCenter: {
+      position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+      justifyContent: 'center', alignItems: 'center', padding: 10,
+    },
+    footer: {
+      marginTop: 24, marginBottom: 16, alignItems: 'center', paddingVertical: 12,
+      borderTopWidth: 1, borderTopColor: C.border.light,
+    },
+    modalOverlay: {
+      flex: 1, backgroundColor: `${C.text.primary}70`, justifyContent: 'center', alignItems: 'center', padding: 20,
+    },
+    modalContent: {
+      width: '90%', backgroundColor: C.surface.elevated, borderRadius: 16, borderWidth: 1,
+      borderColor: C.border.medium, overflow: 'hidden', maxHeight: '70%',
+    },
+    modalHeader: {
+      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+      padding: 16, borderBottomWidth: 1, borderBottomColor: C.border.light,
+    },
+    modalTitle: { color: C.text.primary, fontSize: 20, fontWeight: 'bold', letterSpacing: 0.5 },
+    regionItem: {
+      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+      padding: 16, borderBottomWidth: 1, borderBottomColor: C.border.light,
+    },
+    selectedRegionItem: { backgroundColor: C.special.highlight },
+    regionName: { color: C.text.primary, fontSize: 18, letterSpacing: 0.5 },
+    selectedRegionName: { color: C.accent.gold, fontWeight: 'bold' },
+    dropdownIcon: { marginLeft: 'auto', marginRight: 10 },
+    settingsButton: {
+      backgroundColor: C.surface.secondary, padding: 10, borderRadius: 20, marginRight: 10,
+      borderWidth: 0.5, borderColor: C.border.light,
+    },
+    countdownLoading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 6 },
+    countdownLoadingText: { color: C.text.secondary, fontSize: 16, marginLeft: 6, opacity: 0.8 },
+    languageButton: {
+      backgroundColor: C.surface.secondary, padding: 8, borderRadius: 20, marginRight: 4,
+      borderWidth: 0.5, borderColor: C.border.light, alignItems: 'center', justifyContent: 'center', width: 36, height: 36,
+    },
+    languageItem: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16,
+      borderBottomWidth: 1, borderBottomColor: C.border.light,
+    },
+    selectedLanguageItem: { backgroundColor: C.special.highlight },
+    languageName: { color: C.text.primary, fontSize: 18, letterSpacing: 0.5 },
+    selectedLanguageName: { color: C.accent.gold, fontWeight: 'bold' },
+    contentContainer: { flex: 1, width: '100%', backgroundColor: 'transparent' },
+    progressIndicatorText: {
+      color: C.accent.gold, fontSize: 12, marginTop: 4, fontWeight: '500', letterSpacing: 0.5, opacity: 0.8,
+    },
+    sparkle: { position: 'absolute', zIndex: 1 },
+    magicalHeader: {
+      position: 'relative', paddingVertical: 8, paddingHorizontal: 12, marginBottom: 0, borderRadius: 20,
+      backgroundColor: 'transparent', borderWidth: 0, borderColor: 'transparent', overflow: 'hidden',
+    },
+    headerGlow: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: C.accent.gold, borderRadius: 20 },
+    headerStar: { position: 'absolute', zIndex: 2 },
+    magicalFooter: {
+      position: 'relative', paddingVertical: 15, paddingHorizontal: 20, marginTop: 20, marginBottom: 10, borderRadius: 20,
+      backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+      borderWidth: 0.5, borderColor: isDark ? 'rgba(218,165,32,0.1)' : 'rgba(218,165,32,0.2)', overflow: 'hidden',
+    },
+    footerShimmer: { position: 'absolute', top: 0, bottom: 0, width: 100, backgroundColor: 'transparent' },
+    footerElement: { position: 'absolute', zIndex: 2 },
+    footerContent: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', zIndex: 3, position: 'relative' },
+    footerMoon: { marginRight: 10 },
+    footerText: { color: C.text.secondary, fontSize: 14, fontWeight: '500', letterSpacing: 0.5, textAlign: 'center', flex: 1 },
+    footerStar: { marginLeft: 10 },
+    enhancedCircularContainer: { alignItems: 'center', justifyContent: 'center', marginVertical: 20, position: 'relative' },
+    circularGlow: { position: 'absolute', backgroundColor: C.accent.gold, opacity: 0.05 },
+    circularProgress: { position: 'relative', zIndex: 2 },
+    circularContent: { position: 'absolute', alignItems: 'center', justifyContent: 'center', zIndex: 3 },
+    nextPrayerLabel: { color: C.text.tertiary, fontSize: 12, marginBottom: 4, fontWeight: '500', letterSpacing: 1, textTransform: 'uppercase' },
+    nextPrayerName: { color: C.text.primary, fontSize: 20, fontWeight: 'bold', marginBottom: 4, letterSpacing: 0.5 },
+    countdown: { color: C.accent.gold, fontSize: 18, fontWeight: '600', marginTop: 8, letterSpacing: 0.5, textAlign: 'center', minHeight: 22 },
+    activeIconContainer: { backgroundColor: C.special.highlight },
+    activePrayerName: { color: C.accent.darkGold, fontWeight: 'bold' },
+    activePrayerTime: { color: C.accent.amber, fontWeight: 'bold', fontSize: 18 },
+    buttonShimmer: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(255,220,140,0.15)', borderRadius: 8 },
+    headerSection: { marginBottom: 8 },
+    enhancedLocationContainer: {
+  flexDirection: 'row', alignItems: 'center', backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : SepiaColors.surface.secondary,
+      borderRadius: 16, paddingVertical: 14, paddingHorizontal: 18, marginTop: 0, borderWidth: 0.5,
+  borderColor: isDark ? 'rgba(218,165,32,0.2)' : SepiaColors.border.light,
+    },
+    locationIconWrapper: {
+      width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(218,165,32,0.1)', alignItems: 'center', justifyContent: 'center', marginRight: 12,
+    },
+    locationTextWrapper: { flex: 1 },
+    locationLabel: { color: C.text.tertiary, fontSize: 12, fontWeight: '500', letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 2 },
+    locationActionWrapper: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
+    dateNavigationSection: { marginBottom: 8 },
+    enhancedDateNav: {
+  flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+  backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : SepiaColors.surface.primary, borderRadius: 20, paddingVertical: 12, paddingHorizontal: 16,
+  borderWidth: 0.5, borderColor: isDark ? 'rgba(218,165,32,0.15)' : SepiaColors.border.light,
+    },
+    dateDisplayContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20 },
+    primaryDateText: { color: C.text.primary, fontSize: 18, fontWeight: '700', letterSpacing: 0.5, textAlign: 'center' },
+    secondaryDateText: { color: C.text.secondary, fontSize: 13, fontWeight: '500', letterSpacing: 0.3, textAlign: 'center', marginTop: 2, opacity: 0.8 },
+    hijriDateText: { color: C.accent.amber, fontSize: 11, fontWeight: '400', letterSpacing: 0.2, textAlign: 'center', marginTop: 1, opacity: 0.9 },
+    enhancedContentContainer: { flex: 1, backgroundColor: 'transparent' },
+    enhancedLoadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 60 },
+    loadingIconWrapper: {
+      backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)', borderRadius: 30, padding: 20, marginBottom: 20,
+      borderWidth: 0.5, borderColor: 'rgba(218,165,32,0.2)',
+    },
+    enhancedLoadingText: { color: C.text.primary, fontSize: 16, fontWeight: '600', textAlign: 'center', marginBottom: 8, letterSpacing: 0.3 },
+    loadingSubtext: { color: C.text.secondary, fontSize: 14, textAlign: 'center', opacity: 0.7, letterSpacing: 0.2 },
+    enhancedScrollView: { flex: 1 },
+    enhancedScrollViewContent: { paddingBottom: 40 },
+    enhancedDateContainer: {
+      backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)', borderRadius: 16, marginBottom: 12, borderWidth: 0.5,
+      borderColor: 'rgba(218,165,32,0.15)', overflow: 'hidden',
+    },
+    dateCardContent: { padding: 12 },
+    gregorianDateSection: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
+    enhancedGregorianDate: { color: C.text.primary, fontSize: 14, fontWeight: '600', marginLeft: 8, letterSpacing: 0.3 },
+    hijriDateSection: { flexDirection: 'row', alignItems: 'center' },
+    enhancedHijriDate: { color: C.text.secondary, fontSize: 12, fontWeight: '500', marginLeft: 8, letterSpacing: 0.2, opacity: 0.9 },
+    countdownSection: { alignItems: 'center', marginBottom: 15 },
+    enhancedTimesContainer: {
+      backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : SepiaColors.surface.primary,
+      borderRadius: 20, padding: 12, marginBottom: 12,
+      borderWidth: 0.5, borderColor: isDark ? 'rgba(218,165,32,0.15)' : SepiaColors.border.light,
+    },
+    timesHeader: {
+      flexDirection: 'row', alignItems: 'center', marginBottom: 10, paddingBottom: 8, borderBottomWidth: 0.5,
+      borderBottomColor: 'rgba(218,165,32,0.15)',
+    },
+    timesHeaderText: { color: C.text.primary, fontSize: 18, fontWeight: '700', marginLeft: 10, letterSpacing: 0.5 },
+    prayerTimesGrid: { gap: 8 },
+    enhancedPrayerItem: {
+      backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : SepiaColors.surface.secondary,
+      borderRadius: 16, padding: 12, borderWidth: 0.5,
+      borderColor: isDark ? 'rgba(218,165,32,0.1)' : SepiaColors.border.light,
+      position: 'relative', overflow: 'hidden',
+    },
+    enhancedNextPrayerItem: { 
+      backgroundColor: isDark ? 'rgba(218,165,32,0.06)' : `${SepiaColors.special.highlight}CC`, 
+      borderColor: isDark ? 'rgba(218,165,32,0.25)' : SepiaColors.border.accent 
+    },
+    prayerItemHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+    enhancedIconContainer: {
+      width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(218,165,32,0.08)', alignItems: 'center', justifyContent: 'center',
+      marginRight: 12, borderWidth: 0.5, borderColor: 'rgba(218,165,32,0.15)'
+    },
+    activeEnhancedIconContainer: { backgroundColor: 'rgba(218,165,32,0.15)', borderColor: 'rgba(218,165,32,0.3)' },
+    enhancedPrayerName: { color: C.text.primary, fontSize: 16, fontWeight: '600', letterSpacing: 0.3, flex: 1 },
+    activeEnhancedPrayerName: { color: C.accent.darkGold, fontWeight: '700' },
+    prayerTimeWrapper: { alignItems: 'flex-end' },
+    enhancedPrayerTime: { color: C.text.primary, fontSize: 18, fontWeight: '600', letterSpacing: 0.5, textAlign: 'right' },
+    activeEnhancedPrayerTime: { color: C.accent.amber, fontWeight: '700', fontSize: 20 },
+    nextIndicator: {
+      flexDirection: 'row', alignItems: 'center', marginTop: 4, backgroundColor: 'rgba(218,165,32,0.12)',
+      paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10,
+    },
+    nextIndicatorText: { color: C.accent.darkGold, fontSize: 10, fontWeight: '600', marginLeft: 4, letterSpacing: 0.5, textTransform: 'uppercase' },
+    // Compact header additions
+    compactHeaderWrapper: {
+      marginBottom: 8,
+      paddingHorizontal: 4,
+      gap: 6,
+    },
+    compactHeaderTopRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 8,
+    },
+    compactLocationButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flexShrink: 1,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : SepiaColors.surface.secondary,
+      borderRadius: 14,
+      gap: 6,
+      borderWidth: 0.5,
+      borderColor: isDark ? 'rgba(218,165,32,0.2)' : SepiaColors.border.light,
+      minWidth: 120,
+      maxWidth: '55%',
+    },
+    compactLocationText: {
+      flex: 1,
+      color: C.text.primary,
+      fontSize: 13,
+      fontWeight: '500',
+    },
+    compactDateRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : SepiaColors.surface.primary,
+      borderRadius: 16,
+      paddingVertical: 8,
+      paddingHorizontal: 10,
+      borderWidth: 0.5,
+      borderColor: isDark ? 'rgba(218,165,32,0.15)' : SepiaColors.border.light,
+      gap: 8,
+    },
+    compactDateCenter: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 4,
+    },
+  }), [C, isDark]);
   const router = useRouter();
   const { t, currentLang, changeLanguage, availableLanguages } = useLanguage();
   
@@ -266,19 +693,27 @@ export default function Home() {
   // Time-based gradient colors for dynamic backgrounds
   const getTimeBasedGradient = () => {
     const hour = new Date().getHours();
-    
+    // Provide a simplified darker gradient palette when in dark mode for better contrast
+    if (isDark) {
+      // Subtle variation using current theme colors (no hard-coded dark hexes here)
+      return [
+        C.background.primary,
+        C.background.secondary,
+        C.surface.primary
+      ];
+    }
     if (hour >= 5 && hour < 7) { // Fajr time - ultra soft dawn
-      return [SepiaColors.background.primary, SepiaColors.background.secondary, SepiaColors.surface.secondary];
+      return [C.background.primary, C.background.secondary, C.surface.secondary];
     } else if (hour >= 7 && hour < 12) { // Morning - ultra light warm
-      return [SepiaColors.background.primary, SepiaColors.surface.elevated, SepiaColors.background.tertiary];
+      return [C.background.primary, C.surface.elevated, C.background.tertiary];
     } else if (hour >= 12 && hour < 15) { // Midday - bright light sepia
-      return [SepiaColors.surface.elevated, SepiaColors.background.secondary, SepiaColors.surface.secondary];
+      return [C.surface.elevated, C.background.secondary, C.surface.secondary];
     } else if (hour >= 15 && hour < 18) { // Afternoon - light golden sepia
-      return [SepiaColors.background.secondary, SepiaColors.background.tertiary, SepiaColors.surface.secondary];
+      return [C.background.secondary, C.background.tertiary, C.surface.secondary];
     } else if (hour >= 18 && hour < 20) { // Maghrib - light sunset sepia
-      return [SepiaColors.background.tertiary, SepiaColors.surface.secondary, '#F5F1E6'];
+      return [C.background.tertiary, C.surface.secondary, '#F5F1E6'];
     } else { // Night/Isha - slightly deeper but still light sepia
-      return [SepiaColors.surface.secondary, SepiaColors.surface.secondary, '#F2EEE1'];
+      return [C.surface.secondary, C.surface.secondary, '#F2EEE1'];
     }
   };
 
@@ -308,7 +743,7 @@ export default function Home() {
         <MaterialCommunityIcons 
           name="star-four-points" 
           size={12 + (index % 3) * 4} 
-          color={SepiaColors.accent.gold} 
+          color={C.accent.gold} 
           style={{ opacity: 0.6 }}
         />
       </Animated.View>
@@ -362,7 +797,7 @@ export default function Home() {
             <MaterialCommunityIcons 
               name={index % 2 === 0 ? "star" : "star-four-points"} 
               size={8 + (index % 2) * 4} 
-              color={SepiaColors.accent.gold} 
+              color={C.accent.gold} 
               style={{ opacity: 0.7 }}
             />
           </Animated.View>
@@ -404,7 +839,7 @@ export default function Home() {
               <MaterialCommunityIcons 
                 name="refresh" 
                 size={20} 
-                color={SepiaColors.accent.gold} 
+                color={C.accent.gold} 
               />
             </Animated.View>
           </MagicalButton>
@@ -412,22 +847,13 @@ export default function Home() {
           <MagicalButton
             onPress={openDonation}
             style={styles.donateButton}
-            glowColor={SepiaColors.accent.amber}
+            glowColor={C.accent.amber}
           >
-            <MaterialCommunityIcons name="gift" size={20} color={SepiaColors.text.inverse} />
+            <MaterialCommunityIcons name="gift" size={20} color={C.text.inverse} />
             <Text style={styles.donateText}>{t('supportApp')}</Text>
           </MagicalButton>
           
-          <MagicalButton
-            onPress={toggleLanguageSelector}
-            style={styles.languageButton}
-          >
-            <MaterialCommunityIcons 
-              name="web" 
-              size={20} 
-              color={SepiaColors.accent.gold} 
-            />
-          </MagicalButton>
+          {/* Language selector removed (moved to Settings screen) */}
         </View>
       </View>
     </Animated.View>
@@ -528,7 +954,7 @@ export default function Home() {
           <MaterialCommunityIcons 
             name="moon-waning-crescent" 
             size={24} 
-            color={SepiaColors.accent.amber}
+            color={C.accent.amber}
             style={{ opacity: 0.8 }}
           />
         </Animated.View>
@@ -557,7 +983,7 @@ export default function Home() {
           <MaterialCommunityIcons 
             name="star-four-points" 
             size={20} 
-            color={SepiaColors.accent.gold}
+            color={C.accent.gold}
             style={{ opacity: 0.7 }}
           />
         </Animated.View>
@@ -572,7 +998,7 @@ export default function Home() {
     disabled = false, 
     style, 
     children, 
-    glowColor = SepiaColors.accent.gold,
+  glowColor = C.accent.gold,
     pulseSize = 1.1 
   }: {
     onPress?: () => void;
@@ -600,7 +1026,7 @@ export default function Home() {
         disabled={disabled}
         style={[
           {
-            backgroundColor: SepiaColors.surface.transparent,
+      backgroundColor: C.surface.transparent,
             borderWidth: 0.5,
             borderColor: `${glowColor}30`,
             borderRadius: 12,
@@ -655,6 +1081,7 @@ export default function Home() {
         }
       ]}
       glowColor={disabled ? SepiaColors.special.disabled : SepiaColors.accent.gold}
+  // TODO: migrate remaining SepiaColors within styles at bottom to use theme
     >
       <Animated.View
         style={[
@@ -2962,16 +3389,16 @@ export default function Home() {
 
   // Render the UI
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: isDark ? colors.background.primary : SepiaColors.background.primary }]} edges={['top', 'left', 'right']}>
       {Platform.OS === 'android' ? (
         <View style={{ 
-          height: StatusBar.currentHeight || 20, // Reduced default height from 24 to 20
-          backgroundColor: SepiaColors.background.primary 
+          height: StatusBar.currentHeight || 20,
+          backgroundColor: isDark ? colors.background.primary : SepiaColors.background.primary 
         }} />
       ) : (
         <StatusBar 
-          barStyle="dark-content" 
-          backgroundColor={SepiaColors.background.primary} 
+          barStyle={isDark ? 'light-content' : 'dark-content'} 
+          backgroundColor={isDark ? colors.background.primary : SepiaColors.background.primary} 
         />
       )}
       
@@ -2984,7 +3411,7 @@ export default function Home() {
        
       {/* ✨ MAGICAL GRADIENT BACKGROUND ✨ */}
       <ExpoLinearGradient
-        colors={getTimeBasedGradient() as any}
+        colors={isDark ? [colors.background.primary, colors.background.secondary, colors.background.tertiary] : (getTimeBasedGradient() as any)}
         style={StyleSheet.absoluteFillObject}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
@@ -3005,13 +3432,11 @@ export default function Home() {
         {/* Language Selector Modal */}
         <LanguageSelector />
         
-        {/* ✨ ENHANCED MAGICAL HEADER SECTION ✨ */}
-        <View style={styles.headerSection}>
+        {/* Reverted: separate header + location + date nav (tightened spacing) */}
+        <View style={[styles.headerSection, { marginBottom: 4 }]}> 
           <MagicalHeader />
-          
-          {/* ✨ ELEGANT LOCATION SELECTOR ✨ */}
           <MagicalButton 
-            style={styles.enhancedLocationContainer} 
+            style={[styles.enhancedLocationContainer, { paddingVertical: 10, marginTop: 4 }]}
             onPress={() => router.push('/settings')}
             disabled={regionChanging}
             glowColor={SepiaColors.accent.amber}
@@ -3021,7 +3446,7 @@ export default function Home() {
             </View>
             <View style={styles.locationTextWrapper}>
               <Text style={styles.locationLabel}>Location</Text>
-              <Text style={styles.locationText}>
+              <Text style={styles.locationText} numberOfLines={1}>
                 {regionChanging ? 'Changing location...' : (getRegionConfig(regionId)?.name || location)}
               </Text>
             </View>
@@ -3029,50 +3454,26 @@ export default function Home() {
               {regionChanging ? (
                 <ActivityIndicator size="small" color={SepiaColors.accent.gold} />
               ) : (
-                <MaterialCommunityIcons 
-                  name="chevron-right" 
-                  size={20} 
-                  color={SepiaColors.accent.gold} 
-                />
+                <MaterialCommunityIcons name="chevron-right" size={20} color={SepiaColors.accent.gold} />
               )}
             </View>
           </MagicalButton>
         </View>
-        
-        {/* ✨ COMPACT DATE NAVIGATION & DISPLAY SECTION ✨ */}
-        <View style={styles.dateNavigationSection}>
-          <View style={styles.enhancedDateNav}>
-            <MagicalArrowButton 
-              direction="left"
-              onPress={goToPreviousDay}
-              disabled={currentDay === 0}
-              iconName="chevron-left"
-            />
+        <View style={[styles.dateNavigationSection, { marginBottom: 8 }]}> 
+          <View style={[styles.enhancedDateNav, { paddingVertical: 10 }]}> 
+            <MagicalArrowButton direction="left" onPress={goToPreviousDay} disabled={currentDay === 0} iconName="chevron-left" />
             <View style={styles.dateDisplayContainer}>
               <Text style={styles.primaryDateText}>
-                {currentDay === 0 
-                  ? t('today')
-                  : currentDay === 1 
-                    ? t('tomorrow')
-                    : `+${currentDay} ${t('days')}`}
+                {currentDay === 0 ? t('today') : currentDay === 1 ? t('tomorrow') : `+${currentDay} ${t('days')}`}
               </Text>
               {prayerTimes?.date && (
                 <>
-                  <Text style={styles.secondaryDateText}>
-                    {format(addDays(new Date(), currentDay), 'MMM dd, yyyy')}
-                  </Text>
-                  <Text style={styles.hijriDateText}>
-                    {prayerTimes.hijriDate} {prayerTimes.hijriMonth}
-                  </Text>
+                  <Text style={styles.secondaryDateText}>{format(addDays(new Date(), currentDay), 'MMM dd, yyyy')}</Text>
+                  <Text style={styles.hijriDateText}>{prayerTimes.hijriDate} {prayerTimes.hijriMonth}</Text>
                 </>
               )}
             </View>
-            <MagicalArrowButton 
-              direction="right"
-              onPress={goToNextDay}
-              disabled={currentDay === 9}
-              iconName="chevron-right"
-            />
+            <MagicalArrowButton direction="right" onPress={goToNextDay} disabled={currentDay === 9} iconName="chevron-right" />
           </View>
         </View>
         
@@ -3179,7 +3580,10 @@ export default function Home() {
                           </View>
                           <Text style={[
                             styles.enhancedPrayerName,
-                            nextPrayer && nextPrayer.name === prayer && currentDay === 0 && styles.activeEnhancedPrayerName
+                            // Apply active style for next prayer
+                            nextPrayer && nextPrayer.name === prayer && currentDay === 0 && styles.activeEnhancedPrayerName,
+                            // Dark mode accessibility: ensure strong contrast
+                            isDark && { color: C.text.primary }
                           ]}>
                             {t(prayer)}
                           </Text>
@@ -3188,7 +3592,8 @@ export default function Home() {
                         <View style={styles.prayerTimeWrapper}>
                           <Text style={[
                             styles.enhancedPrayerTime,
-                            nextPrayer && nextPrayer.name === prayer && currentDay === 0 && styles.activeEnhancedPrayerTime
+                            nextPrayer && nextPrayer.name === prayer && currentDay === 0 && styles.activeEnhancedPrayerTime,
+                            isDark && { color: nextPrayer && nextPrayer.name === prayer && currentDay === 0 ? C.accent.amber : C.text.secondary }
                           ]}>
                             {prayerTimes.times12h ? prayerTimes.times12h[prayer] : convertTo12HourFormat(time)}
                           </Text>
@@ -3976,21 +4381,23 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(218, 165, 32, 0.3)',
   },
   enhancedPrayerName: {
-    color: SepiaColors.text.primary,
+  // Base (light theme) color; dark theme overrides applied inline for accessibility
+  color: SepiaColors.text.primary,
     fontSize: 16,
     fontWeight: '600',
     letterSpacing: 0.3,
     flex: 1,
   },
   activeEnhancedPrayerName: {
-    color: SepiaColors.accent.darkGold,
+  color: SepiaColors.accent.darkGold,
     fontWeight: '700',
   },
   prayerTimeWrapper: {
     alignItems: 'flex-end',
   },
   enhancedPrayerTime: {
-    color: SepiaColors.text.primary,
+  // Base (light theme) color; dark theme overrides applied inline for accessibility
+  color: SepiaColors.text.primary,
     fontSize: 18,
     fontWeight: '600',
     letterSpacing: 0.5,

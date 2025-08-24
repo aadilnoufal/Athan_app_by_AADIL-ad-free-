@@ -38,13 +38,6 @@ export default {
   testSound: 'Test Sound',
   testInAppAlert: 'Test In-App Alert',
   
-  // Theme settings
-  theme: 'Theme',
-  darkMode: 'Dark Mode',
-  lightMode: 'Light Mode',
-  switchToDark: 'Switch to Dark Mode',
-  switchToLight: 'Switch to Light Mode',
-  
   // Location settings
   locationSettings: 'Location Settings',
   selectLocation: 'Select your location to get accurate prayer times.',

@@ -9,6 +9,7 @@ import Constants from 'expo-constants';
 import { playPrayerSound, preloadSounds, unloadSounds } from '../utils/audioHelper';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { LanguageProvider } from '../contexts/LanguageContext';
+import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
 
 // Configure notifications to always show in foreground
 Notifications.setNotificationHandler({
@@ -69,7 +70,7 @@ function InAppNotification({ title, body, onClose }: { title: string; body: stri
   );
 }
 
-export default function RootLayout() {
+function InnerLayout() {
   const [notification, setNotification] = useState<{title: string; body: string; data?: any} | null>(null);
   const [lastReceivedAt, setLastReceivedAt] = useState(0); // Track when last notification was received
   const [assetsLoaded, setAssetsLoaded] = useState(false);
@@ -231,6 +232,14 @@ export default function RootLayout() {
         )}
       </SafeAreaProvider>
     </LanguageProvider>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <ThemeProvider>
+      <InnerLayout />
+    </ThemeProvider>
   );
 }
 
