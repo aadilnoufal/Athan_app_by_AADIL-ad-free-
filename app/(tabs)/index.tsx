@@ -1,3 +1,60 @@
+// Animated prayer icon component for subtle per-prayer animations
+
+const AnimatedPrayerIcon = ({ prayer, active, size = 24, color }: { prayer: string; active: boolean; size?: number; color: string }) => {
+  const scale = React.useRef(new Animated.Value(1)).current;
+  const rotate = React.useRef(new Animated.Value(0)).current;
+  // Decide if this prayer gets a rotation (sun related) or pulse only
+  const isSolar = prayer === 'Sunrise' || prayer === 'Dhuhr' || prayer === 'Asr';
+
+  React.useEffect(() => {
+    // Clear existing animations (not strictly necessary with loops)
+    scale.stopAnimation();
+    rotate.stopAnimation();
+
+    // Pulse magnitude larger if active
+    const from = 1;
+    const to = active ? 1.18 : 1.06;
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(scale, { toValue: to, duration: active ? 900 : 1600, useNativeDriver: true, easing: Easing.inOut(Easing.quad) }),
+        Animated.timing(scale, { toValue: from, duration: active ? 900 : 1600, useNativeDriver: true, easing: Easing.inOut(Easing.quad) })
+      ])
+    ).start();
+
+    if (isSolar) {
+      // Solar icons rotate moderately
+      Animated.loop(
+        Animated.timing(rotate, { toValue: 1, duration: active ? 10000 : 16000, useNativeDriver: true, easing: Easing.linear })
+      ).start();
+    } else if (prayer === 'Isha' || prayer === 'Maghrib') {
+      // Night related icons (moon / sunset) rotate very slowly for calmer feel
+      Animated.loop(
+        Animated.timing(rotate, { toValue: 1, duration: active ? 18000 : 26000, useNativeDriver: true, easing: Easing.linear })
+      ).start();
+    } else {
+      rotate.setValue(0); // no rotation for others
+    }
+  }, [prayer, active, isSolar]);
+
+  const rotation = rotate.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
+
+  const iconName = (
+    prayer === 'Fajr' ? 'weather-sunset-up' :
+    prayer === 'Sunrise' ? 'white-balance-sunny' :
+    prayer === 'Dhuhr' ? 'sun-wireless' :
+    prayer === 'Asr' ? 'weather-sunny' :
+    prayer === 'Maghrib' ? 'weather-sunset-down' :
+    'weather-night'
+  );
+
+  const transforms: any[] = [{ scale }];
+  if (isSolar) transforms.push({ rotate: rotation });
+  return (
+    <Animated.View style={{ transform: transforms }}>
+      <MaterialCommunityIcons name={iconName as any} size={size} color={color} />
+    </Animated.View>
+  );
+};
 import React, { useState, useEffect, useCallback, useRef, Dispatch, SetStateAction } from 'react';
 import { 
   StyleSheet, 
@@ -1173,18 +1230,11 @@ export default function Home() {
       >
         {nextPrayer && (
           <>
-            <MaterialCommunityIcons 
-              name={
-                nextPrayer.name === 'Fajr' ? 'weather-sunset-up' :
-                nextPrayer.name === 'Sunrise' ? 'white-balance-sunny' :
-                nextPrayer.name === 'Dhuhr' ? 'sun-wireless' :
-                nextPrayer.name === 'Asr' ? 'weather-sunny' :
-                nextPrayer.name === 'Maghrib' ? 'weather-sunset-down' :
-                'weather-night'
-              }
+            <AnimatedPrayerIcon
+              prayer={nextPrayer.name}
+              active={true}
               size={32}
               color={SepiaColors.accent.gold}
-              style={{ marginBottom: 8 }}
             />
             <Text style={styles.nextPrayerLabel}>{t('nextPrayer')}</Text>
             <Text style={styles.nextPrayerName}>{t(nextPrayer.name)}</Text>
@@ -3512,11 +3562,15 @@ export default function Home() {
               {prayerTimes?.times && (
                 <View style={styles.enhancedTimesContainer}>
                   <View style={styles.timesHeader}>
-                    <MaterialCommunityIcons 
-                      name="clock-outline" 
-                      size={20} 
-                      color={SepiaColors.accent.gold} 
-                    />
+                    <Animated.View style={{
+                      transform: [{ rotate: shimmerAnimation.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }],
+                    }}>
+                      <MaterialCommunityIcons 
+                        name="clock-outline" 
+                        size={20} 
+                        color={SepiaColors.accent.gold} 
+                      />
+                    </Animated.View>
                     <Text style={styles.timesHeaderText}>Prayer Times</Text>
                   </View>
                   
@@ -3561,15 +3615,9 @@ export default function Home() {
                             styles.enhancedIconContainer,
                             nextPrayer && nextPrayer.name === prayer && currentDay === 0 && styles.activeEnhancedIconContainer
                           ]}>
-                            <MaterialCommunityIcons 
-                              name={
-                                prayer === 'Fajr' ? 'weather-sunset-up' :
-                                prayer === 'Sunrise' ? 'white-balance-sunny' :
-                                prayer === 'Dhuhr' ? 'sun-wireless' :
-                                prayer === 'Asr' ? 'weather-sunny' :
-                                prayer === 'Maghrib' ? 'weather-sunset-down' :
-                                'weather-night'
-                              }
+                            <AnimatedPrayerIcon
+                              prayer={prayer}
+                              active={!!(nextPrayer && nextPrayer.name === prayer && currentDay === 0)}
                               size={24}
                               color={
                                 nextPrayer && nextPrayer.name === prayer && currentDay === 0 

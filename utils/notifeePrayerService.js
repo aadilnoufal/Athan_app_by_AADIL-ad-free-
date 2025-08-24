@@ -111,7 +111,6 @@ const checkBatteryOptimization = async () => {
                 },
                 style: 'destructive',
               },
-              { text: 'Later', style: 'cancel' },
             ]
           );
         }
@@ -144,7 +143,6 @@ const checkBatteryOptimization = async () => {
                 },
                 style: 'destructive',
               },
-              { text: 'Later', style: 'cancel' },
             ]
           );
         }
@@ -1072,10 +1070,6 @@ export async function checkAndHandleBatteryOptimization() {
             },
             style: 'destructive',
           },
-          {
-            text: 'Later',
-            style: 'cancel',
-          },
         ],
         { cancelable: false }
       );
@@ -1119,10 +1113,6 @@ export async function checkAndHandlePowerManager() {
               console.log('⚡ User chose not to ask about power management again');
             },
             style: 'destructive',
-          },
-          {
-            text: 'Later',
-            style: 'cancel',
           },
         ],
         { cancelable: false }
