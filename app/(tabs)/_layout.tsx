@@ -70,15 +70,15 @@ export default function TabLayout() {
   const padding = getPadding();
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background.primary }]}> {/* Use themed background */}
       <Tabs
         screenOptions={{
           headerShown: false, // This hides the header for all tab screens
-          tabBarActiveTintColor: darkMode ? colors.accent.gold : SepiaColors.accent.gold,
-          tabBarInactiveTintColor: darkMode ? colors.text.tertiary : SepiaColors.text.secondary,
+          tabBarActiveTintColor: colors.accent.gold,
+          tabBarInactiveTintColor: colors.text.tertiary,
           tabBarStyle: {
-            backgroundColor: darkMode ? colors.surface.elevated : SepiaColors.surface.elevated,
-            borderTopColor: darkMode ? colors.border.accent : SepiaColors.border.accent,
+            backgroundColor: colors.surface.elevated,
+            borderTopColor: colors.border.accent,
             borderTopWidth: 0.5,
             height: getTabBarHeight(), // Height includes safe area insets
             paddingTop: padding.top,
@@ -90,10 +90,10 @@ export default function TabLayout() {
             left: 0,
             right: 0,
             // Soft sepia shadow
-            shadowColor: darkMode ? colors.shadow.dark : SepiaColors.shadow.light,
+            shadowColor: colors.shadow.medium,
             shadowOffset: { width: 0, height: -1 },
-            shadowOpacity: darkMode ? 0.35 : 0.1,
-            shadowRadius: 8,
+            shadowOpacity: 0.18,
+            shadowRadius: 10,
             elevation: 3,
           },
           tabBarLabelStyle: {

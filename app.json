@@ -8,8 +8,8 @@
     "userInterfaceStyle": "light",
     "scheme": "prayertimes",
     "splash": {
-      "image": "./assets/images/splash.png",
-      "resizeMode": "contain",
+      "image": "./assets/images/splash_new.png",
+      "resizeMode": "cover",
       "backgroundColor": "#141009"
     },
     "assetBundlePatterns": [

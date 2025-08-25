@@ -1,4 +1,6 @@
 import { Stack } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
+import CustomSplash from '../components/SplashScreen';
 import { StatusBar } from 'expo-status-bar';
 import { useColorScheme, Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
@@ -70,10 +72,15 @@ function InAppNotification({ title, body, onClose }: { title: string; body: stri
   );
 }
 
+// Prevent the native splash from auto-hiding immediately
+SplashScreen.preventAutoHideAsync().catch(() => {});
+
 function InnerLayout() {
   const [notification, setNotification] = useState<{title: string; body: string; data?: any} | null>(null);
   const [lastReceivedAt, setLastReceivedAt] = useState(0); // Track when last notification was received
   const [assetsLoaded, setAssetsLoaded] = useState(false);
+  const [showAnimatedSplash, setShowAnimatedSplash] = useState(true); // JS splash visibility
+  const nativeSplashHiddenRef = useRef(false);
   const notificationListener = useRef<any>(null);
   const responseListener = useRef<any>(null);
   const colorScheme = useColorScheme();
@@ -81,24 +88,35 @@ function InnerLayout() {
   
   // Preload assets when the app loads
   useEffect(() => {
-    async function loadAssets() {
+    // Start loading heavy assets (sounds) but don't block rendering
+    let cancelled = false;
+    (async () => {
       try {
-        // Call preloadSounds from audioHelper
         await preloadSounds();
-        setAssetsLoaded(true);
       } catch (error) {
-        console.error("Error loading assets:", error);
-        // Continue anyway to ensure app loads
-        setAssetsLoaded(true);
+        console.error('Error loading assets:', error);
+      } finally {
+        if (!cancelled) setAssetsLoaded(true);
       }
-    }
-    
-    loadAssets();
-    
-    // Cleanup function
+    })();
     return () => {
+      cancelled = true;
       unloadSounds();
     };
+  }, []);
+
+  // Hide native splash ASAP (after first frame) then show animated JS splash overlay
+  useEffect(() => {
+    const hide = async () => {
+      if (nativeSplashHiddenRef.current) return;
+      try {
+        await SplashScreen.hideAsync();
+      } catch {}
+      nativeSplashHiddenRef.current = true;
+    };
+    // Small timeout ensures React tree mounted
+    const t = setTimeout(hide, 50);
+    return () => clearTimeout(t);
   }, []);
   
   // Helper function to directly show an in-app notification for testing
@@ -201,9 +219,8 @@ function InnerLayout() {
   }
   
   // Don't render anything until assets are loaded
-  if (!assetsLoaded) {
-    return null; // Or a loading screen
-  }
+  // When animated splash finishes (callback), allow app UI.
+  const handleSplashDone = () => setShowAnimatedSplash(false);
   
   return (
     <LanguageProvider>
@@ -223,6 +240,11 @@ function InnerLayout() {
         >
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         </Stack>
+        {showAnimatedSplash && (
+          <View style={splashOverlayStyles.overlay} pointerEvents="none">
+            <CustomSplash onAnimationComplete={handleSplashDone} />
+          </View>
+        )}
         {notification && (
           <InAppNotification 
             title={notification.title}
@@ -287,4 +309,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   }
+});
+
+const splashOverlayStyles = StyleSheet.create({
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#141009',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10000,
+    elevation: 10000,
+  },
 });

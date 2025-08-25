@@ -1,43 +1,45 @@
-// Animated prayer icon component for subtle per-prayer animations
-
-const AnimatedPrayerIcon = ({ prayer, active, size = 24, color }: { prayer: string; active: boolean; size?: number; color: string }) => {
+// Animated prayer icon component (now supports subtle mode for countdown center)
+const AnimatedPrayerIcon = ({ prayer, active, size = 24, color, subtle = false }: { prayer: string; active: boolean; size?: number; color: string; subtle?: boolean }) => {
   const scale = React.useRef(new Animated.Value(1)).current;
   const rotate = React.useRef(new Animated.Value(0)).current;
-  // Decide if this prayer gets a rotation (sun related) or pulse only
   const isSolar = prayer === 'Sunrise' || prayer === 'Dhuhr' || prayer === 'Asr';
 
   React.useEffect(() => {
-    // Clear existing animations (not strictly necessary with loops)
     scale.stopAnimation();
     rotate.stopAnimation();
 
-    // Pulse magnitude larger if active
+    // Subtle mode: keep icon still (outer container may already have breathing animation)
+    if (subtle) {
+      scale.setValue(1);
+      rotate.setValue(0);
+      return;
+    }
+
+    // Reduced pulse magnitude overall
     const from = 1;
-    const to = active ? 1.18 : 1.06;
+    const to = active ? 1.10 : 1.04;
     Animated.loop(
       Animated.sequence([
-        Animated.timing(scale, { toValue: to, duration: active ? 900 : 1600, useNativeDriver: true, easing: Easing.inOut(Easing.quad) }),
-        Animated.timing(scale, { toValue: from, duration: active ? 900 : 1600, useNativeDriver: true, easing: Easing.inOut(Easing.quad) })
+        Animated.timing(scale, { toValue: to, duration: active ? 1400 : 2000, useNativeDriver: true, easing: Easing.inOut(Easing.quad) }),
+        Animated.timing(scale, { toValue: from, duration: active ? 1400 : 2000, useNativeDriver: true, easing: Easing.inOut(Easing.quad) })
       ])
     ).start();
 
+    // Further slow rotation
     if (isSolar) {
-      // Solar icons rotate moderately
       Animated.loop(
-        Animated.timing(rotate, { toValue: 1, duration: active ? 10000 : 16000, useNativeDriver: true, easing: Easing.linear })
+        Animated.timing(rotate, { toValue: 1, duration: active ? 16000 : 22000, useNativeDriver: true, easing: Easing.linear })
       ).start();
     } else if (prayer === 'Isha' || prayer === 'Maghrib') {
-      // Night related icons (moon / sunset) rotate very slowly for calmer feel
       Animated.loop(
-        Animated.timing(rotate, { toValue: 1, duration: active ? 18000 : 26000, useNativeDriver: true, easing: Easing.linear })
+        Animated.timing(rotate, { toValue: 1, duration: active ? 24000 : 32000, useNativeDriver: true, easing: Easing.linear })
       ).start();
     } else {
-      rotate.setValue(0); // no rotation for others
+      rotate.setValue(0);
     }
-  }, [prayer, active, isSolar]);
+  }, [prayer, active, isSolar, subtle]);
 
   const rotation = rotate.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
-
   const iconName = (
     prayer === 'Fajr' ? 'weather-sunset-up' :
     prayer === 'Sunrise' ? 'white-balance-sunny' :
@@ -47,8 +49,9 @@ const AnimatedPrayerIcon = ({ prayer, active, size = 24, color }: { prayer: stri
     'weather-night'
   );
 
-  const transforms: any[] = [{ scale }];
-  if (isSolar) transforms.push({ rotate: rotation });
+  const transforms: any[] = subtle ? [] : [{ scale }];
+  if (!subtle && isSolar) transforms.push({ rotate: rotation });
+
   return (
     <Animated.View style={{ transform: transforms }}>
       <MaterialCommunityIcons name={iconName as any} size={size} color={color} />
@@ -493,9 +496,15 @@ export default function Home() {
     buttonShimmer: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(255,220,140,0.15)', borderRadius: 8 },
     headerSection: { marginBottom: 8 },
     enhancedLocationContainer: {
-  flexDirection: 'row', alignItems: 'center', backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : SepiaColors.surface.secondary,
-      borderRadius: 16, paddingVertical: 14, paddingHorizontal: 18, marginTop: 0, borderWidth: 0.5,
-  borderColor: isDark ? 'rgba(218,165,32,0.2)' : SepiaColors.border.light,
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : C.surface.secondary,
+      borderRadius: 16,
+      paddingVertical: 14,
+      paddingHorizontal: 18,
+      marginTop: 0,
+      borderWidth: 0.5,
+      borderColor: isDark ? 'rgba(218,165,32,0.2)' : C.border.light,
     },
     locationIconWrapper: {
       width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(218,165,32,0.1)', alignItems: 'center', justifyContent: 'center', marginRight: 12,
@@ -505,9 +514,17 @@ export default function Home() {
     locationActionWrapper: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
     dateNavigationSection: { marginBottom: 8 },
     enhancedDateNav: {
-  flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-  backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : SepiaColors.surface.primary, borderRadius: 20, paddingVertical: 12, paddingHorizontal: 16,
-  borderWidth: 0.5, borderColor: isDark ? 'rgba(218,165,32,0.15)' : SepiaColors.border.light,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+  // Dark mode previously used a faint white overlay which appeared like the old light sepia.
+  // Use themed surface color instead for a solid dark surface.
+  backgroundColor: isDark ? C.surface.primary : C.surface.primary,
+      borderRadius: 20,
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+      borderWidth: 0.5,
+      borderColor: isDark ? 'rgba(218,165,32,0.15)' : C.border.light,
     },
     dateDisplayContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20 },
     primaryDateText: { color: C.text.primary, fontSize: 18, fontWeight: '700', letterSpacing: 0.5, textAlign: 'center' },
@@ -534,9 +551,13 @@ export default function Home() {
     enhancedHijriDate: { color: C.text.secondary, fontSize: 12, fontWeight: '500', marginLeft: 8, letterSpacing: 0.2, opacity: 0.9 },
     countdownSection: { alignItems: 'center', marginBottom: 15 },
     enhancedTimesContainer: {
-      backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : SepiaColors.surface.primary,
-      borderRadius: 20, padding: 12, marginBottom: 12,
-      borderWidth: 0.5, borderColor: isDark ? 'rgba(218,165,32,0.15)' : SepiaColors.border.light,
+  // Use proper themed elevated surface in dark mode instead of translucent white.
+  backgroundColor: isDark ? C.surface.elevated : C.surface.primary,
+      borderRadius: 20,
+      padding: 12,
+      marginBottom: 12,
+      borderWidth: 0.5,
+      borderColor: isDark ? 'rgba(218,165,32,0.15)' : C.border.light,
     },
     timesHeader: {
       flexDirection: 'row', alignItems: 'center', marginBottom: 10, paddingBottom: 8, borderBottomWidth: 0.5,
@@ -545,14 +566,18 @@ export default function Home() {
     timesHeaderText: { color: C.text.primary, fontSize: 18, fontWeight: '700', marginLeft: 10, letterSpacing: 0.5 },
     prayerTimesGrid: { gap: 8 },
     enhancedPrayerItem: {
-      backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : SepiaColors.surface.secondary,
-      borderRadius: 16, padding: 12, borderWidth: 0.5,
-      borderColor: isDark ? 'rgba(218,165,32,0.1)' : SepiaColors.border.light,
-      position: 'relative', overflow: 'hidden',
+  // Solid surface color for dark mode to avoid light sepia bleed-through.
+  backgroundColor: isDark ? C.surface.primary : C.surface.secondary,
+      borderRadius: 16,
+      padding: 12,
+      borderWidth: 0.5,
+      borderColor: isDark ? 'rgba(218,165,32,0.1)' : C.border.light,
+      position: 'relative',
+      overflow: 'hidden',
     },
-    enhancedNextPrayerItem: { 
-      backgroundColor: isDark ? 'rgba(218,165,32,0.06)' : `${SepiaColors.special.highlight}CC`, 
-      borderColor: isDark ? 'rgba(218,165,32,0.25)' : SepiaColors.border.accent 
+    enhancedNextPrayerItem: {
+      backgroundColor: isDark ? 'rgba(218,165,32,0.06)' : `${C.special.highlight}CC`,
+      borderColor: isDark ? 'rgba(218,165,32,0.25)' : C.border.accent,
     },
     prayerItemHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
     enhancedIconContainer: {
@@ -588,11 +613,11 @@ export default function Home() {
       flexShrink: 1,
       paddingHorizontal: 10,
       paddingVertical: 6,
-      backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : SepiaColors.surface.secondary,
+      backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : C.surface.secondary,
       borderRadius: 14,
       gap: 6,
       borderWidth: 0.5,
-      borderColor: isDark ? 'rgba(218,165,32,0.2)' : SepiaColors.border.light,
+      borderColor: isDark ? 'rgba(218,165,32,0.2)' : C.border.light,
       minWidth: 120,
       maxWidth: '55%',
     },
@@ -606,12 +631,12 @@ export default function Home() {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : SepiaColors.surface.primary,
+      backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : C.surface.primary,
       borderRadius: 16,
       paddingVertical: 8,
       paddingHorizontal: 10,
       borderWidth: 0.5,
-      borderColor: isDark ? 'rgba(218,165,32,0.15)' : SepiaColors.border.light,
+      borderColor: isDark ? 'rgba(218,165,32,0.15)' : C.border.light,
       gap: 8,
     },
     compactDateCenter: {
@@ -1231,10 +1256,12 @@ export default function Home() {
         {nextPrayer && (
           <>
             <AnimatedPrayerIcon
+              key={nextPrayer.name}
               prayer={nextPrayer.name}
               active={true}
               size={32}
               color={SepiaColors.accent.gold}
+              subtle
             />
             <Text style={styles.nextPrayerLabel}>{t('nextPrayer')}</Text>
             <Text style={styles.nextPrayerName}>{t(nextPrayer.name)}</Text>
@@ -3752,14 +3779,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 8, // Reduced vertical padding
     paddingHorizontal: 12, // Reduced horizontal padding
-    backgroundColor: `${SepiaColors.surface.elevated}88`, // Add transparency
+  // Legacy light-mode style: replaced dynamically in component with themed enhancedDateNav; keep neutral fallback.
+  backgroundColor: 'transparent',
     borderBottomWidth: 1,
     borderBottomColor: `${SepiaColors.border.light}60`, // More transparent border
   },
   navButton: {
     padding: 4, // Reduced from 6 to 4 for more compact buttons
     borderRadius: 20,
-    backgroundColor: SepiaColors.surface.secondary,
+  // Background handled by MagicalArrowButton using theme; leave transparent here.
+  backgroundColor: 'transparent',
     borderWidth: 1,
     borderColor: SepiaColors.border.light,
   },
@@ -3819,7 +3848,8 @@ const styles = StyleSheet.create({
   countdownContainer: {
     padding: 12, // Reduced from 20 to 12
     alignItems: 'center',
-    backgroundColor: SepiaColors.surface.primary,
+  // Use themed surface via inline style when rendered; keep neutral here.
+  backgroundColor: 'transparent',
     margin: 12, // Reduced from 16 to 12
     borderRadius: 16,
     borderWidth: 1,
@@ -3857,7 +3887,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 14,
     paddingHorizontal: 16,
-    backgroundColor: `${SepiaColors.surface.primary}CC`, // Add transparency
+  // Now handled by enhancedPrayerItem with proper dark mode colors
+  backgroundColor: 'transparent',
     borderRadius: 14,
     borderWidth: 1,
     borderColor: `${SepiaColors.border.light}80`, // More transparent border

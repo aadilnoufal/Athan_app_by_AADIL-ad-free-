@@ -177,56 +177,16 @@ export default function SettingsScreen() {
   );
   
   // ✨ MAGICAL HEADER COMPONENT ✨
-  const MagicalHeader = () => (
-    <Animated.View style={[
-      styles.magicalHeader,
-      {
-        opacity: headerGlowAnimation.interpolate({
-          inputRange: [0, 1],
-          outputRange: [0.9, 1]
-        })
-      }
-    ]}>
-      {/* Header background glow */}
-      <Animated.View
-        style={[
-          styles.headerGlow,
-          {
-            opacity: headerGlowAnimation.interpolate({
-              inputRange: [0, 1],
-              outputRange: [0.1, 0.3]
-            })
-          }
-        ]}
-      />
-      
-      {/* Header content */}
-      <View style={styles.header}>
-        <MagicalButton
-          style={styles.backButton} 
-          onPress={() => router.back()}
-          glowColor={SepiaColors.accent.amber}
-        >
-          <MaterialCommunityIcons 
-            name="arrow-left" 
-            size={20} 
-            color={SepiaColors.accent.gold} 
-          />
-        </MagicalButton>
-        <Animated.Text 
-          style={[
-            styles.headerTitle,
-            {
-              transform: [{ scale: breathingAnimation }]
-            }
-          ]}
-        >
-          {t('settings')}
-        </Animated.Text>
-  {/* Spacer only (removed decorative circle) */}
-  <View style={{ width: 32, height: 32 }} />
-      </View>
-    </Animated.View>
+  // Standard simple header (no glow/animations) for consistency with platform defaults
+  const StandardHeader = () => (
+    <View style={styles.standardHeaderWrapper}>
+      <TouchableOpacity style={styles.standardBackButton} onPress={() => router.back()} activeOpacity={0.7}>
+        <MaterialCommunityIcons name="arrow-left" size={20} color={C.accent.gold} />
+      </TouchableOpacity>
+      <Text style={styles.standardHeaderTitle}>{t('settings')}</Text>
+      {/* Right placeholder for symmetry */}
+      <View style={{ width: 32 }} />
+    </View>
   );
   
   // ✨ MAGICAL ANIMATIONS SETUP ✨
@@ -831,7 +791,7 @@ export default function SettingsScreen() {
       
       <View style={styles.container}>
         {/* ✨ ENHANCED MAGICAL HEADER SECTION ✨ */}
-        <MagicalHeader />
+  <StandardHeader />
       
         <ScrollView 
           style={styles.enhancedScrollView}
@@ -1339,25 +1299,34 @@ const createSettingsStyles = (colors: any, isDark: boolean) => {
   },
   
   // ✨ MAGICAL HEADER STYLES ✨
-  magicalHeader: {
-    position: 'relative',
-    paddingVertical: 4, // Reduced from 8 to 4
-    paddingHorizontal: 12,
-    marginBottom: 4, // Reduced from 8 to 4
-    borderRadius: 20,
+  // Standard header (replaces magical header)
+  standardHeaderWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) : 2,
+  paddingHorizontal: 8,
+  paddingBottom: 4,
     backgroundColor: 'transparent',
-    borderWidth: 0,
-    borderColor: 'transparent',
-    overflow: 'hidden',
+  minHeight: 36,
   },
-  headerGlow: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: colors.accent.gold,
-    borderRadius: 20,
+  standardBackButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surface.secondary,
+    borderWidth: 0.5,
+    borderColor: colors.border.light,
+  },
+  standardHeaderTitle: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text.primary,
+    letterSpacing: 0.4,
   },
   
   // Enhanced Scroll View
@@ -1371,9 +1340,9 @@ const createSettingsStyles = (colors: any, isDark: boolean) => {
   // ✨ ENHANCED SECTION STYLES ✨
   enhancedSection: {
     backgroundColor: cardBg,
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 20,
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 14,
     borderWidth: 0.5,
     borderColor: subtleBorder,
     position: 'relative',
@@ -1389,10 +1358,10 @@ const createSettingsStyles = (colors: any, isDark: boolean) => {
   },
   enhancedSectionTitle: {
     color: colors.text.primary,
-    fontSize: 18,
-    fontWeight: '700',
-    marginLeft: 10,
-    letterSpacing: 0.5,
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+    letterSpacing: 0.4,
   },
   
   // Enhanced Language Option Styles
@@ -1428,19 +1397,19 @@ const createSettingsStyles = (colors: any, isDark: boolean) => {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
     backgroundColor: subCardBg,
     borderWidth: 0.5,
     borderColor: subtleBorder,
-    marginBottom: 12,
+    marginBottom: 10,
   },
   enhancedSettingLabel: {
     color: colors.text.primary,
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
-    letterSpacing: 0.3,
+    letterSpacing: 0.25,
   },
   
   // Enhanced Prayer Notification Styles
@@ -1463,11 +1432,11 @@ const createSettingsStyles = (colors: any, isDark: boolean) => {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 8,
     backgroundColor: optionBg,
-    marginBottom: 8,
+    marginBottom: 6,
     borderWidth: 0.5,
     borderColor: extraFaintBorder,
   },
@@ -1477,19 +1446,19 @@ const createSettingsStyles = (colors: any, isDark: boolean) => {
     flex: 1,
   },
   enhancedPrayerIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: goldTint(isDark ? 0.12 : 0.10),
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: 10,
   },
   enhancedPrayerLabel: {
     color: colors.text.primary,
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '500',
-    letterSpacing: 0.3,
+    letterSpacing: 0.25,
   },
   
   // Enhanced Sound Preference Styles
@@ -1497,13 +1466,13 @@ const createSettingsStyles = (colors: any, isDark: boolean) => {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
     backgroundColor: subCardBg,
     borderWidth: 0.5,
     borderColor: subtleBorder,
-    marginTop: 12,
+    marginTop: 10,
   },
   enhancedSoundPrefTextContainer: {
     flex: 1,
@@ -1511,10 +1480,10 @@ const createSettingsStyles = (colors: any, isDark: boolean) => {
   },
   enhancedSettingDescription: {
     color: colors.text.secondary,
-    fontSize: 12,
-    marginTop: 4,
+    fontSize: 11,
+    marginTop: 2,
     letterSpacing: 0.2,
-    lineHeight: 16,
+    lineHeight: 14,
   },
   
   // Enhanced Test Button Styles
@@ -1725,30 +1694,31 @@ const createSettingsStyles = (colors: any, isDark: boolean) => {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 4, // Reduced from 8 to 4
-    paddingHorizontal: 12,
+    paddingVertical: 0,
+    paddingHorizontal: 6,
     marginBottom: 0,
-    borderRadius: 20,
+    borderRadius: 14,
     backgroundColor: 'transparent',
     borderWidth: 0,
     borderColor: 'transparent',
     overflow: 'hidden',
-    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 4 : 8, // Reduced padding
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 2 : 4,
+    minHeight: 34,
   },
   backButton: {
-    width: 32, // Reduced from 36 to 32
-    height: 32, // Reduced from 36 to 32
-    borderRadius: 16, // Reduced from 18 to 16
-    backgroundColor: goldTint(isDark ? 0.12 : 0.10),
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: goldTint(isDark ? 0.10 : 0.08),
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: 6,
   },
   headerTitle: {
     color: colors.text.primary,
-    fontSize: 16, // Reduced from 20 to 16
-    fontWeight: '600', // Reduced from 700 to 600
-    letterSpacing: 0.3, // Reduced from 0.5 to 0.3
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 0.2,
     textAlign: 'center',
     flex: 1,
   },
