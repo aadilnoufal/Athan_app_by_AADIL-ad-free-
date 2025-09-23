@@ -1,4 +1,7 @@
+import { Modal } from 'react-native';
+import RevenueCatPaywall from '../components/RevenueCatPaywall';
 import React, { useState, useEffect } from 'react';
+import { usePurchase } from '../contexts/RevenueCatContext';
 import { 
   StyleSheet, 
   Text, 
@@ -10,16 +13,15 @@ import {
   ScrollView,
   Linking,
   Platform,
-  Dimensions,
-  Animated,
-  Easing
+  Dimensions
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
+import Constants from 'expo-constants';
 import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
-import * as Notifications from 'expo-notifications';
+import notifee from '@notifee/react-native';
 import * as Device from 'expo-device';
 import { 
   getAvailableCountries, 
@@ -33,12 +35,12 @@ import {
   initializeNotifeePrayerNotifications,
   getScheduledNotifeePrayerNotifications,
   cancelAllNotifeePrayerNotifications,
-  updateNotifeePrayerNotifications,
   getNotifeeServiceStatus,
   requestExactAlarmPermission,
   checkAndHandleBatteryOptimization,
   checkAndHandlePowerManager
 } from '../../utils/notifeePrayerService';
+import { ensurePrayerNotificationWindow } from '../../utils/prayerNotificationScheduler';
 import { playTestSound } from '../../utils/audioHelper';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { SepiaColors } from '../../constants/sepiaColors';
@@ -72,11 +74,7 @@ export default function SettingsScreen() {
   // Theme-aware dynamic styles
   const styles = React.useMemo(() => createSettingsStyles(colors, isDark), [colors, isDark]);
   
-  // ✨ MAGICAL ANIMATIONS ✨
-  const [breathingAnimation] = useState(new Animated.Value(1));
-  const [glowAnimation] = useState(new Animated.Value(0));
-  const [shimmerAnimation] = useState(new Animated.Value(0));
-  const [headerGlowAnimation] = useState(new Animated.Value(0));
+  // Animations removed
   
   // State for notifications
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
@@ -145,35 +143,23 @@ export default function SettingsScreen() {
     children: React.ReactNode;
     glowColor?: string;
   }) => (
-    <Animated.View
+    <TouchableOpacity
+      onPress={onPress}
+      disabled={disabled}
       style={[
         {
-          transform: [{ scale: breathingAnimation }],
-          opacity: glowAnimation.interpolate({
-            inputRange: [0, 1],
-            outputRange: [0.9, 1]
-          }),
-        }
+          backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)',
+          borderWidth: 0.5,
+          borderColor: `${glowColor}30`,
+          borderRadius: 16,
+          overflow: 'hidden',
+        },
+        style
       ]}
+      activeOpacity={0.8}
     >
-      <TouchableOpacity
-        onPress={onPress}
-        disabled={disabled}
-        style={[
-          {
-            backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)',
-            borderWidth: 0.5,
-            borderColor: `${glowColor}30`,
-            borderRadius: 16,
-            overflow: 'hidden',
-          },
-          style
-        ]}
-        activeOpacity={0.8}
-      >
-        {children}
-      </TouchableOpacity>
-    </Animated.View>
+      {children}
+    </TouchableOpacity>
   );
   
   // ✨ MAGICAL HEADER COMPONENT ✨
@@ -189,72 +175,7 @@ export default function SettingsScreen() {
     </View>
   );
   
-  // ✨ MAGICAL ANIMATIONS SETUP ✨
-  useEffect(() => {
-    // Header glow animation
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(headerGlowAnimation, {
-          toValue: 1,
-          duration: 3000,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-        Animated.timing(headerGlowAnimation, {
-          toValue: 0,
-          duration: 3000,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-
-    // Glow animation for components
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(glowAnimation, {
-          toValue: 1,
-          duration: 2000,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-        Animated.timing(glowAnimation, {
-          toValue: 0,
-          duration: 2000,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-
-    // Breathing animation for components
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(breathingAnimation, {
-          toValue: 1.05,
-          duration: 3000,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-        Animated.timing(breathingAnimation, {
-          toValue: 1,
-          duration: 3000,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-
-    // Shimmer effect
-    Animated.loop(
-      Animated.timing(shimmerAnimation, {
-        toValue: 1,
-        duration: 2500,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      })
-    ).start();
-  }, []);
+  // Animations removed
   
   // Load saved settings when component mounts
   useEffect(() => {
@@ -319,15 +240,15 @@ export default function SettingsScreen() {
   const requestNotificationPermissions = async () => {
     try {
       if (Device.isDevice) {
-        const { status: existingStatus } = await Notifications.getPermissionsAsync();
-        let finalStatus = existingStatus;
+        const settings = await notifee.getNotificationSettings();
+        let finalStatus = settings.authorizationStatus;
         
-        if (existingStatus !== 'granted') {
-          const { status } = await Notifications.requestPermissionsAsync();
-          finalStatus = status;
+        if (settings.authorizationStatus !== 1) { // 1 = AUTHORIZED
+          const newSettings = await notifee.requestPermission();
+          finalStatus = newSettings.authorizationStatus;
         }
         
-        if (finalStatus !== 'granted') {
+        if (finalStatus !== 1) { // 1 = AUTHORIZED
           Alert.alert(
             'Notification Permission',
             'Please enable notifications to receive prayer time alerts',
@@ -601,7 +522,7 @@ export default function SettingsScreen() {
         const prayerData = JSON.parse(cachedTimes);
         console.log('📅 Found cached prayer times:', prayerData);
         
-        await updateNotifeePrayerNotifications(prayerData, notificationSettings as any);
+  await ensurePrayerNotificationWindow();
         
         Alert.alert(
           'Success!',
@@ -688,7 +609,7 @@ export default function SettingsScreen() {
       await AsyncStorage.setItem('selected_region', newRegionId);
       
       // Cancel ALL existing notifications first
-      await Notifications.cancelAllScheduledNotificationsAsync();
+      await notifee.cancelAllNotifications();
       console.log('Cancelled all scheduled notifications during region change');
       
       // Clear any existing cached data (just in case)
@@ -735,7 +656,27 @@ export default function SettingsScreen() {
     setExpandedSection(expandedSection === section ? '' : section);
   };
   // Open donation dialog with multiple options
+  const [showPaywall, setShowPaywall] = useState(false);
+  const [iapRetryCount, setIapRetryCount] = useState(0);
+  const { loading: iapLoading, fetchOfferings } = usePurchase();
+  
   const openDonation = () => {
+    const extra: any = (Constants.expoConfig?.extra || (Constants as any).manifest?.extra || {});
+    const rciOSKey = process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY || extra?.revenuecat?.iosApiKey;
+    const shouldUsePaywall = Platform.OS === 'ios' ? !!rciOSKey : false;
+
+    if (shouldUsePaywall) {
+      // Force refresh if stuck loading and retry count is low
+      if (iapLoading && iapRetryCount < 3) {
+        setIapRetryCount(prev => prev + 1);
+        fetchOfferings();
+        setTimeout(() => setShowPaywall(true), 1000);
+      } else {
+        setShowPaywall(true);
+      }
+      return;
+    }
+    // Fallback – keep existing external links
     Alert.alert(
       t('supportTitle'),
       t('supportMessage'),
@@ -798,16 +739,15 @@ export default function SettingsScreen() {
           contentContainerStyle={styles.enhancedScrollViewContent}
           showsVerticalScrollIndicator={false}
         >
+        {showPaywall && (
+          <Modal animationType="slide" transparent visible={showPaywall} onRequestClose={() => setShowPaywall(false)}>
+            <View style={{ flex:1, backgroundColor:'rgba(0,0,0,0.85)' }}>
+              <RevenueCatPaywall onClose={() => setShowPaywall(false)} />
+            </View>
+          </Modal>
+        )}
         {/* Appearance / Theme Section with normal toggle */}
-        <Animated.View style={[
-          styles.enhancedSection,
-          {
-            transform: [{ scale: shimmerAnimation.interpolate({
-              inputRange: [0, 0.5, 1],
-              outputRange: [1, 1.02, 1],
-            })}]
-          }
-        ]}>
+  <View style={styles.enhancedSection}>
           <View style={styles.sectionHeader}>
             <MaterialCommunityIcons 
               name={isDark ? 'weather-night' : 'white-balance-sunny'} 
@@ -825,17 +765,9 @@ export default function SettingsScreen() {
               thumbColor={isDark ? C.accent.gold : C.surface.secondary}
             />
           </View>
-        </Animated.View>
+  </View>
         {/* ✨ ENHANCED LANGUAGE SETTINGS SECTION ✨ */}
-        <Animated.View style={[
-          styles.enhancedSection,
-          {
-            transform: [{ scale: shimmerAnimation.interpolate({
-              inputRange: [0, 0.5, 1],
-              outputRange: [1, 1.02, 1],
-            })}]
-          }
-        ]}>
+  <View style={styles.enhancedSection}>
           <View style={styles.sectionHeader}>
             <MaterialCommunityIcons 
               name="web" 
@@ -869,18 +801,10 @@ export default function SettingsScreen() {
               </MagicalButton>
             );
           })}
-        </Animated.View>
+  </View>
         
         {/* ✨ ENHANCED NOTIFICATION SECTION ✨ */}
-        <Animated.View style={[
-          styles.enhancedSection,
-          {
-            transform: [{ scale: shimmerAnimation.interpolate({
-              inputRange: [0, 0.5, 1],
-              outputRange: [1, 1.02, 1],
-            })}]
-          }
-        ]}>
+  <View style={styles.enhancedSection}>
           <View style={styles.sectionHeader}>
             <MaterialCommunityIcons 
               name="bell-outline" 
@@ -890,15 +814,7 @@ export default function SettingsScreen() {
             <Text style={styles.enhancedSectionTitle}>{t('notifications')}</Text>
           </View>
           
-          <Animated.View style={[
-            styles.enhancedSettingContainer,
-            {
-              opacity: glowAnimation.interpolate({
-                inputRange: [0, 1],
-                outputRange: [0.9, 1]
-              })
-            }
-          ]}>
+          <View style={styles.enhancedSettingContainer}>
             <Text style={styles.enhancedSettingLabel}>{t('enableNotifications')}</Text>
             <Switch
               value={notificationsEnabled}
@@ -906,29 +822,16 @@ export default function SettingsScreen() {
               trackColor={{ false: C.special.disabled, true: C.accent.gold }}
               thumbColor={notificationsEnabled ? C.accent.gold : C.surface.secondary}
             />
-          </Animated.View>
+          </View>
 
           {notificationsEnabled && (
             <>
-              <Animated.View style={[
-                styles.enhancedPrayerNotificationSettings,
-                {
-                  opacity: breathingAnimation.interpolate({
-                    inputRange: [1, 1.05],
-                    outputRange: [0.9, 1]
-                  })
-                }
-              ]}>
+              <View style={styles.enhancedPrayerNotificationSettings}>
                 <Text style={styles.enhancedSettingSubtitle}>{t('notifyMeFor')}:</Text>
                 {Object.keys(notificationSettings).map((prayer) => (
-                  <Animated.View 
+                  <View 
                     key={prayer} 
-                    style={[
-                      styles.enhancedPrayerNotificationItem,
-                      {
-                        transform: [{ scale: breathingAnimation }]
-                      }
-                    ]}
+                    style={styles.enhancedPrayerNotificationItem}
                   >
                     <View style={styles.enhancedPrayerLabelContainer}>
                       <View style={styles.enhancedPrayerIcon}>
@@ -953,17 +856,12 @@ export default function SettingsScreen() {
                       trackColor={{ false: C.special.disabled, true: C.accent.gold }}
                       thumbColor={notificationSettings[prayer] ? C.accent.gold : C.surface.secondary}
                     />
-                  </Animated.View>
+                  </View>
                 ))}
-              </Animated.View>
+              </View>
 
               {/* Enhanced Notification Sound Preference */}
-              <Animated.View style={[
-                styles.enhancedSoundPreferenceContainer,
-                {
-                  transform: [{ scale: breathingAnimation }]
-                }
-              ]}>
+              <View style={styles.enhancedSoundPreferenceContainer}>
                 <View style={styles.enhancedSoundPrefTextContainer}>
                   <Text style={styles.enhancedSettingLabel}>{t('useAzanSound')}</Text>
                   <Text style={styles.enhancedSettingDescription}>
@@ -976,7 +874,7 @@ export default function SettingsScreen() {
                   trackColor={{ false: C.special.disabled, true: C.accent.gold }}
                   thumbColor={useAzanSound ? C.accent.gold : C.surface.secondary}
                 />
-              </Animated.View>
+              </View>
 
               {/* Enhanced Test Notification Buttons */}
               <View style={styles.enhancedTestButtonsContainer}>
@@ -1001,18 +899,10 @@ export default function SettingsScreen() {
               </View>
             </>
           )}
-        </Animated.View>
+  </View>
 
         {/* ✨ ENHANCED LOCATION SECTION ✨ */}
-        <Animated.View style={[
-          styles.enhancedSection,
-          {
-            transform: [{ scale: shimmerAnimation.interpolate({
-              inputRange: [0, 0.5, 1],
-              outputRange: [1, 1.02, 1],
-            })}]
-          }
-        ]}>
+  <View style={styles.enhancedSection}>
           <View style={styles.sectionHeader}>
             <MaterialCommunityIcons 
               name="map-marker" 
@@ -1047,15 +937,7 @@ export default function SettingsScreen() {
           </MagicalButton>
 
           {expandedSection === 'country' && (
-            <Animated.View style={[
-              styles.enhancedOptionsContainer,
-              {
-                opacity: breathingAnimation.interpolate({
-                  inputRange: [1, 1.05],
-                  outputRange: [0.9, 1]
-                })
-              }
-            ]}>
+            <View style={styles.enhancedOptionsContainer}>
               {countries.map(country => (
                 <MagicalButton 
                   key={country.id}
@@ -1077,7 +959,7 @@ export default function SettingsScreen() {
                   )}
                 </MagicalButton>
               ))}
-            </Animated.View>
+            </View>
           )}
 
           {/* Enhanced State Selection */}
@@ -1102,15 +984,7 @@ export default function SettingsScreen() {
           </MagicalButton>
 
           {expandedSection === 'state' && (
-            <Animated.View style={[
-              styles.enhancedOptionsContainer,
-              {
-                opacity: breathingAnimation.interpolate({
-                  inputRange: [1, 1.05],
-                  outputRange: [0.9, 1]
-                })
-              }
-            ]}>
+            <View style={styles.enhancedOptionsContainer}>
               {states.map(state => (
                 <MagicalButton 
                   key={state.id}
@@ -1132,7 +1006,7 @@ export default function SettingsScreen() {
                   )}
                 </MagicalButton>
               ))}
-            </Animated.View>
+            </View>
           )}
 
           {/* Enhanced City Selection */}
@@ -1157,15 +1031,7 @@ export default function SettingsScreen() {
           </MagicalButton>
 
           {expandedSection === 'city' && (
-            <Animated.View style={[
-              styles.enhancedOptionsContainer,
-              {
-                opacity: breathingAnimation.interpolate({
-                  inputRange: [1, 1.05],
-                  outputRange: [0.9, 1]
-                })
-              }
-            ]}>
+            <View style={styles.enhancedOptionsContainer}>
               {cities.map(city => (
                 <MagicalButton 
                   key={city.id}
@@ -1187,23 +1053,18 @@ export default function SettingsScreen() {
                   )}
                 </MagicalButton>
               ))}
-            </Animated.View>
+            </View>
           )}
 
           {/* Enhanced Location Summary */}
-          <Animated.View style={[
-            styles.enhancedLocationSummary,
-            {
-              transform: [{ scale: breathingAnimation }]
-            }
-          ]}>
+          <View style={styles.enhancedLocationSummary}>
             <MaterialCommunityIcons name="map-marker" size={20} color={C.accent.gold} />
             <Text style={styles.enhancedLocationSummaryText}>
               {cities.find(c => c.id === selectedCity)?.name || 'City'}, {' '}
               {states.find(s => s.id === selectedState)?.name || 'State'}, {' '}
               {countries.find(c => c.id === selectedCountry)?.name || 'Country'}
             </Text>
-          </Animated.View>
+          </View>
 
           {/* Enhanced Update Location Button */}
           <MagicalButton 
@@ -1214,18 +1075,10 @@ export default function SettingsScreen() {
             <MaterialCommunityIcons name="map-marker-check" size={18} color={C.text.inverse} />
             <Text style={styles.enhancedUpdateLocationButtonText}>{t('updateLocation')}</Text>
           </MagicalButton>
-        </Animated.View>
+  </View>
       
         {/* ✨ ENHANCED ABOUT SECTION ✨ */}
-        <Animated.View style={[
-          styles.enhancedSection,
-          {
-            transform: [{ scale: shimmerAnimation.interpolate({
-              inputRange: [0, 0.5, 1],
-              outputRange: [1, 1.02, 1],
-            })}]
-          }
-        ]}>
+        <View style={styles.enhancedSection}>
           <View style={styles.sectionHeader}>
             <MaterialCommunityIcons 
               name="information-outline" 
@@ -1234,15 +1087,7 @@ export default function SettingsScreen() {
             />
             <Text style={styles.enhancedSectionTitle}>{t('about')}</Text>
           </View>
-          <Animated.View style={[
-            styles.enhancedAboutContainer,
-            {
-              opacity: breathingAnimation.interpolate({
-                inputRange: [1, 1.05],
-                outputRange: [0.9, 1]
-              })
-            }
-          ]}>
+          <View style={styles.enhancedAboutContainer}>
             <Text style={styles.enhancedAppVersion}>{t('appVersion')}</Text>
             <Text style={styles.enhancedAboutText}>
               {t('aboutText')}
@@ -1254,11 +1099,27 @@ export default function SettingsScreen() {
                 glowColor={C.accent.amber}
               >
                 <MaterialCommunityIcons name="gift" size={18} color={C.text.inverse} />
-                <Text style={styles.enhancedSupportButtonText}>{t('supportApp')}</Text>
+                <Text style={styles.enhancedSupportButtonText}>{t('supportDeveloper')}</Text>
               </MagicalButton>
+              
+              {/* RevenueCat management (production-safe) for iOS */}
+              {Platform.OS === 'ios' && (
+                <View style={{ marginTop: 16, padding: 12, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 12 }}>
+                  <Text style={{ color: C.text.secondary, fontSize: 12, textAlign: 'center', marginBottom: 8 }}>
+                    RevenueCat Status: Ready
+                  </Text>
+                  <TouchableOpacity
+                    style={[styles.enhancedTestButton, { backgroundColor: '#333' }]}
+                    onPress={() => Linking.openURL('https://apps.apple.com/account/subscriptions')}
+                    disabled={iapLoading}
+                  >
+                    <Text style={styles.enhancedTestButtonText}>Manage Apple Subscriptions</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
-          </Animated.View>
-        </Animated.View>
+          </View>
+        </View>
         
         {/* Footer Padding */}
         <View style={{ height: 40 }} />

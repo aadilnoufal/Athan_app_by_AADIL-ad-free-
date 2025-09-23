@@ -65,6 +65,7 @@ import {
   View, 
   StatusBar, 
   TouchableOpacity, 
+  Pressable,
   ScrollView,
   ActivityIndicator,
   Alert,
@@ -82,14 +83,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import LottieView from 'lottie-react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialCommunityIcons } from '@expo/vector-icons'; // Note: Using Expo's vector icons
 import { format, addDays, differenceInSeconds } from 'date-fns';
 import { Stack, useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { getAvailableRegions, getRegionConfig, DEFAULT_REGION } from '../config/prayerTimeConfig';
-import * as Notifications from 'expo-notifications';
+import notifee from '@notifee/react-native';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { useLanguage } from '../../contexts/LanguageContext';
@@ -98,6 +97,8 @@ import { applyTuningParameters, applyLocalDataCityAdjustments, extractCityIdFrom
 import { getPrayerTimesFromLocalData, hasLocalDataForDate } from '../../utils/localPrayerData';
 import { SepiaColors } from '../../constants/sepiaColors';
 import { useTheme } from '../../contexts/ThemeContext';
+import RevenueCatPaywall from '../components/RevenueCatPaywall';
+import { usePurchase } from '../contexts/RevenueCatContext';
 
 // Get screen dimensions for magical effects
 const { width: screenWidth } = Dimensions.get('window');
@@ -112,7 +113,6 @@ import {
 // Import Notifee prayer notification services (enterprise-grade reliability)
 import { 
   initializeNotifeePrayerNotifications,
-  updateNotifeePrayerNotifications,
   cancelAllNotifeePrayerNotifications,
   getScheduledNotifeePrayerNotifications,
   scheduleImmediateNotifeeNotification,
@@ -123,6 +123,8 @@ import {
   checkAndHandleBatteryOptimization,
   checkAndHandlePowerManager
 } from '../../utils/notifeePrayerService';
+import { ensurePrayerNotificationWindow } from '../../utils/prayerNotificationScheduler';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 // Import background task utilities
 import { 
   setupBackgroundTask,
@@ -234,6 +236,8 @@ export default function Home() {
       justifyContent: 'flex-end',
       paddingRight: 0,
       flexShrink: 0,
+  zIndex: 10,
+  elevation: 3,
     },
     refreshButton: {
       backgroundColor: `${C.surface.secondary}CC`,
@@ -248,15 +252,16 @@ export default function Home() {
       flexDirection: 'row',
       alignItems: 'center',
       backgroundColor: C.accent.gold,
-      paddingHorizontal: 10,
-      paddingVertical: 4,
-      borderRadius: 20,
+  paddingHorizontal: 14,
+  paddingVertical: 8,
+  borderRadius: 16,
+  minWidth: 140,
     },
     donateText: {
       color: C.text.inverse,
-      marginLeft: 6,
-      fontWeight: 'bold',
-      letterSpacing: 0.5,
+  marginLeft: 8,
+  fontWeight: '700',
+  letterSpacing: 0.4,
     },
     locationContainer: {
       flexDirection: 'row',
@@ -468,7 +473,8 @@ export default function Home() {
     sparkle: { position: 'absolute', zIndex: 1 },
     magicalHeader: {
       position: 'relative', paddingVertical: 8, paddingHorizontal: 12, marginBottom: 0, borderRadius: 20,
-      backgroundColor: 'transparent', borderWidth: 0, borderColor: 'transparent', overflow: 'hidden',
+      backgroundColor: 'transparent', borderWidth: 0, borderColor: 'transparent', 
+      // REMOVED: overflow: 'hidden' - this was blocking touch events on Android
     },
     headerGlow: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: C.accent.gold, borderRadius: 20 },
     headerStar: { position: 'absolute', zIndex: 2 },
@@ -834,9 +840,11 @@ export default function Home() {
 
   // ✨ MAGICAL HEADER COMPONENT ✨
   const MagicalHeader = () => (
-    <Animated.View style={[
-      styles.magicalHeader
-    ]}>
+    // Ensure container doesn't eat touches on Android
+    <View
+      style={[styles.magicalHeader]}
+      pointerEvents="box-none"
+    >
       {/* Header background glow */}
       <Animated.View
         style={[
@@ -848,6 +856,7 @@ export default function Home() {
             })
           }
         ]}
+        pointerEvents="none"
       />
       
       {/* Header sparkles and stars */}
@@ -938,7 +947,7 @@ export default function Home() {
           {/* Language selector removed (moved to Settings screen) */}
         </View>
       </View>
-    </Animated.View>
+    </View>
   );
 
   // ✨ MAGICAL FOOTER COMPONENT ✨
@@ -1091,33 +1100,39 @@ export default function Home() {
     glowColor?: string;
     pulseSize?: number;
   }) => (
-    <Animated.View
+    // Ultra-simplified version for Android debugging - removing ALL complex styling
+    <TouchableOpacity
+      onPress={() => {
+        console.log('🚀 DEBUG: MagicalButton TouchableOpacity pressed!');
+        if (onPress) {
+          console.log('🚀 DEBUG: Calling onPress handler...');
+          onPress();
+        } else {
+          console.log('🚀 DEBUG: No onPress handler provided!');
+        }
+      }}
+      onPressIn={() => {
+        console.log('🚀 DEBUG: MagicalButton onPressIn detected!');
+      }}
+      onPressOut={() => {
+        console.log('🚀 DEBUG: MagicalButton onPressOut detected!');
+      }}
+      onLongPress={onLongPress}
+      disabled={disabled}
+      activeOpacity={0.7}
       style={[
         {
-          transform: [{ scale: buttonPulseAnimation }],
-          opacity: buttonGlowAnimation.interpolate({
-            inputRange: [0, 1],
-            outputRange: [0.9, 1]
-          }),
-        }
+          // Basic styling for Android debugging
+          backgroundColor: 'rgba(255,255,255,0.1)',
+          padding: 8,
+          borderRadius: 8,
+          borderWidth: 1,
+          borderColor: 'rgba(218,165,32,0.3)',
+        },
+        // Re-enable passed styles now that we fixed the container issue
+        style
       ]}
     >
-      <TouchableOpacity
-        onPress={onPress}
-        onLongPress={onLongPress}
-        disabled={disabled}
-        style={[
-          {
-      backgroundColor: C.surface.transparent,
-            borderWidth: 0.5,
-            borderColor: `${glowColor}30`,
-            borderRadius: 12,
-            overflow: 'hidden',
-          },
-          style
-        ]}
-        activeOpacity={0.8}
-      >
         {/* Button shimmer effect */}
         <Animated.View
           style={[
@@ -1135,10 +1150,10 @@ export default function Home() {
               }]
             }
           ]}
-        />
-        {children}
-      </TouchableOpacity>
-    </Animated.View>
+          pointerEvents="none"
+      />
+      {children}
+    </TouchableOpacity>
   );
 
   // ✨ MAGICAL ARROW BUTTON ✨
@@ -1206,6 +1221,7 @@ export default function Home() {
             }),
           }
         ]}
+        pointerEvents="none"
       />
       
       {/* Main circular progress */}
@@ -1339,7 +1355,7 @@ export default function Home() {
             } else if (!isEnabled) {
               // If disabled, cancel all notifications
               console.log('Notifications disabled, cancelling all...');
-              await Notifications.cancelAllScheduledNotificationsAsync();
+              await notifee.cancelAllNotifications();
               await unregisterBackgroundTask();
             }
           }
@@ -1542,11 +1558,9 @@ export default function Home() {
         return;
       }
       
-      console.log('✅ All conditions met, calling updateNotifeePrayerNotifications...');
-      // Pass notification settings to the scheduling function
-      await updateNotifeePrayerNotifications(prayerTimes.times, notificationSettings);
-      console.log('✅ Notifee notification system updated successfully');
-      console.log('📋 Final notification settings used:', notificationSettings);
+  console.log('✅ All conditions met, ensuring rolling prayer notification window...');
+  await ensurePrayerNotificationWindow();
+  console.log('✅ Rolling prayer notification window ensured');
       
     } catch (error) {
       console.error('❌ Error with new notification system:', error);
@@ -3084,6 +3098,7 @@ export default function Home() {
 
   // Day navigation functions
   const goToPreviousDay = () => {
+    console.log('🚀 DEBUG: goToPreviousDay pressed!');
     if (currentDay > 0) {
       const newDay = currentDay - 1;
       setCurrentDay(newDay);
@@ -3102,6 +3117,7 @@ export default function Home() {
   };
   
   const goToNextDay = () => {
+    console.log('🚀 DEBUG: goToNextDay pressed!');
     if (currentDay < 9) {
       const newDay = currentDay + 1;
       setCurrentDay(newDay);
@@ -3169,8 +3185,28 @@ export default function Home() {
     </Modal>
   );
 
-  // Donation dialog
+  // Support / Donation flow (mirror Settings)
+  const [showPaywall, setShowPaywall] = useState(false);
+  const [iapRetryCount, setIapRetryCount] = useState(0);
+  const { loading: iapLoading, fetchOfferings } = usePurchase();
+
   const openDonation = () => {
+    console.log('🚀 DEBUG: openDonation pressed!');
+    const extra: any = (Constants.expoConfig?.extra || (Constants as any).manifest?.extra || {});
+    const rciOSKey = process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY || extra?.revenuecat?.iosApiKey;
+    const shouldUsePaywall = Platform.OS === 'ios' ? !!rciOSKey : false;
+
+    if (shouldUsePaywall) {
+      if (iapLoading && iapRetryCount < 3) {
+        setIapRetryCount(prev => prev + 1);
+        fetchOfferings();
+        setTimeout(() => setShowPaywall(true), 1000);
+      } else {
+        setShowPaywall(true);
+      }
+      return;
+    }
+    // Fallback: external links if no RevenueCat key configured for this platform
     Alert.alert(
       t('supportTitle'),
       t('supportMessage'),
@@ -3179,7 +3215,7 @@ export default function Home() {
         { 
           text: t('oneTimeSupport'), 
           onPress: () => {
-            Linking.openURL('https://nas.io/checkout-global?communityId=640f2dbae2d22dff16a554d9&communityCode=AADIL_NOUFAL&requestor=signupRequestor&linkClicked=https%3A%2F%2Fnas.io%2Fportal%2Fproducts%2F67e825d377e3fc39a8ba9b0d%3Ftab%3Dcontent&sourceInfoType=folder&sourceInfoOrigin=67e825d377e3fc39a8ba9b0d').catch(err => 
+            Linking.openURL('https://nas.io/checkout-global?communityId=640f2dbae2d22dff16a554d9&communityCode=AADIL_NOUFAL&requestor=signupRequestor&linkClicked=https%3A%2F%2Fnas.io%2Fportal%2Fproducts%2F67e825d377e3fc39a8ba9b0d%3Ftab%3Dcontent&sourceInfoType=folder&sourceInfoOrigin=67e825d377e3fc39a8ba9b0d').catch((err: Error) => 
               console.error('An error occurred while opening the link:', err)
             );
           } 
@@ -3187,7 +3223,7 @@ export default function Home() {
         { 
           text: t('monthlySupport'), 
           onPress: () => {
-            Linking.openURL('https://nas.io/checkout-global?communityId=67e828db202755d3615d3a6b&communityCode=AD_FREE_ATHAN&requestor=signupRequestor&linkClicked=https%3A%2F%2Fnas.io%2Fcheckout-widget%3FcommunityCode%3DAD_FREE_ATHAN%26communitySlug%3D%252Fad-free-athan%26buttonText%3DJoin%2520as%2520member%26buttonTextColorHex%3D%2523000%26buttonBgColorHex%3D%2523fccb1d%26widgetTheme%3Dlight%26backgroundColorHex%3D%2523fff%2522%2520width%3D%2522100%25%2522%2520height%3D%2522320%2522%2520frameborder%3D%25220%2522%2520referrerpolicy%3D%2522no-referrer&fromWidget=1').catch(err => 
+            Linking.openURL('https://nas.io/checkout-global?communityId=67e828db202755d3615d3a6b&communityCode=AD_FREE_ATHAN&requestor=signupRequestor&linkClicked=https%3A%2F%2Fnas.io%2Fcheckout-widget%3FcommunityCode%3DAD_FREE_ATHAN%26communitySlug%3D%252Fad-free-athan%26buttonText%3DJoin%2520as%2520member%26buttonTextColorHex%3D%2523000%26buttonBgColorHex%3D%2523fccb1d%26widgetTheme%3Dlight%26backgroundColorHex%3D%2523fff%2522%2520width%3D%2522100%25%2522%2520height%3D%2522320%2522%2520frameborder%3D%25220%2522%2520referrerpolicy%3D%2522no-referrer&fromWidget=1').catch((err: Error) => 
               console.error('An error occurred while opening the link:', err)
             );
           } 
@@ -3195,6 +3231,30 @@ export default function Home() {
       ]
     );
   };
+
+  // Listen for auto support trigger and show paywall (5s handled in layout)
+  useEffect(() => {
+    let timer: NodeJS.Timeout | null = null;
+    const check = async () => {
+      const trigger = await AsyncStorage.getItem('support_trigger');
+      if (trigger) {
+        await AsyncStorage.removeItem('support_trigger');
+        if (Platform.OS === 'ios') {
+          if (iapLoading) {
+            fetchOfferings();
+            timer = setTimeout(() => setShowPaywall(true), 500);
+          } else {
+            setShowPaywall(true);
+          }
+        } else {
+          // Android: show the alert instead
+          openDonation();
+        }
+      }
+    };
+    const interval = setInterval(check, 1500);
+    return () => { clearInterval(interval); if (timer) clearTimeout(timer); };
+  }, [iapLoading]);
   
   // Region selector component
   const RegionPicker = () => (
@@ -3457,6 +3517,7 @@ export default function Home() {
 
   // Enhanced refresh button with long press debug
   const handleRefreshPress = () => {
+    console.log('🚀 DEBUG: handleRefreshPress pressed!');
     handleClearCache();
   };
 
@@ -3492,6 +3553,7 @@ export default function Home() {
         style={StyleSheet.absoluteFillObject}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
+        pointerEvents="none"
       />
       
       {/* ✨ FLOATING SPARKLES ✨ */}
@@ -3502,19 +3564,32 @@ export default function Home() {
       ))}
       */}
       
-      <View style={styles.container}>
+  <View style={styles.container}>
+        
         {/* Region Picker Modal */}
         <RegionPicker />
         
         {/* Language Selector Modal */}
         <LanguageSelector />
+
+        {/* Support Paywall Modal */}
+        {showPaywall && (
+          <Modal animationType="slide" transparent visible={showPaywall} onRequestClose={() => setShowPaywall(false)}>
+            <View style={{ flex:1, backgroundColor:'rgba(0,0,0,0.85)' }}>
+              <RevenueCatPaywall onClose={() => setShowPaywall(false)} />
+            </View>
+          </Modal>
+        )}
         
         {/* Reverted: separate header + location + date nav (tightened spacing) */}
         <View style={[styles.headerSection, { marginBottom: 4 }]}> 
           <MagicalHeader />
           <MagicalButton 
             style={[styles.enhancedLocationContainer, { paddingVertical: 10, marginTop: 4 }]}
-            onPress={() => router.push('/settings')}
+            onPress={() => {
+              console.log('🚀 DEBUG: Location button pressed!');
+              router.push('/settings');
+            }}
             disabled={regionChanging}
             glowColor={SepiaColors.accent.amber}
           >
@@ -3544,10 +3619,7 @@ export default function Home() {
                 {currentDay === 0 ? t('today') : currentDay === 1 ? t('tomorrow') : `+${currentDay} ${t('days')}`}
               </Text>
               {prayerTimes?.date && (
-                <>
-                  <Text style={styles.secondaryDateText}>{format(addDays(new Date(), currentDay), 'MMM dd, yyyy')}</Text>
-                  <Text style={styles.hijriDateText}>{prayerTimes.hijriDate} {prayerTimes.hijriMonth}</Text>
-                </>
+                <Text style={styles.secondaryDateText}>{format(addDays(new Date(), currentDay), 'MMM dd, yyyy')}</Text>
               )}
             </View>
             <MagicalArrowButton direction="right" onPress={goToNextDay} disabled={currentDay === 9} iconName="chevron-right" />
@@ -3573,6 +3645,8 @@ export default function Home() {
               style={styles.enhancedScrollView}
               contentContainerStyle={styles.enhancedScrollViewContent}
               showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              scrollEventThrottle={16}
             >
               {/* ✨ ENHANCED NEXT PRAYER COUNTDOWN SECTION ✨ */}
               {nextPrayer && currentDay === 0 && (
@@ -3634,6 +3708,7 @@ export default function Home() {
                                 borderRadius: 16,
                               }
                             ]}
+                            pointerEvents="none"
                           />
                         )}
                         
@@ -4087,7 +4162,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent', // Made transparent to match page
     borderWidth: 0,
     borderColor: 'transparent',
-    overflow: 'hidden',
+  // Avoid clipping touches on Android
+  // overflow: 'hidden',
+  zIndex: 5,
+  // Help Android stacking
+  elevation: 2,
   },
   headerGlow: {
     position: 'absolute',
@@ -4097,6 +4176,8 @@ const styles = StyleSheet.create({
     bottom: 0,
     backgroundColor: SepiaColors.accent.gold,
     borderRadius: 20,
+  // Ensure this never intercepts touches
+  // pointerEvents set on element usage as well
   },
   headerStar: {
     position: 'absolute',

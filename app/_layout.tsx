@@ -1,9 +1,7 @@
 import { Stack } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import CustomSplash from '../components/SplashScreen';
 import { StatusBar } from 'expo-status-bar';
 import { useColorScheme, Platform } from 'react-native';
-import * as Notifications from 'expo-notifications';
+import notifee from '@notifee/react-native';
 import { useEffect, useState, useRef } from "react";
 import { View, Text, StyleSheet, Animated, TouchableOpacity, Vibration } from "react-native";
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -12,16 +10,16 @@ import { playPrayerSound, preloadSounds, unloadSounds } from '../utils/audioHelp
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { LanguageProvider } from '../contexts/LanguageContext';
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
+import { PurchaseProvider } from './contexts/RevenueCatContext';
+import Purchases, { LOG_LEVEL } from 'react-native-purchases';
 
-// Configure notifications to always show in foreground
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-});
+// Minimal global type augmentation for our support paywall helper
+declare global {
+  // eslint-disable-next-line no-var
+  var __openSupportPaywall: undefined | (() => Promise<void>);
+}
+
+// Notifee handles foreground notifications automatically - no configuration needed
 
 // Custom in-app notification component
 function InAppNotification({ title, body, onClose }: { title: string; body: string; onClose: () => void }) {
@@ -72,51 +70,175 @@ function InAppNotification({ title, body, onClose }: { title: string; body: stri
   );
 }
 
-// Prevent the native splash from auto-hiding immediately
-SplashScreen.preventAutoHideAsync().catch(() => {});
-
 function InnerLayout() {
   const [notification, setNotification] = useState<{title: string; body: string; data?: any} | null>(null);
   const [lastReceivedAt, setLastReceivedAt] = useState(0); // Track when last notification was received
-  const [assetsLoaded, setAssetsLoaded] = useState(false);
-  const [showAnimatedSplash, setShowAnimatedSplash] = useState(true); // JS splash visibility
-  const nativeSplashHiddenRef = useRef(false);
-  const notificationListener = useRef<any>(null);
-  const responseListener = useRef<any>(null);
+  // Removed blocking splash: we no longer delay initial render for assets
+  const [assetsLoaded, setAssetsLoaded] = useState(true);
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const [shouldPromptSupport, setShouldPromptSupport] = useState(false);
   
   // Preload assets when the app loads
   useEffect(() => {
-    // Start loading heavy assets (sounds) but don't block rendering
-    let cancelled = false;
-    (async () => {
-      try {
-        await preloadSounds();
-      } catch (error) {
-        console.error('Error loading assets:', error);
-      } finally {
-        if (!cancelled) setAssetsLoaded(true);
-      }
-    })();
+    // Fire-and-forget preload of sounds; UI not blocked anymore
+    preloadSounds().catch(err => console.error('Error preloading sounds', err));
     return () => {
-      cancelled = true;
       unloadSounds();
     };
   }, []);
 
-  // Hide native splash ASAP (after first frame) then show animated JS splash overlay
+  // Auto-popup scheduler for support paywall
   useEffect(() => {
-    const hide = async () => {
-      if (nativeSplashHiddenRef.current) return;
-      try {
-        await SplashScreen.hideAsync();
-      } catch {}
-      nativeSplashHiddenRef.current = true;
+    let timer: NodeJS.Timeout | null = null;
+    const PLAN_KEYS = {
+      firstInstall: 'first_install_ts',
+      lastPromptMonth: 'support_last_prompt_month', // e.g., '2025-09'
+    } as const;
+
+  const shouldShowThisMonth = (now: Date, lastPromptMonth?: string | null) => {
+      const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      return lastPromptMonth !== ym;
     };
-    // Small timeout ensures React tree mounted
-    const t = setTimeout(hide, 50);
-    return () => clearTimeout(t);
+
+    const sevenDaysPassed = (firstTs: number, nowMs: number) => nowMs - firstTs >= 7 * 24 * 60 * 60 * 1000;
+
+    const checkSchedule = async () => {
+      try {
+        const now = new Date();
+        const nowMs = now.getTime();
+        const day = now.getDate();
+  const [firstInstallTsStr, lastPromptMonth] = await AsyncStorage.multiGet([
+          PLAN_KEYS.firstInstall,
+          PLAN_KEYS.lastPromptMonth,
+        ]).then(entries => entries.map(([, v]) => v));
+
+        // Record first install time if missing
+        let firstInstallTs = firstInstallTsStr ? Number(firstInstallTsStr) : NaN;
+        if (!firstInstallTsStr || !Number.isFinite(firstInstallTs)) {
+          firstInstallTs = nowMs;
+          await AsyncStorage.setItem(PLAN_KEYS.firstInstall, String(firstInstallTs));
+          // Don't prompt on first launch
+          return;
+        }
+
+        const monthOk = shouldShowThisMonth(now, lastPromptMonth);
+        const is25thOrLater = day >= 25;
+        const is7DaysAfterInstall = sevenDaysPassed(firstInstallTs, nowMs);
+        const hasPromptedBefore = !!lastPromptMonth;
+
+        if (monthOk) {
+          if (!hasPromptedBefore) {
+            // First-ever prompt: after 7 days OR on/after 25th
+            if (is7DaysAfterInstall || is25thOrLater) {
+              timer = setTimeout(() => setShouldPromptSupport(true), 5000);
+            }
+          } else {
+            // Subsequent months: only on/after 25th
+            if (is25thOrLater) {
+              timer = setTimeout(() => setShouldPromptSupport(true), 5000);
+            }
+          }
+        }
+      } catch (e) {
+        console.log('[SupportPrompt] scheduling failed (non-fatal):', e);
+      }
+    };
+
+    checkSchedule();
+    return () => { if (timer) clearTimeout(timer); };
+  }, []);
+
+  // Expose a global function to let screens open/close the paywall
+  useEffect(() => {
+    // @ts-ignore
+    global.__openSupportPaywall = async () => {
+      setShouldPromptSupport(false);
+      // Persist last prompt month so we only show once per month
+      const now = new Date();
+      const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      await AsyncStorage.setItem('support_last_prompt_month', ym);
+      // We won’t render the paywall here; each screen already has its own modal.
+      // Instead, we can signal via AsyncStorage and the Home/Settings will respond if mounted.
+      await AsyncStorage.setItem('support_trigger', String(Date.now()));
+    };
+  }, []);
+
+  // Configure RevenueCat on app launch (following official best practices)
+  useEffect(() => {
+    const configureRevenueCat = async () => {
+      try {
+        console.log('[RevenueCat] Configuring SDK...');
+        
+  // Set log level; quiet by default unless explicit debug flag is set
+  const verboseRc = Boolean((process.env.EXPO_PUBLIC_RC_DEBUG || '').toString());
+  Purchases.setLogLevel(verboseRc ? LOG_LEVEL.VERBOSE : LOG_LEVEL.WARN);
+        
+        // Configure based on platform (following official docs pattern)
+  const publicIosKey = process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY;
+  const { revenuecat } = (Constants.expoConfig?.extra || (Constants as any).manifest?.extra || {}) as any;
+        if (Platform.OS === 'ios') {
+          const iosKey = publicIosKey || revenuecat?.iosApiKey;
+          if (!iosKey) {
+            console.log('[RevenueCat] iOS API key missing in env or app.json extra.revenuecat. Skipping configure.');
+          } else {
+            await Purchases.configure({ apiKey: iosKey });
+            console.log('[RevenueCat] ✅ iOS SDK configured successfully');
+          }
+
+          // Development-only deep debug to inspect offerings & products
+          if (__DEV__ && verboseRc) {
+            try {
+              console.log('[RevenueCat][DEBUG] Fetching detailed diagnostics...');
+              const appUserId = await Purchases.getAppUserID();
+              console.log('[RevenueCat][DEBUG] App User ID:', appUserId);
+
+              const offerings = await Purchases.getOfferings();
+              console.log('[RevenueCat][DEBUG] Raw offerings object:', JSON.stringify(offerings, null, 2));
+
+              if (!offerings.current) {
+                console.log('[RevenueCat][DEBUG] No current offering. Checklist:');
+                console.log('  - Ensure an offering is marked CURRENT in RevenueCat dashboard');
+                console.log('  - Make sure at least one package inside it references a valid product');
+                console.log('  - Confirm product IDs in App Store Connect exactly match RevenueCat');
+              } else {
+                console.log('[RevenueCat][DEBUG] Current offering identifier:', offerings.current.identifier);
+                console.log('[RevenueCat][DEBUG] Packages in current offering:', offerings.current.availablePackages.map(p => ({
+                  pkgId: p.identifier,
+                  storeProductId: p.product.identifier,
+                  price: p.product.priceString,
+                  currency: p.product.currencyCode
+                })));
+              }
+
+              // Optional targeted product fetch (IDs inferred from previous IAP setup)
+              const debugProductIds = [
+                'support_athan_app_v1_4usd_1time',
+                'monthly_support_athan_appv1'
+              ];
+              try {
+                const directProducts = await Purchases.getProducts(debugProductIds);
+                console.log('[RevenueCat][DEBUG] Direct getProducts result:', directProducts.map(p => ({ id: p.identifier, price: p.priceString })));
+                if (directProducts.length === 0) {
+                  console.log('[RevenueCat][DEBUG] getProducts returned empty. Propagation / mismatch likely.');
+                }
+              } catch (gpErr) {
+                console.log('[RevenueCat][DEBUG] getProducts error (non-fatal):', gpErr);
+              }
+            } catch (dbgErr) {
+              console.log('[RevenueCat][DEBUG] Diagnostics block failed:', dbgErr);
+            }
+          }
+        } else if (Platform.OS === 'android') {
+          console.log('[RevenueCat] Android IAP disabled — using external links.');
+        }
+        
+      } catch (error) {
+        console.log('[RevenueCat] Configuration error (normal in dev environment):', error);
+      }
+    };
+
+    configureRevenueCat();
   }, []);
   
   // Helper function to directly show an in-app notification for testing
@@ -145,22 +267,26 @@ function InnerLayout() {
   useEffect(() => {
     console.log("Setting up notification listeners");
     
-    // Debug notification channel if on Android
+    // Setup notification channel for Android using Notifee
     if (Platform.OS === 'android') {
-      Notifications.setNotificationChannelAsync('default', {
+      notifee.createChannel({
+        id: 'default',
         name: 'Default',
-        importance: Notifications.AndroidImportance.MAX,
-        vibrationPattern: [0, 250, 250, 250],
-        lightColor: '#FF231F7C',
+        importance: 4, // AndroidImportance.HIGH
+        vibration: true,
+        vibrationPattern: [300, 500],
       });
     }
 
-    // Listen for notifications received while app is in foreground
-    notificationListener.current = Notifications.addNotificationReceivedListener(
-      notification => {
-        console.log("Notification received in foreground:", notification);
-        const prayerName = (notification.request.content.data?.prayerName as string) || 'Prayer';
-        const useAzanSound = notification.request.content.data?.useAzanSound === true;
+    // Listen for foreground notifications with Notifee
+    const unsubscribe = notifee.onForegroundEvent(({ type, detail }) => {
+      if (type === 1) { // EventType.PRESS
+        console.log('Notification pressed:', detail.notification);
+      } else if (type === 0) { // EventType.DISPLAYED
+        console.log("Notification displayed in foreground:", detail.notification);
+        const notification = detail.notification;
+        const prayerName = notification?.data?.prayerName as string || 'Prayer';
+        const useAzanSound = String(notification?.data?.useAzanSound) === 'true';
         
         // Only show new notifications (avoid duplication from quick re-renders)
         const currentTime = new Date().getTime();
@@ -169,45 +295,36 @@ function InnerLayout() {
           
           // Set notification for display
           setNotification({
-            title: notification.request.content.title || `${prayerName} Time`,
-            body: notification.request.content.body || `It's time for ${prayerName}`,
-            data: notification.request.content.data || {}
+            title: notification?.title || `${prayerName} Time`,
+            body: notification?.body || `It's time for ${prayerName}`,
+            data: notification?.data || {}
           });
           
           // Provide vibration feedback
           playPrayerSound(prayerName || 'Test', useAzanSound);
         }
       }
-    );
-    
-    // Handle notification responses (when user taps notification)
-    responseListener.current = Notifications.addNotificationResponseReceivedListener(
-      response => {
-        console.log('Notification tapped:', response);
-      }
-    );
+    });
 
-    // Automatically trigger test notification after 2 seconds to verify setup
-    const timer = setTimeout(async () => {
-      const permissions = await Notifications.getPermissionsAsync();
-      console.log("Current notification permissions:", permissions);
+    // Check notification permissions
+    const checkPermissions = async () => {
+      const settings = await notifee.getNotificationSettings();
+      console.log("Current notification permissions:", settings);
       
-      if (permissions.granted) {
+      if (settings.authorizationStatus === 1) { // AUTHORIZED
         // Uncomment to test on app start:
         // showTestInAppNotification();
       } else {
         console.log("No notification permissions granted yet");
       }
-    }, 2000);
+    };
     
-    // Cleanup function - FIXED: using subscription.remove() instead of removeNotificationSubscription
+    // Automatically check permissions after 2 seconds
+    const timer = setTimeout(checkPermissions, 2000);
+    
+    // Cleanup function
     return () => {
-      if (notificationListener.current) {
-        notificationListener.current.remove();
-      }
-      if (responseListener.current) {
-        responseListener.current.remove();
-      }
+      unsubscribe();
       clearTimeout(timer);
     };
   }, [lastReceivedAt]);
@@ -218,17 +335,15 @@ function InnerLayout() {
     global.showTestNotification = showTestInAppNotification;
   }
   
-  // Don't render anything until assets are loaded
-  // When animated splash finishes (callback), allow app UI.
-  const handleSplashDone = () => setShowAnimatedSplash(false);
+  // (No startup animation / blocking screen anymore)
   
   return (
     <LanguageProvider>
       <SafeAreaProvider>
         <StatusBar 
           style={isDark ? 'light' : 'dark'} 
-          backgroundColor={Platform.OS === 'android' ? 'transparent' : undefined} // Use transparent for Android
-          translucent={true} // Always use translucent for edge-to-edge UI
+          backgroundColor={Platform.OS === 'android' ? 'transparent' : undefined}
+          translucent={true}
         />
         <Stack 
           screenOptions={{
@@ -240,11 +355,6 @@ function InnerLayout() {
         >
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         </Stack>
-        {showAnimatedSplash && (
-          <View style={splashOverlayStyles.overlay} pointerEvents="none">
-            <CustomSplash onAnimationComplete={handleSplashDone} />
-          </View>
-        )}
         {notification && (
           <InAppNotification 
             title={notification.title}
@@ -252,6 +362,14 @@ function InnerLayout() {
             onClose={() => setNotification(null)}
           />
         )}
+        {/* If auto-schedule says we should prompt, set a trigger other screens can act on */}
+        {shouldPromptSupport && (() => {
+          // Immediately trigger global opener so the active screen can display its modal
+          // @ts-ignore
+          // Fire and reset the flag
+          (globalThis as any).__openSupportPaywall?.();
+          return null;
+        })()}
       </SafeAreaProvider>
     </LanguageProvider>
   );
@@ -260,7 +378,9 @@ function InnerLayout() {
 export default function RootLayout() {
   return (
     <ThemeProvider>
-      <InnerLayout />
+      <PurchaseProvider>
+        <InnerLayout />
+      </PurchaseProvider>
     </ThemeProvider>
   );
 }
@@ -309,19 +429,4 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   }
-});
-
-const splashOverlayStyles = StyleSheet.create({
-  overlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: '#141009',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 10000,
-    elevation: 10000,
-  },
 });

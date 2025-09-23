@@ -7,11 +7,26 @@
 // 2. Rich notification support with actions
 // 3. Precise scheduling with timestamp triggers
 // 4. Better permission handling
-// 5. Channel management for Android
+// 5. Channel management for Android (iOS uses categories)
 // 6. Background task survival
-// 7. Battery optimization handling
+// 7. Battery optimization handling (Android only)
 // 8. Initial notification detection
 // 9. Enhanced debugging and status reporting
+// 10. Cross-platform iOS/Android compatibility
+// 
+// iOS SPECIFIC FEATURES:
+// - Notification categories with actions
+// - Critical sounds for important prayers
+// - Badge management
+// - Interruption levels (iOS 15+)
+// - Maximum 64 scheduled notifications per app
+// 
+// ANDROID SPECIFIC FEATURES:
+// - Custom notification channels
+// - Battery optimization handling
+// - Exact alarm permissions (Android 12+)
+// - Power management settings
+// - Vibration patterns
 // =============================================================================
 
 import notifee, { 
@@ -154,26 +169,59 @@ const checkBatteryOptimization = async () => {
 };
 
 /**
+ * Request iOS-specific permissions
+ */
+const requestIOSPermissions = async () => {
+  try {
+    if (Platform.OS === 'ios') {
+      const settings = await notifee.requestPermission({
+        alert: true,
+        badge: true,
+        sound: true,
+        criticalAlert: true, // For important prayer notifications
+        announcement: true,
+      });
+      
+      console.log('🍎 iOS notification permission:', settings);
+      return settings.authorizationStatus >= 1;
+    }
+    return true;
+  } catch (error) {
+    console.error('❌ Error requesting iOS permissions:', error);
+    return false;
+  }
+};
+
+/**
  * Request all essential permissions for prayer notifications
  */
 const requestEssentialPermissions = async () => {
   try {
     console.log('🔐 Requesting essential permissions...');
     
-    // Request notification permission
-    const notificationPermission = await notifee.requestPermission();
-    console.log('🔔 Notification permission:', notificationPermission);
-    
-    // Request exact alarm permission (Android 12+)
-    const alarmPermission = await requestAlarmPermission();
-    
-    // Check battery optimization
-    await checkBatteryOptimization();
-    
-    return {
-      notifications: notificationPermission.authorizationStatus === 1,
-      exactAlarms: alarmPermission
-    };
+    if (Platform.OS === 'ios') {
+      // iOS-specific permission handling
+      const iosPermission = await requestIOSPermissions();
+      return {
+        notifications: iosPermission,
+        exactAlarms: true // iOS doesn't need explicit alarm permissions
+      };
+    } else {
+      // Android permission handling
+      const notificationPermission = await notifee.requestPermission();
+      console.log('🔔 Notification permission:', notificationPermission);
+      
+      // Request exact alarm permission (Android 12+)
+      const alarmPermission = await requestAlarmPermission();
+      
+      // Check battery optimization
+      await checkBatteryOptimization();
+      
+      return {
+        notifications: notificationPermission.authorizationStatus === 1,
+        exactAlarms: alarmPermission
+      };
+    }
   } catch (error) {
     console.error('❌ Error requesting permissions:', error);
     return { notifications: false, exactAlarms: false };
@@ -232,7 +280,11 @@ export async function initializeNotifeePrayerNotifications() {
  * Supports custom azan audio directly within Notifee notifications
  */
 async function createPrayerNotificationChannels() {
-  if (Platform.OS !== 'android') return;
+  if (Platform.OS !== 'android') {
+    // iOS uses categories instead of channels
+    await createIOSNotificationCategories();
+    return;
+  }
 
   try {
     // Main prayer channel with custom azan sound
@@ -291,6 +343,52 @@ async function createPrayerNotificationChannels() {
 }
 
 /**
+ * Create iOS notification categories (equivalent to Android channels)
+ */
+async function createIOSNotificationCategories() {
+  try {
+    console.log("🍎 Creating iOS notification categories...");
+    
+    await notifee.setNotificationCategories([
+      {
+        id: 'prayer-category',
+        actions: [
+          {
+            id: 'mark_read',
+            title: '🤲 Mark as Read',
+            foreground: false,
+          },
+          {
+            id: 'snooze',
+            title: '⏰ Snooze 5min',
+            foreground: false,
+          },
+        ],
+      },
+      {
+        id: 'fajr-category',
+        actions: [
+          {
+            id: 'mark_read',
+            title: '🤲 Mark as Read',
+            foreground: false,
+          },
+          {
+            id: 'snooze',
+            title: '⏰ Snooze 5min',
+            foreground: false,
+          },
+        ],
+      },
+    ]);
+    
+    console.log("✅ iOS notification categories created successfully");
+  } catch (error) {
+    console.error("❌ Error creating iOS notification categories:", error);
+  }
+}
+
+/**
  * Create fallback channels with default sounds if custom azan fails
  */
 async function createFallbackChannels() {
@@ -333,6 +431,72 @@ async function createFallbackChannels() {
 
 // Keep backward compatibility
 const createPrayerNotificationChannel = createPrayerNotificationChannels;
+
+/**
+ * Create cross-platform notification configuration
+ */
+function createCrossPlatformNotification(prayer, time, useAzanSound, isReminder = false) {
+  const shouldUseAzan = useAzanSound && prayer !== 'Sunrise' && !isReminder;
+  const title = isReminder ? `🔔 ${prayer} Prayer Reminder` : `🕌 ${prayer} Prayer Time`;
+  const body = isReminder ? 
+    `${prayer} prayer starts in 15 minutes (${time})` : 
+    `It's time for ${prayer} prayer (${time})`;
+
+  const baseNotification = {
+    title,
+    body,
+    data: { 
+      prayerName: prayer,
+      prayerTime: time,
+      type: isReminder ? "prayer-reminder" : "prayer-time",
+      soundType: shouldUseAzan ? 'azan' : 'default',
+      playManualAzan: shouldUseAzan.toString()
+    },
+  };
+
+  if (Platform.OS === 'ios') {
+    return {
+      ...baseNotification,
+      ios: {
+        categoryId: prayer === 'Fajr' ? 'fajr-category' : 'prayer-category',
+        sound: shouldUseAzan ? 'azan.wav' : 'default',
+        criticalSound: shouldUseAzan ? {
+          name: 'azan.wav',
+          volume: 1.0,
+          critical: true
+        } : undefined,
+        badge: 1,
+        interruptionLevel: 'active',
+      },
+    };
+  } else {
+    // Android
+    return {
+      ...baseNotification,
+      android: {
+        channelId: isReminder ? 'prayer_reminder_channel' : 
+                  (prayer === 'Fajr' ? 'fajr_prayer_channel' : channelId),
+        category: AndroidCategory.REMINDER,
+        smallIcon: 'ic_launcher_foreground',
+        color: prayer === 'Fajr' ? '#0066cc' : '#1a8e2d',
+        sound: shouldUseAzan ? 'azan' : 'default',
+        vibrationPattern: prayer === 'Fajr' ? 
+          [200, 400, 200, 400, 200, 400] : [300, 600, 300, 600],
+        pressAction: {
+          id: 'default',
+        },
+        actions: [
+          {
+            title: '🤲 Mark as Read',
+            pressAction: {
+              id: 'mark_read',
+            },
+          },
+        ],
+      },
+    };
+  }
+}
 
 /**
  * Handle initial notification if app was opened by notification
@@ -461,56 +625,14 @@ export async function scheduleNotifeePrayerNotifications(prayerTimes, settings =
       // Determine which channel to use based on prayer type
       const channelToUse = prayer === 'Fajr' ? 'fajr_prayer_channel' : channelId;
 
-      // Create notification
+      // Create notification using cross-platform configuration
       const notificationId = `prayer-${prayer.toLowerCase()}`;
+      const notificationConfig = createCrossPlatformNotification(prayer, time, useAzanSound);
       
       await notifee.createTriggerNotification(
         {
           id: notificationId,
-          title: `🕌 ${prayer} Prayer Time`,
-          body: `It's time for ${prayer} prayer (${time})`,
-          data: { 
-            prayerName: prayer,
-            prayerTime: time,
-            type: "prayer-reminder",
-            soundType: soundType
-          },
-          android: {
-            channelId: channelToUse, // Use appropriate channel for prayer type
-            category: AndroidCategory.REMINDER,
-            // Use the default notification icon from Expo
-            smallIcon: 'ic_launcher_foreground',
-            color: prayer === 'Fajr' ? '#0066cc' : '#1a8e2d', // Different color for Fajr
-            // Use custom azan sound directly in Notifee
-            sound: shouldUseAzan ? 'azan' : 'default',
-            vibrationPattern: prayer === 'Fajr' ? [200, 400, 200, 400, 200, 400] : [300, 600, 300, 600],
-            pressAction: {
-              id: 'default',
-              launchActivity: 'default',
-            },
-            actions: [
-              {
-                title: '🤲 Mark as Read',
-                pressAction: {
-                  id: 'mark_read',
-                },
-              },
-              {
-                title: '⏰ Snooze 5min',
-                pressAction: {
-                  id: 'snooze',
-                },
-              },
-            ],
-          },
-          ios: {
-            categoryId: 'prayer-category',
-            sound: 'default',
-            criticalSound: {
-              name: 'default',
-              volume: 1.0,
-            },
-          },
+          ...notificationConfig,
         },
         trigger
       );
@@ -520,7 +642,7 @@ export async function scheduleNotifeePrayerNotifications(prayerTimes, settings =
         time,
         identifier: notificationId,
         scheduledFor: prayerDate.toISOString(),
-        soundType: soundType,
+        soundType: shouldUseAzan ? 'azan' : 'beep',
         trigger: trigger
       });
 
@@ -636,39 +758,24 @@ export async function scheduleImmediateNotifeeNotification(prayerName, message =
     
     console.log(`🔊 ${prayerName} notification will use: ${shouldUseAzan ? 'azan (hybrid)' : 'default'} sound`);
     
+    // Create cross-platform notification configuration
+    const notificationConfig = createCrossPlatformNotification(
+      prayerName, 
+      'now', 
+      useAzanSound, 
+      false
+    );
+    
+    // Override body with custom message if provided
+    if (message) {
+      notificationConfig.body = message;
+    }
+    
     const notificationId = await notifee.displayNotification({
-      title: `🕌 ${prayerName} Prayer Time`,
-      body: message || `It's time for ${prayerName} prayer`,
+      ...notificationConfig,
       data: { 
-        prayerName,
+        ...notificationConfig.data,
         type: "immediate-prayer-reminder",
-        soundType: shouldUseAzan ? 'azan' : 'default',
-        playManualAzan: shouldUseAzan.toString() // Flag for fallback manual azan
-      },
-      android: {
-        channelId: channelId,
-        category: AndroidCategory.REMINDER,
-        // Use the default notification icon from Expo
-        smallIcon: 'ic_launcher_foreground',
-        color: '#1a8e2d',
-        // Use azan sound directly in Notifee (no separate audio)
-        sound: shouldUseAzan ? 'azan' : 'default',
-        vibrationPattern: [300, 600, 300, 600],
-        pressAction: {
-          id: 'default',
-        },
-        actions: [
-          {
-            title: '🤲 Mark as Read',
-            pressAction: {
-              id: 'mark_read',
-            },
-          },
-        ],
-      },
-      ios: {
-        categoryId: 'prayer-category',
-        sound: shouldUseAzan ? 'azan.wav' : 'default',
       },
     });
 
@@ -706,32 +813,45 @@ export async function scheduleNotifeeTestNotification() {
     const shouldUseAzan = useAzanSound;
     console.log(`🔊 Test notification will use: ${shouldUseAzan ? 'azan (hybrid)' : 'default'} sound`);
     
-    const notificationId = await notifee.displayNotification({
-      title: "Test notification",
-      body: `Testing azan sound! (${shouldUseAzan ? 'azan' : 'default'} sound)`,
+    // Create test notification configuration
+    const testConfig = {
+      title: "🧪 Test Notification",
+      body: `Testing prayer notifications! (${shouldUseAzan ? 'azan' : 'default'} sound)`,
       data: { 
         type: "test",
         soundType: shouldUseAzan ? 'azan' : 'default',
         playManualAzan: shouldUseAzan.toString()
       },
-      android: {
+    };
+
+    // Add platform-specific configurations
+    if (Platform.OS === 'ios') {
+      testConfig.ios = {
+        categoryId: 'prayer-category',
+        sound: shouldUseAzan ? 'azan.wav' : 'default',
+        criticalSound: shouldUseAzan ? {
+          name: 'azan.wav',
+          volume: 1.0,
+          critical: true
+        } : undefined,
+        badge: 1,
+        interruptionLevel: 'active',
+      };
+    } else {
+      testConfig.android = {
         channelId: channelId,
         category: AndroidCategory.REMINDER,
-        // Use the default notification icon from Expo
         smallIcon: 'ic_launcher_foreground',
         color: '#1a8e2d',
-        // Use azan sound directly in Notifee (no separate audio)
         sound: shouldUseAzan ? 'azan' : 'default',
         vibrationPattern: [300, 600, 300, 600],
         pressAction: {
           id: 'default',
         },
-      },
-      ios: {
-        categoryId: 'prayer-category',
-        sound: shouldUseAzan ? 'azan.wav' : 'default',
-      },
-    });
+      };
+    }
+    
+    const notificationId = await notifee.displayNotification(testConfig);
 
     console.log(`🧪 Test notification displayed (ID: ${notificationId})`);
     
@@ -810,6 +930,15 @@ export function setupNotifeeEventHandlers() {
           console.log(`🔊 ${prayerData.prayerName} notification delivered - triggering azan fallback`);
           
           // Add small delay to allow Notifee sound to play first, then fallback
+        // Top up rolling window (iOS-safe) after each delivered prayer notification
+        try {
+          if (prayerData?.type === 'prayer-reminder') {
+            const { onPrayerNotificationDelivered } = require('./prayerNotificationScheduler');
+            onPrayerNotificationDelivered();
+          }
+        } catch (e) {
+          console.log('⚠️ rolling window hook failed', e?.message);
+        }
           setTimeout(async () => {
             console.log(`🎵 Playing fallback azan sound for ${prayerData.prayerName} prayer`);
             try {

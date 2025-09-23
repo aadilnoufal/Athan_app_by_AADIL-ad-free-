@@ -7,22 +7,33 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
+  "env": {},
       "android": {
         "gradleCommand": ":app:assembleDebug",
         "buildType": "apk"
+      },
+      "ios": {
+        "buildConfiguration": "Debug"
       }
     },
     "preview": {
       "distribution": "internal",
+  "env": {},
       "android": {
         "buildType": "apk"
+      },
+      "ios": {
+        "buildConfiguration": "Release"
       }
     },
     "production": {
       "autoIncrement": true,
+  "env": {},
       "android": {
-        "buildType": "app-bundle",
-        "gradleCommand": ":app:bundleRelease"
+        "buildType": "app-bundle"
+      },
+      "ios": {
+        "buildConfiguration": "Release"
       }
     }
   },

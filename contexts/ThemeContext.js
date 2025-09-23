@@ -69,7 +69,8 @@ const ThemeContext = createContext({
 });
 
 export const ThemeProvider = ({ children }) => {
-  const [mode, setMode] = useState('light');
+  // Default to dark; will be overridden by persisted choice if present
+  const [mode, setMode] = useState('dark');
   const [prevBg, setPrevBg] = useState(null);
   const transitionProgress = useRef(new Animated.Value(0)).current;
 
@@ -81,12 +82,11 @@ export const ThemeProvider = ({ children }) => {
         if (stored === 'light' || stored === 'dark') {
           setMode(stored);
         } else {
-          const system = Appearance.getColorScheme();
-            setMode(system === 'dark' ? 'dark' : 'light');
+          // If nothing stored, stay dark by default
+          setMode('dark');
         }
       } catch {
-        const system = Appearance.getColorScheme();
-        setMode(system === 'dark' ? 'dark' : 'light');
+        setMode('dark');
       }
     })();
   }, []);

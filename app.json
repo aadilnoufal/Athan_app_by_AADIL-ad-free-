@@ -2,14 +2,14 @@
   "expo": {
     "name": "Prayer Times by AADIL",
     "slug": "prayer-times",
-    "version": "2.0.0",
+    "version": "3.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "userInterfaceStyle": "light",
+  "userInterfaceStyle": "dark",
     "scheme": "prayertimes",
     "splash": {
-      "image": "./assets/images/splash_new.png",
-      "resizeMode": "cover",
+      "image": "./assets/images/splash.png",
+      "resizeMode": "contain",
       "backgroundColor": "#141009"
     },
     "assetBundlePatterns": [
@@ -17,19 +17,15 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.aadiln.prayertimes",
-      "buildNumber": "6",
+      "bundleIdentifier": "com.aadilnoufal.prayertimes",
+  "buildNumber": "24",
       "infoPlist": {
-        "UIBackgroundModes": [
-          "background-fetch",
-          "background-processing",
-          "fetch",
-          "remote-notification"
-        ],
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+  "NSLocationWhenInUseUsageDescription": "This app uses location to calculate accurate prayer times for your area.",
+  "UIBackgroundModes": ["fetch", "remote-notification"]
       }
     },
-    "android": {
+  "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#121212"
@@ -48,8 +44,7 @@
         "USE_EXACT_ALARM",
         "FOREGROUND_SERVICE_MEDIA_PLAYBACK",
         "REQUEST_IGNORE_BATTERY_OPTIMIZATIONS",
-        "SYSTEM_ALERT_WINDOW",
-        "RECEIVE_BOOT_COMPLETED"
+        "SYSTEM_ALERT_WINDOW"
       ],
       "allowBackup": true,
       "edgeToEdgeEnabled": true,
@@ -60,33 +55,17 @@
     },
     "plugins": [
       "expo-dev-client",
-      [
-        "expo-notifications",
-        {
-          "icon": "./assets/notification-icon.png",
-          "color": "#ffffff",
-          "sounds": [
-            "./assets/sounds/azan.wav",
-            "./assets/sounds/beep.wav"
-          ]
-        }
-      ],
-      [
-        "expo-background-fetch",
-        {
-          "backgroundFetchInterval": 15
-        }
-      ],
-      [
-        "expo-task-manager"
-      ],
       "expo-router"
     ],
     "extra": {
       "eas": {
         "projectId": "f0bad73e-5773-4af0-b9b3-c829ee9495ec"
       },
-      "comment": "Android folder removed - EAS Build handles Android project generation from app.json configuration"
+      "comment": "Android folder removed - EAS Build handles Android project generation from app.json configuration",
+      "revenuecat": {
+        "iosApiKey": "<SET_YOUR_REVENUECAT_IOS_API_KEY>",
+        "androidApiKey": ""
+      }
     },
     "newArchEnabled": true,
     "owner": "aadiln"

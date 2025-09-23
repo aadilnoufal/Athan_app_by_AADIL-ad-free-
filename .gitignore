@@ -8,6 +8,8 @@ node_modules/
 dist/
 web-build/
 expo-env.d.ts
+.expo-shared/
+*.expo/*
 
 # Native
 *.orig.*
@@ -16,6 +18,12 @@ expo-env.d.ts
 *.p12
 *.key
 *.mobileprovision
+*.keystore
+*.keystore.*
+**/google-services.json
+**/GoogleService-Info.plist
+**/firebase-*.plist
+**/firebase-*.json
 
 # Native project folders (for CNG / Prebuild)
 /android
@@ -34,7 +42,20 @@ yarn-error.*
 *.pem
 
 # local env files
+.env
+.env.*
 .env*.local
+.envrc
+.env.production
+.env.development
+.env.staging
+.env.test
+*.env
+**/.env*
+
+# IDE/editor
+.vscode/
+.idea/
 
 # typescript
 *.tsbuildinfo
