@@ -1,11 +1,10 @@
 import { Tabs } from 'expo-router';
-import { useColorScheme, View, Dimensions, StyleSheet, Text } from 'react-native';
+import { useColorScheme, View, Dimensions, StyleSheet } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import { SepiaColors } from '../../constants/sepiaColors';
 import { useTheme } from '../../contexts/ThemeContext';
-import { usePurchase } from '../contexts/RevenueCatContext';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
@@ -70,17 +69,6 @@ export default function TabLayout() {
 
   const padding = getPadding();
 
-  // Purchase / subscription info (RevenueCat)
-  const { customerInfo, packages, loading: purchaseLoading, fetchOfferings } = usePurchase();
-  const isPro = useMemo(() => !!customerInfo?.entitlements?.active?.['pro'], [customerInfo]);
-
-  // Attempt to refetch offerings once when we mount if none loaded yet
-  useEffect(() => {
-    if (packages.length === 0 && !purchaseLoading) {
-      fetchOfferings();
-    }
-  }, [packages.length, purchaseLoading, fetchOfferings]);
-
   return (
     <View style={[styles.container, { backgroundColor: colors.background.primary }]}> {/* Use themed background */}
       <Tabs
@@ -133,33 +121,6 @@ export default function TabLayout() {
             title: 'Settings',
             headerShown: false, // Explicitly hiding the header for this screen
             tabBarIcon: ({ color }) => <TabBarIcon name="cog" color={color} iconSize={getIconSize()} />,
-          }}
-        />
-        <Tabs.Screen
-          name="support"
-          options={{
-            title: isPro ? 'PRO' : 'Support',
-            headerShown: false,
-            tabBarIcon: ({ color }) => (
-              <View style={{ alignItems: 'center', justifyContent: 'center' }}>
-                <TabBarIcon name={isPro ? 'star' : 'heart'} color={color} iconSize={getIconSize()} />
-                {!isPro && (
-                  <Text style={{
-                    position: 'absolute',
-                    top: -4,
-                    right: -10,
-                    backgroundColor: colors.accent.gold,
-                    color: '#000',
-                    fontSize: 8,
-                    fontWeight: '700',
-                    paddingHorizontal: 4,
-                    paddingVertical: 1,
-                    borderRadius: 8,
-                    overflow: 'hidden'
-                  }}>NEW</Text>
-                )}
-              </View>
-            ),
           }}
         />
       </Tabs>

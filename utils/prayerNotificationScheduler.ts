@@ -7,7 +7,7 @@
 // - Persist last scheduled date in AsyncStorage.
 // - Rebuild if timezone offset or DST changed since last schedule.
 
-import notifee, { TriggerType } from '@notifee/react-native';
+import notifee, { TriggerType, AndroidCategory } from '@notifee/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState } from 'react-native';
 import { getPrayerTimesFromLocalData } from './localPrayerData';
@@ -61,25 +61,72 @@ async function getNotificationSettings(): Promise<any> {
 async function scheduleDay(date: Date, settings: any) {
   const pt = buildPrayerTimesForDate(date);
   if (!pt) return [];
-  // Reuse existing schedule function but disable repeat by calling notifee directly with timestamp triggers.
-  const created: any[] = [];
+
+  // Determine user sound preference (default true)
+  let useAzanSound = true;
+  try {
+    const stored = await AsyncStorage.getItem('use_azan_sound');
+    if (stored === 'false') useAzanSound = false;
+  } catch {}
+
+  const created: string[] = [];
   const prayers = ['Fajr','Sunrise','Dhuhr','Asr','Maghrib','Isha'];
   for (const prayer of prayers) {
-    if (settings[prayer] === false) continue;
-  const time = (pt as any)[prayer];
-    if (!time) continue;
-    const [h,m] = time.split(':').map(Number);
-    const when = new Date(date);
-    when.setHours(h,m,0,0);
-    if (when.getTime() < Date.now()) continue; // skip past
-    const id = `prayer-${prayer.toLowerCase()}-${isoDate(date)}`;
-    await notifee.createTriggerNotification({
-      id,
-      title: `${prayer} Prayer`,
-      body: `${prayer} time has arrived` ,
-      data: { type: 'prayer-reminder', prayerName: prayer },
-    }, { type: TriggerType.TIMESTAMP, timestamp: when.getTime() });
-    created.push(id);
+    try {
+      if (settings[prayer] === false) continue;
+      const time = (pt as any)[prayer];
+      if (!time) continue;
+      const [h,m] = time.split(':').map(Number);
+      if (isNaN(h) || isNaN(m)) continue;
+      const when = new Date(date);
+      when.setHours(h,m,0,0);
+      if (when.getTime() < Date.now()) continue; // skip past times
+
+      const id = `prayer-${prayer.toLowerCase()}-${isoDate(date)}`;
+      const useAzanForPrayer = useAzanSound && prayer !== 'Sunrise';
+
+      // Determine which channel to use (Android only)
+      let channelId = 'prayer-reminders'; // Default
+      if (prayer === 'Sunrise') {
+        channelId = 'sunrise_prayer_channel';
+      } else if (prayer === 'Fajr') {
+        channelId = 'fajr_prayer_channel';
+      }
+
+      // Platform specific blocks
+      const android: any = {
+        channelId: channelId,
+        category: AndroidCategory.REMINDER,
+        smallIcon: 'ic_launcher_foreground',
+        // Sound is determined by channel, not individual notification on Android
+        vibrationPattern: prayer === 'Fajr' ? [200,400,200,400,200,400] : [300,600,300,600],
+        pressAction: { id: 'default' },
+        color: prayer === 'Fajr' ? '#0066cc' : (prayer === 'Sunrise' ? '#ff9900' : '#1a8e2d')
+      };
+
+      const ios: any = {
+        categoryId: prayer === 'Fajr' ? 'fajr-category' : 'prayer-category',
+        sound: useAzanForPrayer ? 'azan.wav' : 'beep.wav',
+        interruptionLevel: 'active',
+        badge: 1
+      };
+
+      await notifee.createTriggerNotification(
+        {
+          id,
+          title: `🕌 ${prayer} Prayer Time`,
+          body: `It's time for ${prayer} prayer (${time})`,
+          data: { type: 'prayer-reminder', prayerName: prayer, soundType: useAzanForPrayer ? 'azan' : 'beep', useAzanSound: useAzanSound.toString() },
+          android,
+          ios,
+        },
+        { type: TriggerType.TIMESTAMP, timestamp: when.getTime() }
+      );
+      created.push(id);
+      console.log(`✅ Window scheduled ${prayer} ${isoDate(date)} @ ${time} (id=${id})`);
+    } catch (e:any) {
+      console.log(`⚠️ Failed scheduling ${prayer} ${isoDate(date)}:`, e?.message);
+    }
   }
   return created;
 }
@@ -88,6 +135,16 @@ export async function ensurePrayerNotificationWindow() {
   if (ensureInFlight) return;
   ensureInFlight = true;
   try {
+    // Lazy initialize full Notifee service to guarantee channels exist (avoid circular import with dynamic require)
+    try {
+      // @ts-ignore
+      const { initializeNotifeePrayerNotifications } = require('./notifeePrayerService');
+      await initializeNotifeePrayerNotifications();
+    } catch (initErr) {
+      const errMsg = (initErr as any)?.message || initErr;
+      console.log('⚠️ Could not initialize Notifee before window scheduling', errMsg);
+    }
+
     const tzOffset = new Date().getTimezoneOffset();
     const storedTz = await AsyncStorage.getItem(STORAGE_KEY_TZ);
     const version = await AsyncStorage.getItem(STORAGE_KEY_VERSION);

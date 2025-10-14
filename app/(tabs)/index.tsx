@@ -115,7 +115,7 @@ import {
   initializeNotifeePrayerNotifications,
   cancelAllNotifeePrayerNotifications,
   getScheduledNotifeePrayerNotifications,
-  scheduleImmediateNotifeeNotification,
+  // scheduleImmediateNotifeeNotification, // ❌ REMOVED: Not needed, AlarmManager handles notifications
   scheduleNotifeeTestNotification,
   getNotifeeServiceStatus,
   requestExactAlarmPermission,
@@ -2468,128 +2468,9 @@ export default function Home() {
   // Prayer Time Monitoring System - Automatically detects when prayer times arrive
   const lastTriggeredPrayer = useRef<string | null>(null);
   
-  useEffect(() => {
-    if (!prayerTimes || !prayerTimes.times || !nextPrayer) return;
-    
-    let prayerMonitorTimer: NodeJS.Timeout | null = null;
-    
-    const checkPrayerTimeArrival = async () => {
-      const now = new Date();
-      const prayerTime = new Date(nextPrayer.date);
-      
-      // Only check for today's prayers (currentDay === 0)
-      if (currentDay !== 0) return;
-      
-      // Create a unique key for this prayer time to prevent duplicate triggers
-      const prayerKey = `${nextPrayer.name}-${prayerTime.getTime()}`;
-      
-      // Check if we already processed this prayer time
-      if (lastTriggeredPrayer.current === prayerKey) {
-        return;
-      }
-      
-      // Check if prayer time has passed (with 10 second buffer to catch it quickly)
-      const timeDiff = now.getTime() - prayerTime.getTime();
-      const tenSeconds = 10 * 1000;
-      
-      if (timeDiff >= -tenSeconds) { // Changed to -10 seconds to catch slightly early
-        console.log(`🕌 Prayer Time Detected: ${nextPrayer.name} at ${nextPrayer.time} (${Math.floor(timeDiff / 1000)}s ${timeDiff < 0 ? 'before' : 'after'})`);
-        
-        // Mark this prayer as processed to prevent loops - do this FIRST
-        lastTriggeredPrayer.current = prayerKey;
-        
-        // IMMEDIATELY stop the monitoring timer to prevent duplicate triggers
-        if (prayerMonitorTimer) {
-          clearInterval(prayerMonitorTimer);
-          prayerMonitorTimer = null;
-          console.log('⛔ Stopped prayer monitoring to prevent notification spam');
-        }
-        
-        // Deliver immediate notification for this prayer (DISABLED - Notifee scheduled handles this)
-        if (notificationsEnabled && notificationSettings[nextPrayer.name]) {
-          console.log(`📨 Prayer time arrived: ${nextPrayer.name} - Notifee scheduled notification will handle this`);
-          console.log(`🚫 Skipping immediate notification to prevent duplicates with scheduled notifications`);
-          // Disabled to prevent duplicate notifications:
-          // const result = await scheduleImmediateNotifeeNotification(nextPrayer.name);
-        }
-        
-        // Auto-trigger prayer time actions immediately
-        console.log('🔄 Updating prayer times due to prayer time arrival...');
-        
-        // Clear notification timestamp to force rescheduling
-        await AsyncStorage.removeItem('last_notification_scheduled');
-        
-        // Immediately update to next prayer to fix countdown stuck at 00:00:00
-        if (prayerTimes) {
-          console.log('⏱️ Immediately updating next prayer to fix countdown');
-          updateNextPrayer(prayerTimes);
-        }
-        
-        // Fetch fresh prayer times (this should advance to next prayer)
-        console.log('🔄 Fetching fresh prayer times after prayer time arrival');
-        await fetchPrayerTimes(); // This will update the next prayer
-        
-        // Wait briefly for data to update and next prayer to advance
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        // Force update next prayer calculation to ensure it advances
-        if (prayerTimes) {
-          console.log('🔄 Force advancing to next prayer after current one passed');
-          updateNextPrayer(prayerTimes);
-        }
-        
-        // Reschedule notifications after data is updated (force reschedule)
-        console.log('📅 Prayer monitoring: Forcing notification reschedule after prayer time passed');
-        await AsyncStorage.removeItem('last_notification_scheduled');
-        await scheduleNotificationsForToday();
-        
-        // Final update to ensure everything is in sync
-        if (prayerTimes) {
-          console.log('✅ Final update: Ensuring next prayer is properly set');
-          updateNextPrayer(prayerTimes);
-        }
-        
-        // Only restart monitoring after 30 seconds and if next prayer actually changed
-        setTimeout(() => {
-          if (!prayerMonitorTimer) {
-            const newNextPrayer = nextPrayer;
-            // Only restart monitoring if we successfully advanced to next prayer
-            if (newNextPrayer && newNextPrayer.name !== prayerKey.split('-')[0]) {
-              console.log('🔄 Restarting prayer time monitoring for next prayer:', newNextPrayer.name);
-              prayerMonitorTimer = setInterval(() => {
-                checkPrayerTimeArrival();
-              }, 15000);
-            } else {
-              console.log('⚠️ Next prayer did not advance, waiting longer before restart');
-              // Try again after more time if prayer didn't advance
-              setTimeout(() => {
-                if (!prayerMonitorTimer && prayerTimes) {
-                  updateNextPrayer(prayerTimes);
-                  prayerMonitorTimer = setInterval(() => {
-                    checkPrayerTimeArrival();
-                  }, 15000);
-                }
-              }, 30000);
-            }
-          }
-        }, 30000); // Wait 30 seconds before restarting monitoring
-      }
-    };
-    
-    // Check every 15 seconds for prayer time arrival (increased frequency)
-    prayerMonitorTimer = setInterval(() => {
-      checkPrayerTimeArrival();
-    }, 15000);
-    
-    // Also check immediately (but only once per prayer)
-    checkPrayerTimeArrival();
-    
-    return () => {
-      if (prayerMonitorTimer) {
-        clearInterval(prayerMonitorTimer);
-      }
-    };
-  }, [nextPrayer, prayerTimes, currentDay]);
+  // ❌ REMOVED: Prayer monitoring system - AlarmManager handles notifications automatically
+  // The prayer monitoring system was causing infinite loops and conflicts with AlarmManager.
+  // AlarmManager + Notifee handle notifications perfectly on their own.
 
   // Pre-fetch disabled - No caching system active
   const prefetchDay = async (dayOffset: number): Promise<void> => {
@@ -2750,78 +2631,14 @@ export default function Home() {
           }
         }
         
-        // Backup notification system disabled to prevent spam - main system will handle notifications
-        console.log(`�️ Backup system: Notification handled by main system to prevent spam`);
-        // The main prayer monitoring system above already sent notification, no backup needed
+        // ❌ REMOVED: Countdown backup system - AlarmManager handles notifications automatically
+        // ❌ REMOVED: Safety mechanism - Causes infinite loops, AlarmManager doesn't need it
         
-        // Clear notification timestamp for backup system too
-        setTimeout(async () => {
-          await AsyncStorage.removeItem('last_notification_scheduled');
-          
-          // Immediately update next prayer from backup system too
-          if (prayerTimes) {
-            console.log('Backup system: Immediately updating next prayer to fix countdown');
-            updateNextPrayer(prayerTimes);
-          }
-          
-          fetchPrayerTimes();
-          
-          // Also reschedule notifications after backup refresh
-          setTimeout(async () => {
-            console.log('Countdown backup: Notification rescheduling disabled to prevent duplicates');
-            // Disabled: await scheduleNotificationsForToday();
-            // The main prayer monitoring system already handles notifications
-          }, 1000);
-        }, 5000); // Give prayer monitoring system time to catch it first
-      }
-      
-      // Show that time has passed but try to update if we have prayer times
-      setCountdown('00:00:00');
-      
-      // Enhanced safety mechanism: If countdown is stuck at 00:00:00, force a complete system reset
-      // Generate a unique key with timestamp to prevent multiple triggers in succession
-      const safetyKey = `safety-${nextPrayer.name}-${Date.now()}`;
-      if (prayerTimes && countdown === '00:00:00' && safetyMechanismTriggered.current !== safetyKey) {
-        // Mark this safety operation as in progress
-        safetyMechanismTriggered.current = safetyKey;
-        console.log(`🔄 Safety mechanism triggered once for: ${nextPrayer.name}`);
+        // Simply show that time has passed
+        setCountdown('00:00:00');
         
-        // Execute a comprehensive recovery sequence
-        setTimeout(async () => {
-          console.log('🔄 Safety mechanism: Complete prayer system reset in progress');
-          
-          // 1. Reset tracking variables to force fresh state
-          lastTriggeredPrayer.current = null;
-          countdownTriggeredRefresh.current = '';
-          
-          // 2. Force next prayer update
-          updateNextPrayer(prayerTimes);
-          
-          // 3. Force notification reschedule
-          await AsyncStorage.removeItem('last_notification_scheduled');
-          
-          // 4. Perform a complete fresh data fetch
-          await fetchPrayerTimes();
-          
-          // 5. Reschedule notifications with fresh data (only if truly stuck, not during normal prayer transitions)
-          if (notificationsEnabled && countdown === '00:00:00') {
-            console.log('🔄 Safety mechanism: Rescheduling notifications due to stuck countdown');
-            await scheduleNotificationsForToday();
-          } else {
-            console.log('🔄 Safety mechanism: Skipping notification reschedule during normal prayer transition');
-          }
-          
-          console.log('✅ Safety mechanism: System reset complete');
-          
-          // Reset the safety flag after 30 seconds to prevent rapid retriggering
-          // but allow future safety mechanisms if truly needed
-          setTimeout(() => {
-            if (safetyMechanismTriggered.current === safetyKey) {
-              safetyMechanismTriggered.current = '';
-              console.log('🔓 Safety mechanism unlocked for future use if needed');
-            }
-          }, 30000);
-        }, 3000);
+        // Countdown has reached zero - just display it, AlarmManager already fired the notification
+        // No need to trigger any refresh or notification logic here
       }
       
       return;

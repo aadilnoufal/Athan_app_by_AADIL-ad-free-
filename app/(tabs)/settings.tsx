@@ -38,7 +38,9 @@ import {
   getNotifeeServiceStatus,
   requestExactAlarmPermission,
   checkAndHandleBatteryOptimization,
-  checkAndHandlePowerManager
+  checkAndHandlePowerManager,
+  forceRecreateNotificationChannels,
+  forceRefreshPrayerNotifications
 } from '../../utils/notifeePrayerService';
 import { ensurePrayerNotificationWindow } from '../../utils/prayerNotificationScheduler';
 import { playTestSound } from '../../utils/audioHelper';
@@ -428,6 +430,103 @@ export default function SettingsScreen() {
         "Error: " + (error instanceof Error ? error.message : String(error)) + "\n\nPlease check if audio files are in the correct location.",
         [{ text: "OK" }]
       );
+    }
+  };
+  
+  // Add function to fix actual prayer notifications (not just test)
+  const fixActualPrayerNotifications = async () => {
+    try {
+      Alert.alert(
+        'Fix Prayer Notification Sounds',
+        'This will refresh all your scheduled prayer notifications to use the correct azan sound. Your notification settings will be preserved.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { 
+            text: 'Fix Now', 
+            onPress: async () => {
+              try {
+                console.log('🔧 Fixing actual prayer notifications...');
+                
+                // Force refresh all prayer notifications
+                const refreshedNotifications = await forceRefreshPrayerNotifications();
+                
+                Alert.alert(
+                  'Prayer Notifications Fixed!',
+                  `Successfully refreshed ${refreshedNotifications.length} prayer notifications with azan sound. Your next prayer notification should now have the correct azan sound!`,
+                  [{ text: 'Excellent!' }]
+                );
+                
+                // Also refresh the notification status
+                await checkNotificationStatus();
+                
+              } catch (error) {
+                console.error('❌ Failed to fix prayer notifications:', error);
+                Alert.alert(
+                  'Fix Failed',
+                  `Failed to refresh prayer notifications: ${error instanceof Error ? error.message : String(error)}`,
+                  [{ text: 'OK' }]
+                );
+              }
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('Error starting prayer notification fix:', error);
+      Alert.alert("Error", "Failed to start prayer notification fix.", [{ text: 'OK' }]);
+    }
+  };
+
+  // Add azan sound fix test function
+  const testAzanSoundFix = async () => {
+    try {
+      Alert.alert(
+        'Testing Azan Sound Fix',
+        'This will recreate notification channels and test azan sound. You should hear the azan sound if it works.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { 
+            text: 'Test', 
+            onPress: async () => {
+              try {
+                console.log('🧪 Starting azan sound fix test...');
+                
+                // Step 1: Force recreate channels
+                console.log('🔄 Recreating notification channels...');
+                await forceRecreateNotificationChannels();
+                
+                // Step 2: Test notification with azan
+                console.log('🔔 Testing notification with azan sound...');
+                const result = await scheduleNotifeeTestNotification();
+                
+                if (result) {
+                  Alert.alert(
+                    'Azan Sound Test',
+                    'Notification sent! Did you hear the azan sound? If not, check:\n\n• Phone volume is up\n• Not in silent mode\n• Notification sounds enabled\n• App has notification permissions',
+                    [{ text: 'OK' }]
+                  );
+                } else {
+                  Alert.alert(
+                    'Test Failed',
+                    'Failed to send test notification. Check notification permissions.',
+                    [{ text: 'OK' }]
+                  );
+                }
+              } catch (error) {
+                console.error('❌ Azan sound fix test failed:', error);
+                Alert.alert(
+                  'Test Error',
+                  `Failed to test azan sound: ${error instanceof Error ? error.message : String(error)}`,
+                  [{ text: 'OK' }]
+                );
+              }
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('Error starting azan sound test:', error);
+      Alert.alert("Error", "Failed to start azan sound test.", [{ text: 'OK' }]);
     }
   };
   
@@ -895,6 +994,16 @@ export default function SettingsScreen() {
                 >
                   <MaterialCommunityIcons name="information-outline" size={18} color={C.text.inverse} />
                   <Text style={styles.enhancedTestButtonText}>Status</Text>
+                </MagicalButton>
+
+                {/* Fix Actual Prayer Notifications Button */}
+                <MagicalButton 
+                  style={[styles.enhancedTestButton, { marginTop: 10, backgroundColor: '#E74C3C' }]}
+                  onPress={fixActualPrayerNotifications}
+                  glowColor="#E74C3C"
+                >
+                  <MaterialCommunityIcons name="hammer-wrench" size={18} color={C.text.inverse} />
+                  <Text style={styles.enhancedTestButtonText}>Fix Prayer Sounds</Text>
                 </MagicalButton>
               </View>
             </>

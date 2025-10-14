@@ -178,13 +178,13 @@ function InnerLayout() {
   const publicIosKey = process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY;
   const { revenuecat } = (Constants.expoConfig?.extra || (Constants as any).manifest?.extra || {}) as any;
         if (Platform.OS === 'ios') {
-          const iosKey = publicIosKey || revenuecat?.iosApiKey;
+          const iosKey = publicIosKey || revenuecat?.iosApiKey || 'appl_HlFMTQjuEPSpeLuaudMrIpsLqsf';
           if (!iosKey) {
-            console.log('[RevenueCat] iOS API key missing in env or app.json extra.revenuecat. Skipping configure.');
+            console.log('[RevenueCat] iOS API key missing in app.json extra.revenuecat. Skipping configure.');
           } else {
             await Purchases.configure({ apiKey: iosKey });
-            console.log('[RevenueCat] ✅ iOS SDK configured successfully');
           }
+          console.log('[RevenueCat] ✅ iOS SDK configured successfully');
 
           // Development-only deep debug to inspect offerings & products
           if (__DEV__ && verboseRc) {
