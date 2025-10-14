@@ -62,11 +62,22 @@ export const findNextPrayer = (prayerTimes, prayerTimes12h = null, dayOffset = 0
   prayers.sort((a, b) => a.date.getTime() - b.date.getTime());
   
   if (dayOffset === 0) {
-    // For today, find next prayer that hasn't passed (with 1 minute buffer)
-    const oneMinute = 60 * 1000;
-    const nextPrayer = prayers.find(prayer => prayer.date.getTime() > (now.getTime() - oneMinute));
+    // For today, find next prayer that hasn't passed (with minimal buffer to prevent rapid switching)
+    const buffer = 5 * 1000; // 5 seconds buffer instead of 1 minute
+    const nextPrayer = prayers.find(prayer => prayer.date.getTime() > (now.getTime() - buffer));
     
     if (nextPrayer) {
+      // Special case: If current prayer is Isha and next is Fajr, show "Fajr (Tomorrow)"
+      const currentHour = now.getHours();
+      if (nextPrayer.name === 'Fajr' && currentHour >= 18) {
+        const tomorrowFajr = createPrayerDate(nextPrayer.timeRaw, 1);
+        return {
+          name: 'Fajr (Tomorrow)',
+          time: nextPrayer.time,
+          timeRaw: nextPrayer.timeRaw,
+          date: tomorrowFajr
+        };
+      }
       return nextPrayer;
     }
     

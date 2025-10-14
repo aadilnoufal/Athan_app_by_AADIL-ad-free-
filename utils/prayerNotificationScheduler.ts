@@ -85,12 +85,14 @@ async function scheduleDay(date: Date, settings: any) {
       const id = `prayer-${prayer.toLowerCase()}-${isoDate(date)}`;
       const useAzanForPrayer = useAzanSound && prayer !== 'Sunrise';
 
-      // Determine which channel to use (Android only)
-      let channelId = 'prayer-reminders'; // Default
-      if (prayer === 'Sunrise') {
-        channelId = 'sunrise_prayer_channel';
-      } else if (prayer === 'Fajr') {
-        channelId = 'fajr_prayer_channel';
+      // Determine which channel to use (Android only) - matches notifeePrayerService.js channels
+      let channelId = 'prayer-times-default'; // Default
+      if (useAzanForPrayer) {
+        // Use azan channels for prayers (except Sunrise)
+        channelId = prayer === 'Fajr' ? 'fajr-prayer-azan' : 'prayer-times-azan';
+      } else {
+        // Use default sound channels
+        channelId = prayer === 'Fajr' ? 'fajr-prayer-default' : 'prayer-times-default';
       }
 
       // Platform specific blocks

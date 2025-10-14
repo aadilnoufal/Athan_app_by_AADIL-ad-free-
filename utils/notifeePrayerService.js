@@ -940,8 +940,9 @@ export function setupNotifeeEventHandlers() {
         console.log('📨 Notification delivered');
         const prayerData = notification?.data;
         
-        if (prayerData?.type === 'prayer-time') {
-          console.log(`✅ ${prayerData.prayerName} - Channel played ${prayerData.soundType} sound automatically`);
+        // Check for both prayer-time and prayer-reminder types
+        if (prayerData?.type === 'prayer-time' || prayerData?.type === 'prayer-reminder') {
+          console.log(`✅ ${prayerData.prayerName} prayer notification delivered - Channel played ${prayerData.soundType} sound automatically`);
           
           // Top up rolling window for iOS
           try {

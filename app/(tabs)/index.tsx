@@ -2588,57 +2588,18 @@ export default function Home() {
       const refreshKey = `${nextPrayer.name}-${prayerTime.getTime()}`;
       if (countdownTriggeredRefresh.current !== refreshKey && currentDay === 0) {
         countdownTriggeredRefresh.current = refreshKey;
-        console.log('⏰ Countdown triggered prayer time refresh (backup system)');
+        console.log('⏰ Countdown triggered prayer time refresh - advancing to next prayer');
         
-        // Special handling for Isha prayer - transition to tomorrow's Fajr
-        if (nextPrayer.name === 'Isha' && prayerTimes && prayerTimes.times['Fajr']) {
-          console.log('🌙 Last prayer of the day (Isha) detected, transitioning to Fajr tomorrow');
-          const fajrTimeStr = prayerTimes.times['Fajr'];
-          if (fajrTimeStr && fajrTimeStr !== '--:--') {
-            const [hour, minute] = fajrTimeStr.split(':').map(Number);
-            if (!isNaN(hour) && !isNaN(minute)) {
-              const fajrDate = new Date();
-              fajrDate.setDate(fajrDate.getDate() + 1);
-              fajrDate.setHours(hour, minute, 0, 0);
-              
-              // Reset all tracking variables first to ensure clean transition
-              countdownTriggeredRefresh.current = '';
-              lastTriggeredPrayer.current = null;
-              safetyMechanismTriggered.current = '';
-              
-              // Set next prayer to tomorrow's Fajr
-              console.log(`🌅 Setting next prayer to Fajr (Tomorrow) at ${hour}:${minute.toString().padStart(2, '0')}`);
-              setNextPrayer({
-                name: 'Fajr (Tomorrow)',
-                time: prayerTimes.times12h ? prayerTimes.times12h['Fajr'] : convertTo12HourFormat(fajrTimeStr),
-                timeRaw: fajrTimeStr,
-                date: fajrDate
-              });
-              
-              // Reset countdown to force refresh
-              setCountdown('');
-              
-              // Force a fresh data fetch to ensure we have tomorrow's data
-              setTimeout(() => {
-                console.log('Fetching fresh data for tomorrow');
-                // We'll stay on currentDay=0 but with updated nextPrayer
-                fetchPrayerTimes();
-              }, 2000);
-              
-              console.log('✅ Successfully transitioned to Fajr (Tomorrow) after Isha');
-              return;
-            }
-          }
-        }
-        
-        // ❌ REMOVED: Countdown backup system - AlarmManager handles notifications automatically
-        // ❌ REMOVED: Safety mechanism - Causes infinite loops, AlarmManager doesn't need it
-        
-        // Simply show that time has passed
+        // Show that time has passed
         setCountdown('00:00:00');
         
-        // Countdown has reached zero - just display it, AlarmManager already fired the notification
-        // No need to trigger any refresh or notification logic here
+        // Immediately update to next prayer when countdown reaches zero
+        setTimeout(() => {
+          if (prayerTimes) {
+            console.log('🔄 Advancing to next prayer after countdown reached 00:00:00');
+            updateNextPrayer(prayerTimes);
+          }
+        }, 1000);
       }
       
       return;
