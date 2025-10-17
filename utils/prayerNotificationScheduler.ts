@@ -119,6 +119,16 @@ async function scheduleDay(date: Date, settings: any) {
       const notificationTitle = isSunrise ? `☀️ ${prayer}` : `🕌 ${prayer} Prayer Time`;
       const notificationBody = isSunrise ? `Sunrise time (${time})` : `It's time for ${prayer} prayer (${time})`;
 
+      // Create trigger with AlarmManager for EXACT timing (critical for prayer times!)
+      const trigger: any = {
+        type: TriggerType.TIMESTAMP,
+        timestamp: when.getTime(),
+        alarmManager: {
+          allowWhileIdle: true, // Works in Doze mode - bypasses battery optimization
+          exact: true, // Exact timing - required for Android 12+
+        }
+      };
+
       await notifee.createTriggerNotification(
         {
           id,
@@ -129,10 +139,10 @@ async function scheduleDay(date: Date, settings: any) {
           android,
           ios,
         },
-        { type: TriggerType.TIMESTAMP, timestamp: when.getTime() }
+        trigger
       );
       created.push(id);
-      console.log(`✅ Window scheduled ${prayer} ${isoDate(date)} @ ${time} (id=${id})`);
+      console.log(`✅ Window scheduled ${prayer} ${isoDate(date)} @ ${time} (id=${id}) [AlarmManager: exact=true, allowWhileIdle=true]`);
     } catch (e:any) {
       console.log(`⚠️ Failed scheduling ${prayer} ${isoDate(date)}:`, e?.message);
     }
