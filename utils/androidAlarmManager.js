@@ -79,11 +79,16 @@ export async function scheduleAndroidPrayerAlarms(prayerTimes, settings = {}) {
       // Create silent notification channel for display (sound handled by our audio player)
       const channelId = await createSilentNotificationChannel();
       
+      // Sunrise is NOT a prayer, just a time marker
+      const isSunrise = prayer === 'Sunrise';
+      const notificationTitle = isSunrise ? `☀️ ${prayer}` : `🕌 ${prayer} Prayer Time`;
+      const notificationBody = isSunrise ? `Sunrise time (${time})` : `It's time for ${prayer} prayer (${time})`;
+      
       await notifee.createTriggerNotification(
         {
           id: notificationId,
-          title: `🕌 ${prayer} Prayer Time`,
-          body: `It's time for ${prayer} prayer (${time})`,
+          title: notificationTitle,
+          body: notificationBody,
           android: {
             channelId: channelId,
             importance: AndroidImportance.HIGH,

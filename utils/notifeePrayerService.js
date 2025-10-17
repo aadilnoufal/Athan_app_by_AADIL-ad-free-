@@ -476,10 +476,20 @@ const createPrayerNotificationChannel = createPrayerNotificationChannels;
  */
 function createCrossPlatformNotification(prayer, time, useAzanSound, isReminder = false) {
   const shouldUseAzan = useAzanSound && prayer !== 'Sunrise' && !isReminder;
-  const title = isReminder ? `🔔 ${prayer} Prayer Reminder` : `🕌 ${prayer} Prayer Time`;
+  
+  // Sunrise is NOT a prayer, just a time marker
+  const isSunrise = prayer === 'Sunrise';
+  const title = isReminder 
+    ? `🔔 ${prayer} Prayer Reminder` 
+    : isSunrise 
+      ? `☀️ ${prayer}` 
+      : `🕌 ${prayer} Prayer Time`;
+  
   const body = isReminder ? 
     `${prayer} prayer starts in 15 minutes (${time})` : 
-    `It's time for ${prayer} prayer (${time})`;
+    isSunrise 
+      ? `Sunrise time (${time})` 
+      : `It's time for ${prayer} prayer (${time})`;
 
   const baseNotification = {
     title,
@@ -729,12 +739,17 @@ export async function cancelAllNotifeePrayerNotifications() {
       }
     }
 
-    // Also cancel any displayed notifications
+    // Also cancel any displayed notifications related to prayers (reminders or scheduled times)
     const displayedNotifications = await notifee.getDisplayedNotifications();
     for (const notification of displayedNotifications) {
-      if (notification.notification?.data?.type === "prayer-reminder") {
-        await notifee.cancelDisplayedNotification(notification.id);
-        canceledCount++;
+      const t = notification.notification?.data?.type;
+      if (t === "prayer-reminder" || t === 'prayer-time' || t === 'prayer-alarm') {
+        try {
+          await notifee.cancelDisplayedNotification(notification.id);
+          canceledCount++;
+        } catch (e) {
+          console.log('⚠️ Failed to cancel displayed notification', notification.id, e?.message || e);
+        }
       }
     }
 
@@ -956,11 +971,9 @@ export function setupNotifeeEventHandlers() {
     }
   });
   
-  // Background events (when app is closed)
-  notifee.onBackgroundEvent(async ({ type, detail }) => {
-    console.log('🌙 Background event:', type);
-    // Channels handle sounds automatically - nothing to do here
-  });
+  // Background events are now handled at the top level in index.ts
+  // DO NOT register onBackgroundEvent here as it will overwrite the top-level handler
+  // The top-level handler in index.ts is critical for notifications when app is closed
 }
 
 /**

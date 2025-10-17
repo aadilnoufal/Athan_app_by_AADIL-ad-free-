@@ -39,10 +39,9 @@ import {
   requestExactAlarmPermission,
   checkAndHandleBatteryOptimization,
   checkAndHandlePowerManager,
-  forceRecreateNotificationChannels,
-  forceRefreshPrayerNotifications
+  forceRecreateNotificationChannels
 } from '../../utils/notifeePrayerService';
-import { ensurePrayerNotificationWindow } from '../../utils/prayerNotificationScheduler';
+import { ensurePrayerNotificationWindow, forceRescheduleAllNotifications } from '../../utils/prayerNotificationScheduler';
 import { playTestSound } from '../../utils/audioHelper';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { SepiaColors } from '../../constants/sepiaColors';
@@ -432,50 +431,6 @@ export default function SettingsScreen() {
       );
     }
   };
-  
-  // Add function to fix actual prayer notifications (not just test)
-  const fixActualPrayerNotifications = async () => {
-    try {
-      Alert.alert(
-        'Fix Prayer Notification Sounds',
-        'This will refresh all your scheduled prayer notifications to use the correct azan sound. Your notification settings will be preserved.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { 
-            text: 'Fix Now', 
-            onPress: async () => {
-              try {
-                console.log('🔧 Fixing actual prayer notifications...');
-                
-                // Force refresh all prayer notifications
-                const refreshedNotifications = await forceRefreshPrayerNotifications();
-                
-                Alert.alert(
-                  'Prayer Notifications Fixed!',
-                  `Successfully refreshed ${refreshedNotifications.length} prayer notifications with azan sound. Your next prayer notification should now have the correct azan sound!`,
-                  [{ text: 'Excellent!' }]
-                );
-                
-                // Also refresh the notification status
-                await checkNotificationStatus();
-                
-              } catch (error) {
-                console.error('❌ Failed to fix prayer notifications:', error);
-                Alert.alert(
-                  'Fix Failed',
-                  `Failed to refresh prayer notifications: ${error instanceof Error ? error.message : String(error)}`,
-                  [{ text: 'OK' }]
-                );
-              }
-            }
-          }
-        ]
-      );
-    } catch (error) {
-      console.error('Error starting prayer notification fix:', error);
-      Alert.alert("Error", "Failed to start prayer notification fix.", [{ text: 'OK' }]);
-    }
-  };
 
   // Add azan sound fix test function
   const testAzanSoundFix = async () => {
@@ -602,44 +557,6 @@ export default function SettingsScreen() {
       console.error('❌ Error resetting notifications:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       Alert.alert('Error', `Failed to reset notifications: ${errorMessage}`);
-    }
-  };
-
-  // Force schedule notifications by getting prayer times and scheduling them
-  const forceScheduleNotifications = async () => {
-    try {
-      console.log('🚀 Force scheduling notifications...');
-      
-      // First enable notifications
-      await AsyncStorage.setItem('notifications_enabled', 'true');
-      
-      // Get today's prayer times from local storage (assuming they're cached)
-      const todayKey = `prayer_${new Date().toISOString().split('T')[0]}`;
-      const cachedTimes = await AsyncStorage.getItem(todayKey);
-      
-      if (cachedTimes) {
-        const prayerData = JSON.parse(cachedTimes);
-        console.log('📅 Found cached prayer times:', prayerData);
-        
-  await ensurePrayerNotificationWindow();
-        
-        Alert.alert(
-          'Success!',
-          `Successfully scheduled Notifee prayer notifications for today!`,
-          [{ text: 'OK' }]
-        );
-        console.log('✅ Force scheduling completed successfully');
-      } else {
-        Alert.alert(
-          'No Prayer Data',
-          'No cached prayer times found. Please go to the home screen first to load prayer times, then try again.',
-          [{ text: 'OK' }]
-        );
-      }
-    } catch (error) {
-      console.error('❌ Error force scheduling notifications:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      Alert.alert('Error', `Failed to force schedule notifications: ${errorMessage}`);
     }
   };
 
@@ -994,16 +911,6 @@ export default function SettingsScreen() {
                 >
                   <MaterialCommunityIcons name="information-outline" size={18} color={C.text.inverse} />
                   <Text style={styles.enhancedTestButtonText}>Status</Text>
-                </MagicalButton>
-
-                {/* Fix Actual Prayer Notifications Button */}
-                <MagicalButton 
-                  style={[styles.enhancedTestButton, { marginTop: 10, backgroundColor: '#E74C3C' }]}
-                  onPress={fixActualPrayerNotifications}
-                  glowColor="#E74C3C"
-                >
-                  <MaterialCommunityIcons name="hammer-wrench" size={18} color={C.text.inverse} />
-                  <Text style={styles.enhancedTestButtonText}>Fix Prayer Sounds</Text>
                 </MagicalButton>
               </View>
             </>

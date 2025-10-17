@@ -282,26 +282,34 @@ function InnerLayout() {
     const unsubscribe = notifee.onForegroundEvent(({ type, detail }) => {
       if (type === 1) { // EventType.PRESS
         console.log('Notification pressed:', detail.notification);
-      } else if (type === 0) { // EventType.DISPLAYED
+        } else if (type === 0) { // EventType.DISPLAYED
         console.log("Notification displayed in foreground:", detail.notification);
         const notification = detail.notification;
         const prayerName = notification?.data?.prayerName as string || 'Prayer';
         const useAzanSound = String(notification?.data?.useAzanSound) === 'true';
-        
+
         // Only show new notifications (avoid duplication from quick re-renders)
         const currentTime = new Date().getTime();
         if (currentTime - lastReceivedAt > 1000) {
           setLastReceivedAt(currentTime);
-          
+
           // Set notification for display
           setNotification({
             title: notification?.title || `${prayerName} Time`,
             body: notification?.body || `It's time for ${prayerName}`,
             data: notification?.data || {}
           });
-          
-          // Provide vibration feedback
-          playPrayerSound(prayerName || 'Test', useAzanSound);
+
+          // Avoid double-sounding: Notifee channels normally play the sound.
+          // Only perform manual playback when the notification explicitly requests it
+          // (legacy tests or special alarms set `playManualAzan: 'true'`).
+          const playManual = String(notification?.data?.playManualAzan) === 'true' || String(notification?.data?.playManual) === 'true';
+          if (playManual) {
+            playPrayerSound(prayerName || 'Test', useAzanSound);
+          } else {
+            // Simple vibration feedback for foreground display (no double audio)
+            Vibration.vibrate([0, 250]);
+          }
         }
       }
     });

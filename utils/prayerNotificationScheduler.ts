@@ -18,6 +18,7 @@ const WINDOW_DAYS = 10; // days forward to keep scheduled
 const STORAGE_KEY_LAST_DAY = 'prayer_sched_last_day';
 const STORAGE_KEY_TZ = 'prayer_sched_tz_offset';
 const STORAGE_KEY_VERSION = 'prayer_sched_version';
+const STORAGE_KEY_SOUND_PREF = 'prayer_sched_sound_pref'; // Track sound preference changes
 const SCHEDULER_VERSION = '1';
 
 let appStateSub: any = null;
@@ -113,12 +114,18 @@ async function scheduleDay(date: Date, settings: any) {
         badge: 1
       };
 
+      // Sunrise is NOT a prayer, just a time marker
+      const isSunrise = prayer === 'Sunrise';
+      const notificationTitle = isSunrise ? `☀️ ${prayer}` : `🕌 ${prayer} Prayer Time`;
+      const notificationBody = isSunrise ? `Sunrise time (${time})` : `It's time for ${prayer} prayer (${time})`;
+
       await notifee.createTriggerNotification(
         {
           id,
-          title: `🕌 ${prayer} Prayer Time`,
-          body: `It's time for ${prayer} prayer (${time})`,
-          data: { type: 'prayer-reminder', prayerName: prayer, soundType: useAzanForPrayer ? 'azan' : 'beep', useAzanSound: useAzanSound.toString() },
+          title: notificationTitle,
+          body: notificationBody,
+          // Use unified type 'prayer-time' for scheduled prayer notifications
+          data: { type: 'prayer-time', prayerName: prayer, soundType: useAzanForPrayer ? 'azan' : 'beep', useAzanSound: useAzanSound.toString() },
           android,
           ios,
         },
@@ -157,8 +164,27 @@ export async function ensurePrayerNotificationWindow() {
     const today = new Date();
     today.setHours(0,0,0,0);
 
+    // Check if sound preference changed
+    let soundPrefChanged = false;
+    try {
+      const currentSoundPref = await AsyncStorage.getItem('use_azan_sound');
+      const storedSoundPref = await AsyncStorage.getItem(STORAGE_KEY_SOUND_PREF);
+      if (storedSoundPref && storedSoundPref !== currentSoundPref) {
+        console.log(`🔊 Sound preference changed: ${storedSoundPref} → ${currentSoundPref}, triggering full reschedule`);
+        soundPrefChanged = true;
+        await cancelAll();
+      }
+      // Update stored sound preference
+      if (currentSoundPref) {
+        await AsyncStorage.setItem(STORAGE_KEY_SOUND_PREF, currentSoundPref);
+      }
+    } catch (e) {
+      console.log('⚠️ Could not check sound preference:', e);
+    }
+
     // Detect TZ / DST change
     if (storedTz && parseInt(storedTz,10) !== tzOffset) {
+      console.log(`🌍 Timezone changed: ${storedTz} → ${tzOffset}, triggering full reschedule`);
       await cancelAll();
     }
 
@@ -166,15 +192,51 @@ export async function ensurePrayerNotificationWindow() {
     // Filter our pattern ids with date suffix
     const ours = existingIds.filter(id => id.startsWith('prayer-') && id.split('-').length === 3);
 
+    // Clean up past notifications before counting
+    const now = Date.now();
+    const todayStr = isoDate(today);
+    for (const id of ours) {
+      const parts = id.split('-');
+      const prayerName = parts[1];
+      const dateStr = parts[2];
+      
+      // Cancel if date is in the past (before today)
+      if (dateStr < todayStr) {
+        await notifee.cancelTriggerNotification(id);
+        continue;
+      }
+      
+      // If it's today, check if the prayer time has already passed
+      if (dateStr === todayStr) {
+        const date = new Date(dateStr);
+        const prayerTimes = buildPrayerTimesForDate(date);
+        if (prayerTimes && prayerTimes[prayerName]) {
+          const [hours, minutes] = prayerTimes[prayerName].split(':').map(Number);
+          const prayerDate = new Date(date);
+          prayerDate.setHours(hours, minutes, 0, 0);
+          
+          // If prayer time has passed, cancel it
+          if (prayerDate.getTime() < now) {
+            await notifee.cancelTriggerNotification(id);
+            continue;
+          }
+        }
+      }
+    }
+    
+    // Re-fetch IDs after cleanup
+    const updatedIds = await notifee.getTriggerNotificationIds();
+    const activeOurs = updatedIds.filter(id => id.startsWith('prayer-') && id.split('-').length === 3);
+
     // Build set of dates already covered
     const coveredDates = new Set<string>();
-    for (const id of ours) {
+    for (const id of activeOurs) {
       const parts = id.split('-');
       const dateStr = parts.slice(-1)[0];
       coveredDates.add(dateStr);
     }
 
-    let scheduledCount = ours.length;
+    let scheduledCount = activeOurs.length;
     let dayCursor = new Date(today);
     for (let i=0; i<WINDOW_DAYS && scheduledCount < 54; i++) {
       const dateStr = isoDate(dayCursor);
@@ -218,4 +280,24 @@ export function startPrayerNotificationWindowMaintainer() {
 export async function onPrayerNotificationDelivered() {
   // Top up after slight delay
   setTimeout(() => ensurePrayerNotificationWindow(), 2000);
+}
+
+// Force a complete reschedule of all notifications (for settings changes)
+export async function forceRescheduleAllNotifications() {
+  console.log('🔄 Force rescheduling all notifications from scratch...');
+  try {
+    // Cancel all existing prayer notifications
+    await cancelAll();
+    
+    // Clear all stored state to trigger fresh scheduling
+    await AsyncStorage.removeItem(STORAGE_KEY_LAST_DAY);
+    await AsyncStorage.removeItem(STORAGE_KEY_TZ);
+    
+    // Trigger a full reschedule
+    await ensurePrayerNotificationWindow();
+    
+    console.log('✅ Force reschedule complete');
+  } catch (e) {
+    console.log('❌ Force reschedule failed:', e);
+  }
 }

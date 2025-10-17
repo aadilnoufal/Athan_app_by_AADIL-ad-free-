@@ -123,7 +123,7 @@ import {
   checkAndHandleBatteryOptimization,
   checkAndHandlePowerManager
 } from '../../utils/notifeePrayerService';
-import { ensurePrayerNotificationWindow } from '../../utils/prayerNotificationScheduler';
+import { ensurePrayerNotificationWindow, forceRescheduleAllNotifications } from '../../utils/prayerNotificationScheduler';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 // Import background task utilities
 import { 
@@ -1385,10 +1385,13 @@ export default function Home() {
       const updateFlag = await AsyncStorage.getItem('notifications_updated');
       
       if (updateFlag) {
+        console.log('🔄 Notification settings changed, forcing full reschedule...');
         await AsyncStorage.removeItem('notifications_updated');
         await AsyncStorage.removeItem('last_notification_scheduled'); // Clear timestamp for fresh scheduling
         await checkNotificationSettings();
-        await scheduleNotificationsForToday();
+        
+        // Force a complete reschedule instead of just topping up
+        await forceRescheduleAllNotifications();
       }
 
       // Check notification health
@@ -2492,10 +2495,15 @@ export default function Home() {
     const next = findNextPrayer(data.times, data.times12h, currentDay) as NextPrayer | null;
     
     if (next) {
+      console.log(`📋 findNextPrayer returned: ${next.name} at ${next.time}`);
+      console.log(`📋 Current nextPrayer: ${nextPrayer?.name || 'none'}`);
+      
       // Only update if the prayer is actually different (prevents unnecessary re-renders)
       const isDifferent = !nextPrayer || 
         nextPrayer.name !== next.name || 
         !isSamePrayerTime(nextPrayer.date, next.date);
+      
+      console.log(`📋 isDifferent: ${isDifferent}`);
       
       if (isDifferent) {
         console.log(`🔄 Next prayer updated: ${next.name} at ${next.time}`);
@@ -2504,6 +2512,9 @@ export default function Home() {
         // Reset countdown when prayer changes to fix stuck countdown
         setCountdown('');
         setCountdownLoading(true);
+        
+        // Reset the countdown trigger ref when prayer successfully changes
+        countdownTriggeredRefresh.current = '';
         
         console.log(`🔄 Prayer changed from ${nextPrayer?.name || 'none'} to ${next.name} - countdown reset`);
       } else {
@@ -2584,22 +2595,22 @@ export default function Home() {
         lastCountdownLog.current = logKey;
       }
       
-      // If prayer monitoring hasn't caught this yet, trigger a refresh after a short delay
+      // Show that time has passed
+      setCountdown('00:00:00');
+      
+      // Immediately update to next prayer when countdown reaches zero
+      // Only trigger once per prayer to prevent loops
       const refreshKey = `${nextPrayer.name}-${prayerTime.getTime()}`;
-      if (countdownTriggeredRefresh.current !== refreshKey && currentDay === 0) {
+      
+      console.log(`🔍 Countdown zero check - refreshKey: ${refreshKey}, stored: ${countdownTriggeredRefresh.current}, currentDay: ${currentDay}, hasPrayerTimes: ${!!prayerTimes}`);
+      
+      if (countdownTriggeredRefresh.current !== refreshKey && currentDay === 0 && prayerTimes) {
         countdownTriggeredRefresh.current = refreshKey;
-        console.log('⏰ Countdown triggered prayer time refresh - advancing to next prayer');
-        
-        // Show that time has passed
-        setCountdown('00:00:00');
-        
-        // Immediately update to next prayer when countdown reaches zero
-        setTimeout(() => {
-          if (prayerTimes) {
-            console.log('🔄 Advancing to next prayer after countdown reached 00:00:00');
-            updateNextPrayer(prayerTimes);
-          }
-        }, 1000);
+        console.log('🔄 Countdown reached zero - advancing to next prayer immediately');
+        // Update immediately, no setTimeout needed
+        updateNextPrayer(prayerTimes);
+      } else {
+        console.log('⚠️ Countdown zero BUT not triggering update - already triggered or wrong conditions');
       }
       
       return;
@@ -2759,7 +2770,7 @@ export default function Home() {
     if (countdownLoading) {
       setCountdownLoading(false);
     }
-  }, [nextPrayer, currentDay, progressPercent, countdown, prayerTimes, lastPrayerTime, countdownLoading]);
+  }, [nextPrayer, currentDay, progressPercent, countdown, prayerTimes, lastPrayerTime, countdownLoading, updateNextPrayer]);
   
   // Timer management for countdown - only when app is in foreground
   useEffect(() => {
