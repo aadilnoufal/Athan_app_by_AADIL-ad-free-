@@ -33,3 +33,16 @@ yarn-error.*
 *.tsbuildinfo
 
 app-example
+
+# Keystore files and credentials (NEVER commit these!)
+*.keystore
+*.jks
+keystore.properties
+gradle.properties
+*-credentials.md
+
+# Android local config
+android/local.properties
+android/app/upload-keystore.jks
+android/app/upload-keystore.keystore
+android/app/debug.keystore

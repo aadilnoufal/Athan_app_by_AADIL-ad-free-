@@ -18,7 +18,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.aadilnoufal.prayertimes",
-  "buildNumber": "24",
+  "buildNumber": "37",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
   "NSLocationWhenInUseUsageDescription": "This app uses location to calculate accurate prayer times for your area.",
@@ -31,7 +31,7 @@
         "backgroundColor": "#121212"
       },
       "package": "com.yourcompany.prayertimes",
-      "versionCode": 6,
+      "versionCode": 37,
       "permissions": [
         "RECEIVE_BOOT_COMPLETED",
         "SCHEDULE_EXACT_ALARM",
