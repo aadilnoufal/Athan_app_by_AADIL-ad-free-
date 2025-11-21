@@ -2,7 +2,7 @@
   "expo": {
     "name": "Prayer Times by AADIL",
     "slug": "prayer-times",
-    "version": "3.1.0",
+    "version": "3.4.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
   "userInterfaceStyle": "dark",
@@ -17,8 +17,8 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.aadilnoufal.prayertimes",
-  "buildNumber": "37",
+        "bundleIdentifier": "com.aadilnoufal.prayertimes",
+      "buildNumber": "57",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
   "NSLocationWhenInUseUsageDescription": "This app uses location to calculate accurate prayer times for your area.",
@@ -31,7 +31,7 @@
         "backgroundColor": "#121212"
       },
       "package": "com.yourcompany.prayertimes",
-      "versionCode": 37,
+      "versionCode": 57,
       "permissions": [
         "RECEIVE_BOOT_COMPLETED",
         "SCHEDULE_EXACT_ALARM",
@@ -55,7 +55,16 @@
     },
     "plugins": [
       "expo-dev-client",
-      "expo-router"
+      "expo-router",
+      [
+        "expo-notifications",
+        {
+          "sounds": [
+            "./assets/sounds/azan.wav",
+            "./assets/sounds/beep.wav"
+          ]
+        }
+      ]
     ],
     "extra": {
       "eas": {
