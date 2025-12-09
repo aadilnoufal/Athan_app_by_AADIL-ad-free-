@@ -24,11 +24,23 @@ export default {
   
   // Home screen
   next: 'Next',
+  nextPrayer: 'Next Prayer',
+  finalHour: 'Final Hour',
+  selectRegion: 'Select Region',
+  location: 'Location',
   calculating: 'Calculating...',
   madeBy: 'Made with ❤️ by AADIL NOUFAL',
   
+  // Tabs
+  prayerTimes: 'Prayer Times',
+  dua: 'Dua',
+  duasTitle: 'Duas & Azkar',
+  duasSubtitle: 'Supplications for daily life',
+  
   // Settings screen
   settings: 'Settings',
+  appearance: 'Appearance',
+  darkMode: 'Dark Mode',
   notifications: 'Notifications',
   enableNotifications: 'Enable Notifications',
   notifyMeFor: 'Notify me for:',
@@ -37,11 +49,15 @@ export default {
   testNotification: 'Test Notification',
   testSound: 'Test Sound',
   testInAppAlert: 'Test In-App Alert',
+  status: 'Status',
+  manageSubscriptions: 'Manage Apple Subscriptions',
   
   // Location settings
   locationSettings: 'Location Settings',
+  updateLocation: 'Update Location',
   selectLocation: 'Select your location to get accurate prayer times.',
   country: 'Country',
+  state: 'State',
   stateRegion: 'State/Region',
   city: 'City',
   selectCountry: 'Select Country',
@@ -61,6 +77,7 @@ export default {
   appVersion: 'Prayer Times v1.1.1',
   aboutText: 'Get accurate prayer times customized for your location. While we strive for the highest precision, please note that actual timings may slightly differ.',
   supportApp: 'Support the App',
+  supportDeveloper: 'Support Developer',
   
   // Support dialog
   supportTitle: 'Support the Developer',

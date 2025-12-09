@@ -5,12 +5,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useEffect, useState } from 'react';
 import { SepiaColors } from '../../constants/sepiaColors';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const insets = useSafeAreaInsets();
   const { colors, isDark: themeIsDark } = useTheme();
+  const { t } = useLanguage();
   const darkMode = themeIsDark; // prefer theme toggle over system
   
   // Dynamic screen dimensions that update on orientation change
@@ -110,15 +112,23 @@ export default function TabLayout() {
         <Tabs.Screen
           name="index"
           options={{
-            title: 'Prayer Times',
+            title: t('prayerTimes'),
             headerShown: false, // Explicitly hiding the header for this screen
             tabBarIcon: ({ color }) => <TabBarIcon name="clock-o" color={color} iconSize={getIconSize()} />,
           }}
         />
         <Tabs.Screen
+          name="dua"
+          options={{
+            title: t('dua'),
+            headerShown: false,
+            tabBarIcon: ({ color }) => <TabBarIcon name="book" color={color} iconSize={getIconSize()} />,
+          }}
+        />
+        <Tabs.Screen
           name="settings"
           options={{
-            title: 'Settings',
+            title: t('settings'),
             headerShown: false, // Explicitly hiding the header for this screen
             tabBarIcon: ({ color }) => <TabBarIcon name="cog" color={color} iconSize={getIconSize()} />,
           }}

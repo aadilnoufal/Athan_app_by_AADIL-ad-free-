@@ -24,11 +24,23 @@ export default {
   
   // Home screen
   next: 'التالي',
+  nextPrayer: 'الصلاة القادمة',
+  finalHour: 'الساعة الأخيرة',
+  selectRegion: 'اختر المنطقة',
+  location: 'الموقع',
   calculating: 'جاري الحساب...',
   madeBy: 'صنع بـ ❤️ بواسطة عادل نوفل',
   
+  // Tabs
+  prayerTimes: 'أوقات الصلاة',
+  dua: 'أدعية',
+  duasTitle: 'الأدعية والأذكار',
+  duasSubtitle: 'أدعية للحياة اليومية',
+  
   // Settings screen
   settings: 'الإعدادات',
+  appearance: 'المظهر',
+  darkMode: 'الوضع الداكن',
   notifications: 'الإشعارات',
   enableNotifications: 'تفعيل الإشعارات',
   notifyMeFor: 'تنبيهني لـ:',
@@ -37,11 +49,15 @@ export default {
   testNotification: 'اختبار الإشعار',
   testSound: 'اختبار الصوت',
   testInAppAlert: 'اختبار تنبيه داخل التطبيق',
+  status: 'الحالة',
+  manageSubscriptions: 'إدارة اشتراكات Apple',
   
   // Location settings
   locationSettings: 'إعدادات الموقع',
+  updateLocation: 'تحديث الموقع',
   selectLocation: 'حدد موقعك للحصول على مواقيت صلاة دقيقة.',
   country: 'البلد',
+  state: 'المنطقة',
   stateRegion: 'المنطقة/الولاية',
   city: 'المدينة',
   selectCountry: 'اختر البلد',
@@ -61,6 +77,7 @@ export default {
   appVersion: 'مواقيت الصلاة الإصدار ١.١.١',
   aboutText: 'احصل على مواقيت صلاة دقيقة مخصصة لموقعك. بينما نسعى لأعلى درجات الدقة، يرجى ملاحظة أن التوقيتات الفعلية قد تختلف قليلاً.',
   supportApp: 'دعم التطبيق',
+  supportDeveloper: 'دعم المطور',
   
   // Support dialog
   supportTitle: 'دعم المطور',

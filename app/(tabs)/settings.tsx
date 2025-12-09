@@ -770,10 +770,10 @@ export default function SettingsScreen() {
               size={20} 
               color={C.accent.gold} 
             />
-            <Text style={styles.enhancedSectionTitle}>{t('appearance') || 'Appearance'}</Text>
+            <Text style={styles.enhancedSectionTitle}>{t('appearance')}</Text>
           </View>
           <View style={styles.enhancedSettingContainer}>
-            <Text style={styles.enhancedSettingLabel}>{t('darkMode') || 'Dark Mode'}</Text>
+            <Text style={styles.enhancedSettingLabel}>{t('darkMode')}</Text>
             <Switch
               value={isDark}
               onValueChange={toggleTheme}
@@ -910,7 +910,7 @@ export default function SettingsScreen() {
                   glowColor={C.accent.copper}
                 >
                   <MaterialCommunityIcons name="information-outline" size={18} color={C.text.inverse} />
-                  <Text style={styles.enhancedTestButtonText}>Status</Text>
+                  <Text style={styles.enhancedTestButtonText}>{t('status')}</Text>
                 </MagicalButton>
               </View>
             </>
@@ -1129,7 +1129,7 @@ export default function SettingsScreen() {
                     onPress={() => Linking.openURL('https://apps.apple.com/account/subscriptions')}
                     disabled={iapLoading}
                   >
-                    <Text style={styles.enhancedTestButtonText}>Manage Apple Subscriptions</Text>
+                    <Text style={styles.enhancedTestButtonText}>{t('manageSubscriptions')}</Text>
                   </TouchableOpacity>
                 </View>
               )}

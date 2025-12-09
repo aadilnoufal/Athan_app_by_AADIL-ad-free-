@@ -1,63 +1,3 @@
-// Animated prayer icon component (now supports subtle mode for countdown center)
-const AnimatedPrayerIcon = ({ prayer, active, size = 24, color, subtle = false }: { prayer: string; active: boolean; size?: number; color: string; subtle?: boolean }) => {
-  const scale = React.useRef(new Animated.Value(1)).current;
-  const rotate = React.useRef(new Animated.Value(0)).current;
-  const isSolar = prayer === 'Sunrise' || prayer === 'Dhuhr' || prayer === 'Asr';
-
-  React.useEffect(() => {
-    scale.stopAnimation();
-    rotate.stopAnimation();
-
-    // Subtle mode: keep icon still (outer container may already have breathing animation)
-    if (subtle) {
-      scale.setValue(1);
-      rotate.setValue(0);
-      return;
-    }
-
-    // Reduced pulse magnitude overall
-    const from = 1;
-    const to = active ? 1.10 : 1.04;
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(scale, { toValue: to, duration: active ? 1400 : 2000, useNativeDriver: true, easing: Easing.inOut(Easing.quad) }),
-        Animated.timing(scale, { toValue: from, duration: active ? 1400 : 2000, useNativeDriver: true, easing: Easing.inOut(Easing.quad) })
-      ])
-    ).start();
-
-    // Further slow rotation
-    if (isSolar) {
-      Animated.loop(
-        Animated.timing(rotate, { toValue: 1, duration: active ? 16000 : 22000, useNativeDriver: true, easing: Easing.linear })
-      ).start();
-    } else if (prayer === 'Isha' || prayer === 'Maghrib') {
-      Animated.loop(
-        Animated.timing(rotate, { toValue: 1, duration: active ? 24000 : 32000, useNativeDriver: true, easing: Easing.linear })
-      ).start();
-    } else {
-      rotate.setValue(0);
-    }
-  }, [prayer, active, isSolar, subtle]);
-
-  const rotation = rotate.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
-  const iconName = (
-    prayer === 'Fajr' ? 'weather-sunset-up' :
-    prayer === 'Sunrise' ? 'white-balance-sunny' :
-    prayer === 'Dhuhr' ? 'sun-wireless' :
-    prayer === 'Asr' ? 'weather-sunny' :
-    prayer === 'Maghrib' ? 'weather-sunset-down' :
-    'weather-night'
-  );
-
-  const transforms: any[] = subtle ? [] : [{ scale }];
-  if (!subtle && isSolar) transforms.push({ rotate: rotation });
-
-  return (
-    <Animated.View style={{ transform: transforms }}>
-      <MaterialCommunityIcons name={iconName as any} size={size} color={color} />
-    </Animated.View>
-  );
-};
 import React, { useState, useEffect, useCallback, useRef, Dispatch, SetStateAction } from 'react';
 import { 
   StyleSheet, 
@@ -199,6 +139,67 @@ interface NotificationSettings {
   [key: string]: boolean; // Add index signature for string keys
 }
 
+// Animated prayer icon component (now supports subtle mode for countdown center)
+const AnimatedPrayerIcon = ({ prayer, active, size = 24, color, subtle = false }: { prayer: string; active: boolean; size?: number; color: string; subtle?: boolean }) => {
+  const scale = React.useRef(new Animated.Value(1)).current;
+  const rotate = React.useRef(new Animated.Value(0)).current;
+  const isSolar = prayer === 'Sunrise' || prayer === 'Dhuhr' || prayer === 'Asr';
+
+  React.useEffect(() => {
+    scale.stopAnimation();
+    rotate.stopAnimation();
+
+    // Subtle mode: keep icon still (outer container may already have breathing animation)
+    if (subtle) {
+      scale.setValue(1);
+      rotate.setValue(0);
+      return;
+    }
+
+    // Reduced pulse magnitude overall
+    const from = 1;
+    const to = active ? 1.10 : 1.04;
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(scale, { toValue: to, duration: active ? 1400 : 2000, useNativeDriver: true, easing: Easing.inOut(Easing.quad) }),
+        Animated.timing(scale, { toValue: from, duration: active ? 1400 : 2000, useNativeDriver: true, easing: Easing.inOut(Easing.quad) })
+      ])
+    ).start();
+
+    // Further slow rotation
+    if (isSolar) {
+      Animated.loop(
+        Animated.timing(rotate, { toValue: 1, duration: active ? 16000 : 22000, useNativeDriver: true, easing: Easing.linear })
+      ).start();
+    } else if (prayer === 'Isha' || prayer === 'Maghrib') {
+      Animated.loop(
+        Animated.timing(rotate, { toValue: 1, duration: active ? 24000 : 32000, useNativeDriver: true, easing: Easing.linear })
+      ).start();
+    } else {
+      rotate.setValue(0);
+    }
+  }, [prayer, active, isSolar, subtle]);
+
+  const rotation = rotate.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
+  const iconName = (
+    prayer === 'Fajr' ? 'weather-sunset-up' :
+    prayer === 'Sunrise' ? 'white-balance-sunny' :
+    prayer === 'Dhuhr' ? 'sun-wireless' :
+    prayer === 'Asr' ? 'weather-sunny' :
+    prayer === 'Maghrib' ? 'weather-sunset-down' :
+    'weather-night'
+  );
+
+  const transforms: any[] = subtle ? [] : [{ scale }];
+  if (!subtle && isSolar) transforms.push({ rotate: rotation });
+
+  return (
+    <Animated.View style={{ transform: transforms }}>
+      <MaterialCommunityIcons name={iconName as any} size={size} color={color} />
+    </Animated.View>
+  );
+};
+
 export default function Home() {
   // Theme integration (phase 1)
   const { colors, isDark, toggleTheme } = useTheme();
@@ -214,7 +215,8 @@ export default function Home() {
       flex: 1,
       paddingHorizontal: 12,
       paddingTop: 0,
-      paddingBottom: 90,
+      // Reduced bottom padding now that tab bar height adapts; prevents stretched feel
+      paddingBottom: 70,
       backgroundColor: 'transparent',
     },
     header: {
@@ -1299,13 +1301,14 @@ export default function Home() {
     notificationInitialized.current = true;
     
     const initializeNotifications = async () => {
-      // Initialize the Notifee notification service (enterprise-grade reliability)
-      console.log('🔧 Initializing Notifee prayer notification system...');
-      const initialized = await initializeNotifeePrayerNotifications();
-      
-      if (!initialized) {
-        console.warn('Failed to initialize Notifee notifications - continuing without notifications');
-        return;
+      try {
+        // Initialize the Notifee notification service (enterprise-grade reliability)
+        console.log('🔧 Initializing Notifee prayer notification system...');
+        const initialized = await initializeNotifeePrayerNotifications();
+        
+        if (!initialized) {
+          console.warn('Failed to initialize Notifee notifications - continuing without notifications');
+          return;
       }
       
       // Request exact alarm permission for Android 12+
@@ -1333,9 +1336,15 @@ export default function Home() {
       // Check background fetch status
       const bgStatus = await getBackgroundFetchStatus();
       console.log('Background fetch status:', bgStatus.statusText);
+      } catch (error) {
+        console.error('❌ Critical error in notification initialization:', error);
+        // Don't crash the app - continue without notifications
+      }
     };
     
-    initializeNotifications();
+    initializeNotifications().catch(err => {
+      console.error('❌ Unhandled notification init error:', err);
+    });
     
     const checkForSettingsChanges = async () => {
       try {
@@ -2868,13 +2877,13 @@ export default function Home() {
               {countdownLoading ? (
                 <View style={styles.countdownLoading}>
                   <ActivityIndicator size="small" color={SepiaColors.accent.gold} />
-                  <Text style={styles.countdownLoadingText}>Calculating...</Text>
+                  <Text style={styles.countdownLoadingText}>{t('calculating')}</Text>
                 </View>
               ) : (
                 <>
                   <Text style={styles.countdownText}>{countdown}</Text>
                   {shouldShowProgress && (
-                    <Text style={styles.progressIndicatorText}>Final Hour</Text>
+                    <Text style={styles.progressIndicatorText}>{t('finalHour')}</Text>
                   )}
                 </>
               )}
@@ -3056,7 +3065,7 @@ export default function Home() {
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Select Region</Text>
+            <Text style={styles.modalTitle}>{t('selectRegion')}</Text>
             <TouchableOpacity onPress={() => toggleModal(setShowRegionPicker)}>
               <MaterialCommunityIcons name="close" size={24} color={SepiaColors.text.primary} />
             </TouchableOpacity>
@@ -3386,7 +3395,7 @@ export default function Home() {
               <MaterialCommunityIcons name="map-marker" size={20} color={SepiaColors.accent.gold} />
             </View>
             <View style={styles.locationTextWrapper}>
-              <Text style={styles.locationLabel}>Location</Text>
+              <Text style={styles.locationLabel}>{t('location')}</Text>
               <Text style={styles.locationText} numberOfLines={1}>
                 {regionChanging ? 'Changing location...' : (getRegionConfig(regionId)?.name || location)}
               </Text>
@@ -3461,7 +3470,7 @@ export default function Home() {
                         color={SepiaColors.accent.gold} 
                       />
                     </Animated.View>
-                    <Text style={styles.timesHeaderText}>Prayer Times</Text>
+                    <Text style={styles.timesHeaderText}>{t('prayerTimes')}</Text>
                   </View>
                   
                   <View style={styles.prayerTimesGrid}>
@@ -3543,7 +3552,7 @@ export default function Home() {
                                 size={12} 
                                 color={SepiaColors.accent.darkGold} 
                               />
-                              <Text style={styles.nextIndicatorText}>Next</Text>
+                              <Text style={styles.nextIndicatorText}>{t('next')}</Text>
                             </View>
                           )}
                         </View>

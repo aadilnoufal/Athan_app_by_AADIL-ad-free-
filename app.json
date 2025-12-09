@@ -2,7 +2,7 @@
   "expo": {
     "name": "Prayer Times by AADIL",
     "slug": "prayer-times",
-    "version": "3.4.0",
+    "version": "3.5.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
   "userInterfaceStyle": "dark",
@@ -18,7 +18,7 @@
     "ios": {
       "supportsTablet": true,
         "bundleIdentifier": "com.aadilnoufal.prayertimes",
-      "buildNumber": "57",
+      "buildNumber": "58",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
   "NSLocationWhenInUseUsageDescription": "This app uses location to calculate accurate prayer times for your area.",
@@ -31,7 +31,7 @@
         "backgroundColor": "#121212"
       },
       "package": "com.yourcompany.prayertimes",
-      "versionCode": 57,
+      "versionCode": 63,
       "permissions": [
         "RECEIVE_BOOT_COMPLETED",
         "SCHEDULE_EXACT_ALARM",
@@ -72,7 +72,7 @@
       },
       "comment": "Android folder removed - EAS Build handles Android project generation from app.json configuration",
       "revenuecat": {
-        "iosApiKey": "<SET_YOUR_REVENUECAT_IOS_API_KEY>",
+        "iosApiKey": "appl_HlFMTQjuEPSpeLuaudMrIpsLqsf",
         "androidApiKey": ""
       }
     },

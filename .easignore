@@ -1,0 +1,83 @@
+# Reduce EAS archive size while keeping the `android` folder itself included.
+
+# We ignore large build caches and local files but DO NOT ignore the top-level
+
+# `android/` project folder so you can include it in the archive as requested.
+
+# Node deps - EAS installs dependencies during the build
+
+node_modules
+
+# VCS and editor files
+
+.git
+.gitignore
+.vscode
+.idea
+
+# Expo and build artifacts
+
+.expo
+.expo-shared
+web-build/
+build/
+\*\*/build/
+
+# macOS / Windows junk
+
+.DS_Store
+Thumbs.db
+
+# Logs and lockfiles
+
+\*.log
+yarn-error.log
+npm-debug.log
+package-lock.json
+
+# Native build caches (ignore caches but keep project sources)
+
+android/.gradle/
+android/\*\*/build/
+android/gradle/
+android/gradlew
+android/gradlew.bat
+android/local.properties
+android/.idea/
+
+# Keep android/ but exclude keystore & local secrets
+
+android/keystore.properties
+**/\*.jks
+**/_.keystore
+\*\*/_.p12
+
+# iOS build artifacts
+
+ios/build/
+Pods/ \*_/_.xcarchive
+_.xcworkspace
+_.xcodeproj/xcuserdata
+
+# Fastlane reports, screenshots and other CI artifacts
+
+fastlane/report.xml
+fastlane/Preview.html
+
+# Test and coverage outputs
+
+coverage/
+jest-report/
+
+# Temporary files
+
+tmp/
+dist/
+node_modules/
+
+# Ignore environment files with secrets (keep .env.example)
+
+.env
+.env.\*
+
+# If you rely on any of these for the build, remove them from this file.

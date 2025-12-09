@@ -56,6 +56,7 @@ export const LanguageProvider = ({ children }) => {
   // Context value
   const contextValue = {
     currentLang,
+    language: currentLang, // alias for convenience
     changeLanguage,
     t,
     isRTL,
