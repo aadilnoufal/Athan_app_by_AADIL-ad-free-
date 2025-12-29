@@ -54,6 +54,7 @@ import {
 import { 
   initializeNotifeePrayerNotifications,
   cancelAllNotifeePrayerNotifications,
+  cancelAllNotificationsCompletely,
   getScheduledNotifeePrayerNotifications,
   // scheduleImmediateNotifeeNotification, // ❌ REMOVED: Not needed, AlarmManager handles notifications
   scheduleNotifeeTestNotification,
@@ -1362,9 +1363,9 @@ export default function Home() {
               await AsyncStorage.removeItem('last_notification_scheduled');
               setTimeout(() => scheduleNotificationsForToday(), 1000);
             } else if (!isEnabled) {
-              // If disabled, cancel all notifications
+              // If disabled, cancel all notifications comprehensively
               console.log('Notifications disabled, cancelling all...');
-              await notifee.cancelAllNotifications();
+              await cancelAllNotificationsCompletely();
               await unregisterBackgroundTask();
             }
           }
@@ -1545,23 +1546,10 @@ export default function Home() {
       console.log(`🔄 prayerTimes available: ${!!(prayerTimes && prayerTimes.times)}`);
       console.log(`🔄 notificationSettings:`, notificationSettings);
       
-      // If notifications are disabled but service is working, check service status
+      // Respect user's choice - if notifications are disabled, don't schedule anything
       if (!notificationsEnabled) {
-        console.log('🔍 Notifications disabled, checking if service is actually working...');
-        try {
-          const serviceStatus = await getNotifeeServiceStatus();
-          if (serviceStatus && serviceStatus.permissionsGranted && serviceStatus.initialized) {
-            console.log('✅ Service is working, enabling notifications and continuing...');
-            setNotificationsEnabled(true);
-            await AsyncStorage.setItem('notifications_enabled', 'true');
-          } else {
-            console.log('❌ Service not working, genuinely disabled');
-            return;
-          }
-        } catch (error) {
-          console.log('❌ Could not check service status, skipping scheduling');
-          return;
-        }
+        console.log('⏭️ Notifications disabled by user, skipping scheduling');
+        return;
       }
       
       // Use the new improved notification system

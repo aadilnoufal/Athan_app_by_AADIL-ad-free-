@@ -35,6 +35,7 @@ import {
   initializeNotifeePrayerNotifications,
   getScheduledNotifeePrayerNotifications,
   cancelAllNotifeePrayerNotifications,
+  cancelAllNotificationsCompletely,
   getNotifeeServiceStatus,
   requestExactAlarmPermission,
   checkAndHandleBatteryOptimization,
@@ -42,6 +43,7 @@ import {
   forceRecreateNotificationChannels
 } from '../../utils/notifeePrayerService';
 import { ensurePrayerNotificationWindow, forceRescheduleAllNotifications } from '../../utils/prayerNotificationScheduler';
+import { setupBackgroundTask, unregisterBackgroundTask } from '../../utils/backgroundTask';
 import { playTestSound } from '../../utils/audioHelper';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { SepiaColors } from '../../constants/sepiaColors';
@@ -300,13 +302,29 @@ export default function SettingsScreen() {
       
       // Broadcast an event so other parts of the app know about this change
       if (value) {
+        // Re-setup background task when enabling notifications
+        await setupBackgroundTask();
+        console.log('✅ Background task re-registered');
+        
         // Let the home screen know to schedule notifications
         await AsyncStorage.setItem('notifications_updated', Date.now().toString());
         console.log('✅ Notifications enabled and service initialized');
       } else {
-        // Cancel all Notifee notifications if they're being disabled
-        await cancelAllNotifeePrayerNotifications();
-        console.log('❌ All Notifee notifications cancelled');
+        // CRITICAL: Cancel ALL notifications when disabling
+        // This includes displayed notifications, trigger notifications, and background tasks
+        console.log('🔄 Disabling all notifications...');
+        
+        // 1. Use the comprehensive cancel function from notifeePrayerService
+        await cancelAllNotificationsCompletely();
+        
+        // 2. Unregister background task to stop any background scheduling
+        await unregisterBackgroundTask();
+        console.log('✅ Unregistered background notification task');
+        
+        // 3. Clear the notifications_updated flag to prevent re-scheduling
+        await AsyncStorage.removeItem('notifications_updated');
+        
+        console.log('❌ All notifications completely cancelled');
       }
     } catch (error) {
       console.error('Error toggling notifications:', error);
@@ -324,9 +342,12 @@ export default function SettingsScreen() {
       setNotificationSettings(updatedSettings);
       await AsyncStorage.setItem('notification_settings', JSON.stringify(updatedSettings));
       
-      // Let the home screen know to reschedule notifications
+      // Immediately reschedule notifications when individual prayer is toggled
       if (notificationsEnabled) {
-        await AsyncStorage.setItem('notifications_updated', Date.now().toString());
+        console.log(`🔄 ${prayer} toggled to ${value}, forcing immediate reschedule...`);
+        // Directly call forceRescheduleAllNotifications for immediate update
+        await forceRescheduleAllNotifications();
+        console.log(`✅ Notifications rescheduled after ${prayer} toggle`);
       }
     } catch (error) {
       console.error('Error toggling prayer notification:', error);
@@ -339,9 +360,11 @@ export default function SettingsScreen() {
       setUseAzanSound(value);
       await AsyncStorage.setItem('use_azan_sound', value ? 'true' : 'false');
       
-      // Let the home screen know to reschedule notifications with new sound preference
+      // Immediately reschedule notifications with new sound preference
       if (notificationsEnabled) {
-        await AsyncStorage.setItem('notifications_updated', Date.now().toString());
+        console.log(`🔊 Sound preference changed to ${value ? 'Azan' : 'Default'}, forcing immediate reschedule...`);
+        await forceRescheduleAllNotifications();
+        console.log('✅ Notifications rescheduled with new sound preference');
       }
       
       // Show feedback to the user

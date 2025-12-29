@@ -46,8 +46,21 @@ export async function setupBackgroundTask() {
 }
 
 export async function unregisterBackgroundTask() {
-  // Nothing persistent to unregister in this lightweight approach
-  return true;
+  try {
+    // Unregister background fetch task
+    const isRegistered = await TaskManager.isTaskRegisteredAsync(TASK_ID);
+    if (isRegistered) {
+      await BackgroundFetch.unregisterTaskAsync(TASK_ID);
+      console.log('✅ Background fetch task unregistered');
+    }
+    // Reset started flag so it can be re-registered later
+    started = false;
+    return true;
+  } catch (e) {
+    console.log('⚠️ unregisterBackgroundTask failed:', e?.message);
+    started = false; // Reset anyway to allow re-registration
+    return true;
+  }
 }
 
 export async function getBackgroundFetchStatus() {

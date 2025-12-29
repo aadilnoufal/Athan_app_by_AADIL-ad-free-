@@ -612,6 +612,17 @@ export async function scheduleNotifeePrayerNotifications(prayerTimes, settings =
     return [];
   }
 
+  // CRITICAL: Check if notifications are globally enabled before scheduling anything
+  try {
+    const notificationsEnabled = await AsyncStorage.getItem('notifications_enabled');
+    if (notificationsEnabled === 'false') {
+      console.log("⏭️ Notifications are disabled globally, skipping scheduling");
+      return [];
+    }
+  } catch (e) {
+    console.log("⚠️ Could not check global notification setting:", e);
+  }
+
   if (!isInitialized) {
     console.log("⚠️ Notifee service not initialized. Initializing now...");
     const initialized = await initializeNotifeePrayerNotifications();
@@ -757,6 +768,49 @@ export async function cancelAllNotifeePrayerNotifications() {
     return canceledCount;
   } catch (error) {
     console.error("❌ Error canceling Notifee prayer notifications:", error);
+    return 0;
+  }
+}
+
+/**
+ * NUCLEAR OPTION: Cancel absolutely ALL notifications - displayed and scheduled
+ * Use this when user turns off the master notification toggle
+ */
+export async function cancelAllNotificationsCompletely() {
+  try {
+    console.log('🔴 NUCLEAR: Cancelling ALL notifications completely...');
+    
+    let canceledCount = 0;
+    
+    // 1. Cancel ALL displayed notifications (not just prayer ones)
+    await notifee.cancelAllNotifications();
+    console.log('✅ Cancelled all displayed notifications');
+    
+    // 2. Cancel ALL trigger/scheduled notifications
+    const triggerIds = await notifee.getTriggerNotificationIds();
+    for (const id of triggerIds) {
+      try {
+        await notifee.cancelTriggerNotification(id);
+        canceledCount++;
+      } catch (e) {
+        console.log(`⚠️ Failed to cancel trigger ${id}:`, e?.message);
+      }
+    }
+    console.log(`✅ Cancelled ${canceledCount} scheduled trigger notifications`);
+    
+    // 3. Double-check by getting remaining triggers
+    const remainingTriggers = await notifee.getTriggerNotificationIds();
+    if (remainingTriggers.length > 0) {
+      console.log(`⚠️ ${remainingTriggers.length} triggers still remaining, attempting force cancel...`);
+      for (const id of remainingTriggers) {
+        await notifee.cancelTriggerNotification(id);
+      }
+    }
+    
+    console.log('🔴 NUCLEAR: All notifications completely cancelled');
+    return canceledCount;
+  } catch (error) {
+    console.error('❌ Error in nuclear notification cancel:', error);
     return 0;
   }
 }

@@ -154,6 +154,13 @@ export async function ensurePrayerNotificationWindow() {
   if (ensureInFlight) return;
   ensureInFlight = true;
   try {
+    // CRITICAL: Check if notifications are globally enabled before scheduling anything
+    const notificationsEnabled = await AsyncStorage.getItem('notifications_enabled');
+    if (notificationsEnabled === 'false') {
+      console.log('⏭️ Notifications are disabled globally, skipping window scheduling');
+      return;
+    }
+
     // Lazy initialize full Notifee service to guarantee channels exist (avoid circular import with dynamic require)
     try {
       // @ts-ignore
@@ -296,6 +303,14 @@ export async function onPrayerNotificationDelivered() {
 export async function forceRescheduleAllNotifications() {
   console.log('🔄 Force rescheduling all notifications from scratch...');
   try {
+    // CRITICAL: Check if notifications are globally enabled before rescheduling
+    const notificationsEnabled = await AsyncStorage.getItem('notifications_enabled');
+    if (notificationsEnabled === 'false') {
+      console.log('⏭️ Notifications are disabled globally, cancelling all instead of rescheduling');
+      await cancelAll();
+      return;
+    }
+
     // Cancel all existing prayer notifications
     await cancelAll();
     
