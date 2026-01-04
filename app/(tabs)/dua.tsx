@@ -143,7 +143,7 @@ export default function DuaScreen() {
       shadowRadius: 4,
       elevation: 2,
       borderWidth: 1,
-      borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)',
+      borderColor: `${colors.accent.gold}40`,
     },
     categoryHeader: {
       flexDirection: language === 'ar' ? 'row-reverse' : 'row',

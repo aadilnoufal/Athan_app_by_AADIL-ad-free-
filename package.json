@@ -42,6 +42,7 @@
     "expo-location": "~18.1.6",
     "expo-notifications": "^0.32.13",
     "expo-router": "~5.1.5",
+    "expo-sensors": "~14.1.4",
     "expo-splash-screen": "~0.30.10",
     "expo-status-bar": "~2.2.3",
     "expo-symbols": "~0.4.5",

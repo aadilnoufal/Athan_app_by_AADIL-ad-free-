@@ -126,6 +126,14 @@ export default function TabLayout() {
           }}
         />
         <Tabs.Screen
+          name="qibla"
+          options={{
+            title: t('qibla'),
+            headerShown: false,
+            tabBarIcon: ({ color }) => <TabBarIcon name="compass" color={color} iconSize={getIconSize()} />,
+          }}
+        />
+        <Tabs.Screen
           name="settings"
           options={{
             title: t('settings'),
