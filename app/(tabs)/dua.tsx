@@ -8,14 +8,14 @@ import {
   LayoutAnimation, 
   Platform, 
   UIManager,
-  NativeScrollEvent,
-  NativeSyntheticEvent
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../../contexts/ThemeContext';
 import { DUA_CATEGORIES } from '../../constants/duas';
 import { useLanguage } from '../../contexts/LanguageContext';
+import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
 
 // Enable LayoutAnimation for Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -34,26 +34,25 @@ const DuaItem = ({ dua, isLast, styles, colors, language }: any) => {
   const text = language === 'ar' && dua.textAr ? dua.textAr : dua.text;
 
   return (
-    <View style={[
-      styles.duaItem, 
-      isLast && styles.lastDuaItem,
-      expanded && { backgroundColor: colors.surface.elevated }
-    ]}>
-      <TouchableOpacity 
-        onPress={toggle} 
-        activeOpacity={0.7}
-        style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 }}
-      >
-        <Text style={[styles.duaTitle, { marginBottom: 0, flex: 1, textAlign: language === 'ar' ? 'right' : 'left' }]}>{title}</Text>
+    <TouchableOpacity 
+      onPress={toggle} 
+      activeOpacity={0.7}
+      style={[
+        styles.duaItem, 
+        isLast && styles.lastDuaItem,
+      ]}
+    >
+      <View style={styles.duaRow}>
+        <Text style={[styles.duaTitle, { textAlign: language === 'ar' ? 'right' : 'left' }]}>{title}</Text>
         <MaterialCommunityIcons 
           name={expanded ? "chevron-up" : "chevron-down"} 
-          size={20} 
+          size={18} 
           color={colors.text.secondary} 
         />
-      </TouchableOpacity>
+      </View>
       
       {expanded && (
-        <View style={{ marginTop: 12 }}>
+        <View style={styles.duaContent}>
           {dua.isInfo ? (
             <Text style={[styles.infoText, { textAlign: language === 'ar' ? 'right' : 'left' }]}>{text}</Text>
           ) : (
@@ -61,12 +60,12 @@ const DuaItem = ({ dua, isLast, styles, colors, language }: any) => {
               {dua.arabic && <Text style={styles.arabicText}>{dua.arabic}</Text>}
               {dua.transliteration && <Text style={styles.transliteration}>{dua.transliteration}</Text>}
               {dua.translation && <Text style={styles.translation}>{dua.translation}</Text>}
-              {dua.reference && <Text style={styles.reference}>Ref: {dua.reference}</Text>}
+              {dua.reference && <Text style={styles.reference}>— {dua.reference}</Text>}
             </>
           )}
         </View>
       )}
-    </View>
+    </TouchableOpacity>
   );
 };
 
@@ -77,6 +76,27 @@ export default function DuaScreen() {
   const scrollRef = useRef<ScrollView | null>(null);
   const categoryPositions = useRef<Record<string, number>>({});
 
+  // Time-based gradient colors for dynamic backgrounds (matching settings)
+  const getTimeBasedGradient = (): [string, string, string] => {
+    const hour = new Date().getHours();
+    if (hour >= 5 && hour < 7) {
+      return [colors.background.primary, colors.background.secondary, colors.surface.secondary];
+    } else if (hour >= 7 && hour < 12) {
+      return [colors.background.primary, colors.surface.elevated, colors.background.tertiary];
+    } else if (hour >= 12 && hour < 15) {
+      return [colors.surface.elevated, colors.background.secondary, colors.surface.secondary];
+    } else if (hour >= 15 && hour < 18) {
+      return [colors.background.secondary, colors.background.tertiary, colors.surface.secondary];
+    } else if (hour >= 18 && hour < 20) {
+      return [colors.background.tertiary, colors.surface.secondary, '#F5F1E6'];
+    } else {
+      return [colors.surface.secondary, colors.surface.secondary, '#F2EEE1'];
+    }
+  };
+  const gradientColors: [string, string, string] = isDark 
+    ? [colors.background.primary, colors.background.secondary, colors.surface.primary] 
+    : getTimeBasedGradient();
+
   const recordLayout = (id: string, y: number) => {
     categoryPositions.current[id] = y;
   };
@@ -86,152 +106,165 @@ export default function DuaScreen() {
     const willExpand = expandedCategory !== id;
     setExpandedCategory(prev => (prev === id ? null : id));
     if (willExpand) {
-      // Defer scroll until layout recalculates
       setTimeout(() => {
         const y = categoryPositions.current[id];
         if (y !== undefined && scrollRef.current) {
           scrollRef.current.scrollTo({ y: Math.max(y - 12, 0), animated: true });
         }
-      }, 120); // slight delay for animation/layout
+      }, 120);
     }
   };
 
+  // Helper functions for dynamic colors (matching settings pattern)
+  const goldTint = (opacity: number) => {
+    const gold = colors.accent.gold;
+    return `${gold}${Math.round(opacity * 255).toString(16).padStart(2, '0')}`;
+  };
+  
+  const cardBg = isDark ? 'rgba(255, 255, 255, 0.04)' : 'rgba(255, 255, 255, 0.7)';
+  const subtleBorder = isDark ? goldTint(0.25) : goldTint(0.15);
+
   const styles = React.useMemo(() => StyleSheet.create({
-    container: {
+    safeArea: {
       flex: 1,
       backgroundColor: colors.background.primary,
     },
-    header: {
-      paddingHorizontal: 20,
-      paddingVertical: 20,
-      backgroundColor: colors.surface.primary,
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.05,
-      shadowRadius: 10,
-      elevation: 3,
-      zIndex: 10,
-      marginBottom: 10,
+    container: {
+      flex: 1,
+      paddingHorizontal: 12,
+      paddingTop: 0,
+      paddingBottom: 90,
+      backgroundColor: 'transparent',
+    },
+    headerWrapper: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingTop: Platform.OS === 'android' ? Math.max((StatusBar.currentHeight || 0) - 6, 0) : 0,
+      paddingHorizontal: 8,
+      paddingBottom: 2,
+      backgroundColor: 'transparent',
+      minHeight: 32,
     },
     headerTitle: {
-      fontSize: 28,
-      fontWeight: '800',
+      fontSize: 16,
+      fontWeight: '600',
       color: colors.text.primary,
-      letterSpacing: 0.5,
-      textAlign: language === 'ar' ? 'right' : 'left',
-    },
-    headerSubtitle: {
-      fontSize: 15,
-      color: colors.text.secondary,
-      marginTop: 6,
-      fontWeight: '500',
-      textAlign: language === 'ar' ? 'right' : 'left',
+      letterSpacing: 0.4,
+      textAlign: 'center',
     },
     content: {
-      paddingHorizontal: 16,
-      paddingTop: 10,
-      paddingBottom: 120,
+      paddingTop: 8,
+      paddingBottom: 40,
     },
-    categoryCard: {
-      backgroundColor: colors.surface.secondary,
+    // Single unified section card (like settings sections)
+    sectionCard: {
+      backgroundColor: cardBg,
       borderRadius: 16,
-      marginBottom: 12,
+      padding: 14,
+      marginBottom: 14,
+      borderWidth: 0.5,
+      borderColor: subtleBorder,
       overflow: 'hidden',
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.08,
-      shadowRadius: 4,
-      elevation: 2,
-      borderWidth: 1,
-      borderColor: `${colors.accent.gold}40`,
     },
-    categoryHeader: {
+    sectionHeader: {
       flexDirection: language === 'ar' ? 'row-reverse' : 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      paddingVertical: 16,
-      paddingHorizontal: 16,
+      paddingBottom: 10,
+      borderBottomWidth: 0.5,
+      borderBottomColor: goldTint(0.15),
     },
-    categoryTitleContainer: {
+    sectionTitleRow: {
       flexDirection: language === 'ar' ? 'row-reverse' : 'row',
       alignItems: 'center',
       flex: 1,
     },
-    iconContainer: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)',
+    sectionIcon: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : goldTint(0.08),
       alignItems: 'center',
       justifyContent: 'center',
-      marginRight: language === 'ar' ? 0 : 14,
-      marginLeft: language === 'ar' ? 14 : 0,
+      marginRight: language === 'ar' ? 0 : 10,
+      marginLeft: language === 'ar' ? 10 : 0,
     },
-    categoryTitle: {
+    sectionTitle: {
       fontSize: 17,
       fontWeight: '700',
-      color: colors.text.primary,
+      color: colors.accent.gold,
       letterSpacing: 0.3,
       flex: 1,
       textAlign: language === 'ar' ? 'right' : 'left',
     },
-    duasContainer: {
-      backgroundColor: isDark ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.02)',
-      borderTopWidth: 1,
-      borderTopColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+    // Duas list inside the card (left-aligned, minimal styling)
+    duasListContainer: {
+      marginTop: 8,
     },
     duaItem: {
-      paddingVertical: 12,
-      paddingHorizontal: 16,
-      borderBottomWidth: 1,
-      borderBottomColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+      paddingVertical: 16,
+      borderBottomWidth: 0.5,
+      borderBottomColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
     },
     lastDuaItem: {
       borderBottomWidth: 0,
     },
+    duaRow: {
+      flexDirection: language === 'ar' ? 'row-reverse' : 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
     duaTitle: {
-      fontSize: 15,
+      fontSize: 16,
       fontWeight: '600',
-      color: colors.accent.gold,
+      color: colors.text.primary,
       letterSpacing: 0.2,
+      flex: 1,
+    },
+    duaContent: {
+      marginTop: 10,
+      paddingTop: 10,
+      borderTopWidth: 0.5,
+      borderTopColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
     },
     arabicText: {
-      fontSize: 24,
-      fontWeight: '700',
+      fontSize: 26,
+      fontWeight: '600',
       color: colors.text.primary,
       textAlign: 'right',
       marginBottom: 12,
-      marginTop: 8,
-      lineHeight: 40,
+      lineHeight: 42,
       fontFamily: Platform.OS === 'ios' ? 'Geeza Pro' : 'Roboto',
     },
     transliteration: {
-      fontSize: 14,
+      fontSize: 15,
       fontStyle: 'italic',
       color: colors.text.secondary,
-      marginBottom: 8,
-      lineHeight: 22,
+      marginBottom: 10,
+      lineHeight: 24,
+      textAlign: language === 'ar' ? 'right' : 'left',
     },
     translation: {
-      fontSize: 15,
+      fontSize: 16,
       color: colors.text.primary,
       marginBottom: 8,
-      lineHeight: 24,
+      lineHeight: 26,
+      textAlign: language === 'ar' ? 'right' : 'left',
     },
     reference: {
-      fontSize: 12,
+      fontSize: 13,
       color: colors.text.tertiary,
-      textAlign: 'right',
-      marginTop: 4,
+      marginTop: 6,
       fontStyle: 'italic',
+      textAlign: language === 'ar' ? 'right' : 'left',
     },
     infoText: {
-      fontSize: 15,
+      fontSize: 16,
       color: colors.text.primary,
-      lineHeight: 24,
-      marginTop: 4,
+      lineHeight: 26,
     },
-  }), [colors, isDark, language]);
+  }), [colors, isDark, language, cardBg, subtleBorder]);
 
   const getCategoryIcon = (id: string) => {
     switch (id) {
@@ -248,63 +281,70 @@ export default function DuaScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>{t('duasTitle')}</Text>
-        <Text style={styles.headerSubtitle}>{t('duasSubtitle')}</Text>
-      </View>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <ExpoLinearGradient colors={gradientColors} style={StyleSheet.absoluteFill} />
+      <View style={styles.container}>
+        {/* Minimal header like settings */}
+        <View style={styles.headerWrapper}>
+          <Text style={styles.headerTitle}>{t('duasTitle')}</Text>
+        </View>
 
-      <ScrollView ref={scrollRef} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {DUA_CATEGORIES.map((category) => {
-          const isExpanded = expandedCategory === category.id;
-          const categoryTitle = language === 'ar' && category.titleAr ? category.titleAr : category.title;
-          
-          return (
-            <View
-              key={category.id}
-              style={styles.categoryCard}
-              onLayout={(e) => recordLayout(category.id, e.nativeEvent.layout.y)}
-            >
-              <TouchableOpacity 
-                style={styles.categoryHeader} 
-                onPress={() => toggleCategory(category.id)}
-                activeOpacity={0.7}
+        <ScrollView 
+          ref={scrollRef} 
+          contentContainerStyle={styles.content} 
+          showsVerticalScrollIndicator={false}
+        >
+          {DUA_CATEGORIES.map((category) => {
+            const isExpanded = expandedCategory === category.id;
+            const categoryTitle = language === 'ar' && category.titleAr ? category.titleAr : category.title;
+            
+            return (
+              <View
+                key={category.id}
+                style={styles.sectionCard}
+                onLayout={(e) => recordLayout(category.id, e.nativeEvent.layout.y)}
               >
-                <View style={styles.categoryTitleContainer}>
-                  <View style={styles.iconContainer}>
-                    <MaterialCommunityIcons 
-                      name={getCategoryIcon(category.id) as any} 
-                      size={24} 
-                      color={colors.accent.gold} 
-                    />
+                <TouchableOpacity 
+                  style={styles.sectionHeader} 
+                  onPress={() => toggleCategory(category.id)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.sectionTitleRow}>
+                    <View style={styles.sectionIcon}>
+                      <MaterialCommunityIcons 
+                        name={getCategoryIcon(category.id) as any} 
+                        size={18} 
+                        color={colors.accent.gold} 
+                      />
+                    </View>
+                    <Text style={styles.sectionTitle}>{categoryTitle}</Text>
                   </View>
-                  <Text style={styles.categoryTitle}>{categoryTitle}</Text>
-                </View>
-                <MaterialCommunityIcons 
-                  name={isExpanded ? "chevron-up" : "chevron-down"} 
-                  size={24} 
-                  color={colors.text.secondary} 
-                />
-              </TouchableOpacity>
+                  <MaterialCommunityIcons 
+                    name={isExpanded ? "chevron-up" : "chevron-down"} 
+                    size={20} 
+                    color={colors.text.secondary} 
+                  />
+                </TouchableOpacity>
 
-              {isExpanded && (
-                <View style={styles.duasContainer}>
-                  {category.duas.map((dua: any, index: number) => (
-                    <DuaItem 
-                      key={dua.id} 
-                      dua={dua} 
-                      isLast={index === category.duas.length - 1}
-                      styles={styles}
-                      colors={colors}
-                      language={language}
-                    />
-                  ))}
-                </View>
-              )}
-            </View>
-          );
-        })}
-      </ScrollView>
+                {isExpanded && (
+                  <View style={styles.duasListContainer}>
+                    {category.duas.map((dua: any, index: number) => (
+                      <DuaItem 
+                        key={dua.id} 
+                        dua={dua} 
+                        isLast={index === category.duas.length - 1}
+                        styles={styles}
+                        colors={colors}
+                        language={language}
+                      />
+                    ))}
+                  </View>
+                )}
+              </View>
+            );
+          })}
+        </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }

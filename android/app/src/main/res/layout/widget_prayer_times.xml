@@ -3,9 +3,9 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/widget_background"
-    android:padding="8dp">
+    android:padding="10dp">
 
-    <!-- The Huge Circle Progress Bar -->
+    <!-- The Circular Progress Bar -->
     <ProgressBar
         android:id="@+id/widget_progress_bar"
         style="?android:attr/progressBarStyleHorizontal"
@@ -32,12 +32,12 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="FAJR"
-            android:textColor="@color/midnight_text_secondary"
-            android:textSize="12sp"
+            android:textColor="#A8B5C4"
+            android:textSize="11sp"
             android:textStyle="bold"
-            android:letterSpacing="0.15"
+            android:letterSpacing="0.12"
             android:textAllCaps="true"
-            android:layout_marginBottom="2dp" />
+            android:layout_marginBottom="1dp" />
 
         <!-- Countdown Timer (Big) -->
         <TextView
@@ -45,8 +45,8 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="-02:45"
-            android:textColor="@color/midnight_text_primary"
-            android:textSize="28sp"
+            android:textColor="#F8F4EC"
+            android:textSize="26sp"
             android:textStyle="bold"
             android:fontFamily="sans-serif-medium"
             android:includeFontPadding="false" />
@@ -57,10 +57,10 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="05:30 AM"
-            android:textColor="@color/midnight_accent_gold"
-            android:textSize="14sp"
+            android:textColor="#F0D661"
+            android:textSize="13sp"
             android:textStyle="bold"
-            android:layout_marginTop="4dp" />
+            android:layout_marginTop="2dp" />
 
     </LinearLayout>
 

@@ -15,6 +15,7 @@ import {
   ActivityIndicator,
   ScrollView,
   Platform,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -23,9 +24,10 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useQiblaCompass } from '../../lib/qibla-compass';
 import { CalibrationStatus, CompassAccuracy } from '../../lib/qibla-compass/types';
+import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
 
 const { width: screenWidth } = Dimensions.get('window');
-const COMPASS_SIZE = Math.min(screenWidth * 0.82, 340);
+const COMPASS_SIZE = Math.min(screenWidth * 0.78, 320);
 
 export default function QiblaScreen() {
   const { colors, isDark } = useTheme();
@@ -35,6 +37,27 @@ export default function QiblaScreen() {
   const qiblaRotateAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const [showCalibrationTip, setShowCalibrationTip] = useState(true);
+
+  // Time-based gradient colors for dynamic backgrounds (matching settings)
+  const getTimeBasedGradient = (): [string, string, string] => {
+    const hour = new Date().getHours();
+    if (hour >= 5 && hour < 7) {
+      return [colors.background.primary, colors.background.secondary, colors.surface.secondary];
+    } else if (hour >= 7 && hour < 12) {
+      return [colors.background.primary, colors.surface.elevated, colors.background.tertiary];
+    } else if (hour >= 12 && hour < 15) {
+      return [colors.surface.elevated, colors.background.secondary, colors.surface.secondary];
+    } else if (hour >= 15 && hour < 18) {
+      return [colors.background.secondary, colors.background.tertiary, colors.surface.secondary];
+    } else if (hour >= 18 && hour < 20) {
+      return [colors.background.tertiary, colors.surface.secondary, '#F5F1E6'];
+    } else {
+      return [colors.surface.secondary, colors.surface.secondary, '#F2EEE1'];
+    }
+  };
+  const gradientColors: [string, string, string] = isDark 
+    ? [colors.background.primary, colors.background.secondary, colors.surface.primary] 
+    : getTimeBasedGradient();
 
   const {
     qiblaDirection,
@@ -140,14 +163,16 @@ export default function QiblaScreen() {
   // Loading state
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>{t('qiblaTitle')}</Text>
-          <Text style={styles.headerSubtitle}>{t('qiblaSubtitleText')}</Text>
-        </View>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.accent.gold} />
-          <Text style={styles.loadingText}>{t('qiblaLoading')}</Text>
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
+        <ExpoLinearGradient colors={gradientColors} style={StyleSheet.absoluteFill} />
+        <View style={styles.container}>
+          <View style={styles.headerWrapper}>
+            <Text style={styles.headerTitle}>{t('qiblaTitle')}</Text>
+          </View>
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={colors.accent.gold} />
+            <Text style={styles.loadingText}>{t('qiblaLoading')}</Text>
+          </View>
         </View>
       </SafeAreaView>
     );
@@ -156,17 +181,20 @@ export default function QiblaScreen() {
   // Error state
   if (error.type && !location) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>{t('qiblaTitle')}</Text>
-        </View>
-        <View style={styles.errorContainer}>
-          <MaterialCommunityIcons name="compass-off" size={64} color={colors.text.secondary} />
-          <Text style={styles.errorTitle}>{t('qiblaErrorTitle')}</Text>
-          <Text style={styles.errorMessage}>{error.message}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={reinitialize}>
-            <Text style={styles.retryText}>{t('qiblaRetry')}</Text>
-          </TouchableOpacity>
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
+        <ExpoLinearGradient colors={gradientColors} style={StyleSheet.absoluteFill} />
+        <View style={styles.container}>
+          <View style={styles.headerWrapper}>
+            <Text style={styles.headerTitle}>{t('qiblaTitle')}</Text>
+          </View>
+          <View style={styles.errorContainer}>
+            <MaterialCommunityIcons name="compass-off" size={56} color={colors.text.secondary} />
+            <Text style={styles.errorTitle}>{t('qiblaErrorTitle')}</Text>
+            <Text style={styles.errorMessage}>{error.message}</Text>
+            <TouchableOpacity style={styles.retryButton} onPress={reinitialize}>
+              <Text style={styles.retryText}>{t('qiblaRetry')}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </SafeAreaView>
     );
@@ -176,16 +204,18 @@ export default function QiblaScreen() {
   const radius = COMPASS_SIZE / 2 - 25;
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView 
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Header */}
-        <View style={styles.header}>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <ExpoLinearGradient colors={gradientColors} style={StyleSheet.absoluteFill} />
+      <View style={styles.container}>
+        {/* Minimal header like settings */}
+        <View style={styles.headerWrapper}>
           <Text style={styles.headerTitle}>{t('qiblaTitle')}</Text>
-          <Text style={styles.headerSubtitle}>{t('qiblaSubtitleText')}</Text>
         </View>
+
+        <ScrollView 
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
 
         {/* Calibration Tip */}
         {showCalibrationTip && compass.accuracy < CompassAccuracy.HIGH && (
@@ -385,48 +415,57 @@ export default function QiblaScreen() {
 
         {/* Islamic Disclaimer */}
         <View style={styles.disclaimerContainer}>
-          <MaterialCommunityIcons name="information-outline" size={16} color={colors.text.secondary} />
+          <MaterialCommunityIcons name="information-outline" size={14} color={colors.text.secondary} />
           <Text style={styles.disclaimerText}>
             {t('qiblaDisclaimer')}
           </Text>
         </View>
       </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
 
-const createStyles = (colors: any, isDark: boolean, language: string, isFacingQibla: boolean) => 
-  StyleSheet.create({
-    container: {
+const createStyles = (colors: any, isDark: boolean, language: string, isFacingQibla: boolean) => {
+  // Helper functions for dynamic colors (matching settings pattern)
+  const goldTint = (opacity: number) => {
+    const gold = colors.accent.gold;
+    return `${gold}${Math.round(opacity * 255).toString(16).padStart(2, '0')}`;
+  };
+  const cardBg = isDark ? 'rgba(255, 255, 255, 0.04)' : 'rgba(255, 255, 255, 0.7)';
+  const subtleBorder = isDark ? goldTint(0.25) : goldTint(0.15);
+
+  return StyleSheet.create({
+    safeArea: {
       flex: 1,
       backgroundColor: colors.background.primary,
     },
-    scrollContent: {
-      paddingBottom: 120,
+    container: {
+      flex: 1,
+      paddingHorizontal: 12,
+      paddingTop: 0,
+      backgroundColor: 'transparent',
     },
-    header: {
-      paddingHorizontal: 20,
-      paddingVertical: 20,
-      backgroundColor: colors.surface.primary,
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.05,
-      shadowRadius: 10,
-      elevation: 3,
+    headerWrapper: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingTop: Platform.OS === 'android' ? Math.max((StatusBar.currentHeight || 0) - 6, 0) : 0,
+      paddingHorizontal: 8,
+      paddingBottom: 2,
+      backgroundColor: 'transparent',
+      minHeight: 32,
     },
     headerTitle: {
-      fontSize: 28,
-      fontWeight: '800',
+      fontSize: 16,
+      fontWeight: '600',
       color: colors.text.primary,
-      letterSpacing: 0.5,
-      textAlign: language === 'ar' ? 'right' : 'left',
+      letterSpacing: 0.4,
+      textAlign: 'center',
     },
-    headerSubtitle: {
-      fontSize: 15,
-      color: colors.text.secondary,
-      marginTop: 6,
-      fontWeight: '500',
-      textAlign: language === 'ar' ? 'right' : 'left',
+    scrollContent: {
+      paddingBottom: 100,
+      paddingTop: 4,
     },
     loadingContainer: {
       flex: 1,
@@ -434,8 +473,8 @@ const createStyles = (colors: any, isDark: boolean, language: string, isFacingQi
       alignItems: 'center',
     },
     loadingText: {
-      marginTop: 16,
-      fontSize: 16,
+      marginTop: 14,
+      fontSize: 14,
       color: colors.text.secondary,
     },
     errorContainer: {
@@ -445,70 +484,70 @@ const createStyles = (colors: any, isDark: boolean, language: string, isFacingQi
       paddingHorizontal: 40,
     },
     errorTitle: {
-      fontSize: 20,
+      fontSize: 18,
       fontWeight: '700',
       color: colors.text.primary,
-      marginTop: 16,
+      marginTop: 14,
     },
     errorMessage: {
-      fontSize: 14,
+      fontSize: 13,
       color: colors.text.secondary,
       textAlign: 'center',
       marginTop: 8,
     },
     retryButton: {
-      marginTop: 24,
+      marginTop: 20,
       backgroundColor: colors.accent.gold,
-      paddingHorizontal: 32,
-      paddingVertical: 14,
-      borderRadius: 25,
+      paddingHorizontal: 28,
+      paddingVertical: 12,
+      borderRadius: 16,
     },
     retryText: {
       color: '#000',
-      fontSize: 16,
+      fontSize: 14,
       fontWeight: '600',
     },
     calibrationCard: {
-      marginHorizontal: 20,
-      marginTop: 16,
-      backgroundColor: isDark ? colors.surface.secondary : colors.surface.elevated,
+      marginHorizontal: 4,
+      marginTop: 8,
+      backgroundColor: cardBg,
       borderRadius: 16,
-      padding: 16,
-      borderWidth: 1,
-      borderColor: `${colors.accent.gold}50`,
-      borderLeftWidth: 4,
+      padding: 14,
+      borderWidth: 0.5,
+      borderColor: subtleBorder,
+      borderLeftWidth: 3,
       borderLeftColor: colors.accent.gold,
     },
     calibrationHeader: {
       flexDirection: 'row',
       alignItems: 'center',
-      marginBottom: 8,
+      marginBottom: 6,
     },
     calibrationTitle: {
       flex: 1,
-      fontSize: 16,
+      fontSize: 14,
       fontWeight: '600',
       color: colors.text.primary,
       marginLeft: 8,
     },
     calibrationText: {
-      fontSize: 14,
+      fontSize: 13,
       color: colors.text.secondary,
-      lineHeight: 20,
+      lineHeight: 18,
     },
     figure8Container: {
       alignItems: 'center',
-      marginTop: 12,
+      marginTop: 8,
     },
     figure8Text: {
-      fontSize: 40,
+      fontSize: 32,
       color: colors.accent.gold,
       opacity: 0.6,
     },
     compassWrapper: {
       alignItems: 'center',
-      marginTop: 30,
-      marginBottom: 20,
+      marginTop: 20,
+      marginBottom: 16,
     },
     compassContainer: {
       width: COMPASS_SIZE,
@@ -517,24 +556,19 @@ const createStyles = (colors: any, isDark: boolean, language: string, isFacingQi
     compassGlow: {
       shadowColor: colors.accent.gold,
       shadowOffset: { width: 0, height: 0 },
-      shadowOpacity: 0.5,
-      shadowRadius: 25,
-      elevation: 10,
+      shadowOpacity: 0.4,
+      shadowRadius: 20,
+      elevation: 8,
     },
     outerRing: {
       width: COMPASS_SIZE,
       height: COMPASS_SIZE,
       borderRadius: COMPASS_SIZE / 2,
-      backgroundColor: isDark ? colors.surface.secondary : colors.surface.elevated,
+      backgroundColor: cardBg,
       alignItems: 'center',
       justifyContent: 'center',
-      borderWidth: 3,
-      borderColor: isFacingQibla ? colors.accent.gold : (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'),
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.15,
-      shadowRadius: 12,
-      elevation: 8,
+      borderWidth: 2,
+      borderColor: isFacingQibla ? colors.accent.gold : subtleBorder,
     },
     compassRose: {
       position: 'absolute',
@@ -548,29 +582,29 @@ const createStyles = (colors: any, isDark: boolean, language: string, isFacingQi
       alignItems: 'center',
     },
     kaabaMarker: {
-      width: 48,
-      height: 48,
-      borderRadius: 24,
+      width: 44,
+      height: 44,
+      borderRadius: 22,
       alignItems: 'center',
       justifyContent: 'center',
       position: 'absolute',
       top: 5,
       shadowColor: colors.accent.gold,
       shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.4,
-      shadowRadius: 8,
-      elevation: 6,
+      shadowOpacity: 0.3,
+      shadowRadius: 6,
+      elevation: 4,
     },
     kaabaEmoji: {
-      fontSize: 26,
+      fontSize: 24,
     },
     qiblaLine: {
       position: 'absolute',
-      top: 50,
-      width: 3,
-      height: (COMPASS_SIZE - 30) / 2 - 60,
-      borderRadius: 2,
-      opacity: 0.6,
+      top: 46,
+      width: 2,
+      height: (COMPASS_SIZE - 30) / 2 - 56,
+      borderRadius: 1,
+      opacity: 0.5,
     },
     centerInfo: {
       position: 'absolute',
@@ -578,35 +612,35 @@ const createStyles = (colors: any, isDark: boolean, language: string, isFacingQi
       justifyContent: 'center',
     },
     degreesText: {
-      fontSize: 42,
+      fontSize: 36,
       fontWeight: '800',
       color: colors.text.primary,
     },
     cardinalText: {
-      fontSize: 18,
+      fontSize: 16,
       fontWeight: '600',
       color: colors.text.secondary,
       marginTop: 2,
     },
     turnText: {
-      fontSize: 16,
+      fontSize: 14,
       color: colors.text.secondary,
-      marginTop: 8,
+      marginTop: 6,
     },
     facingQiblaContainer: {
       flexDirection: 'row',
       alignItems: 'center',
-      marginTop: 8,
-      backgroundColor: colors.accent.gold + '20',
-      paddingHorizontal: 12,
-      paddingVertical: 6,
-      borderRadius: 20,
+      marginTop: 6,
+      backgroundColor: goldTint(0.15),
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      borderRadius: 16,
     },
     facingQiblaText: {
-      fontSize: 14,
+      fontSize: 12,
       fontWeight: '700',
       color: colors.accent.gold,
-      marginLeft: 6,
+      marginLeft: 5,
     },
     northIndicator: {
       position: 'absolute',
@@ -615,27 +649,22 @@ const createStyles = (colors: any, isDark: boolean, language: string, isFacingQi
     northTriangle: {
       width: 0,
       height: 0,
-      borderLeftWidth: 10,
-      borderRightWidth: 10,
-      borderBottomWidth: 16,
+      borderLeftWidth: 8,
+      borderRightWidth: 8,
+      borderBottomWidth: 14,
       borderLeftColor: 'transparent',
       borderRightColor: 'transparent',
       borderBottomColor: '#FF4444',
     },
     compactInfoBox: {
-      marginHorizontal: 20,
-      marginTop: 16,
-      backgroundColor: isDark ? colors.surface.secondary : colors.surface.elevated,
-      borderRadius: 12,
+      marginHorizontal: 4,
+      marginTop: 12,
+      backgroundColor: cardBg,
+      borderRadius: 16,
       paddingVertical: 10,
-      paddingHorizontal: 14,
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.05,
-      shadowRadius: 3,
-      elevation: 2,
-      borderWidth: 1,
-      borderColor: `${colors.accent.gold}40`,
+      paddingHorizontal: 12,
+      borderWidth: 0.5,
+      borderColor: subtleBorder,
     },
     compactInfoRow: {
       flexDirection: 'row',
@@ -646,40 +675,40 @@ const createStyles = (colors: any, isDark: boolean, language: string, isFacingQi
     compactInfoItem: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 6,
+      paddingHorizontal: 5,
     },
     compactInfoLabel: {
-      fontSize: 11,
+      fontSize: 10,
       color: colors.text.secondary,
-      marginLeft: 4,
+      marginLeft: 3,
     },
     compactInfoValue: {
-      fontSize: 11,
+      fontSize: 10,
       fontWeight: '600',
       color: colors.text.primary,
-      marginLeft: 3,
+      marginLeft: 2,
     },
     compactInfoDivider: {
       width: 1,
-      height: 12,
+      height: 10,
       backgroundColor: colors.text.secondary,
       opacity: 0.3,
-      marginHorizontal: 4,
+      marginHorizontal: 3,
     },
     refreshButton: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      marginHorizontal: 20,
-      marginTop: 16,
-      paddingVertical: 12,
-      backgroundColor: isDark ? colors.surface.secondary : colors.surface.elevated,
-      borderRadius: 20,
-      borderWidth: 1,
-      borderColor: `${colors.accent.gold}40`,
+      marginHorizontal: 4,
+      marginTop: 12,
+      paddingVertical: 10,
+      backgroundColor: cardBg,
+      borderRadius: 16,
+      borderWidth: 0.5,
+      borderColor: subtleBorder,
     },
     refreshText: {
-      fontSize: 14,
+      fontSize: 13,
       fontWeight: '600',
       color: colors.text.primary,
       marginLeft: 6,
@@ -688,32 +717,33 @@ const createStyles = (colors: any, isDark: boolean, language: string, isFacingQi
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      marginTop: 12,
-      paddingHorizontal: 20,
+      marginTop: 10,
+      paddingHorizontal: 16,
     },
     tiltText: {
-      fontSize: 12,
+      fontSize: 11,
       color: colors.text.secondary,
-      marginLeft: 6,
+      marginLeft: 5,
     },
     disclaimerContainer: {
       flexDirection: 'row',
       alignItems: 'flex-start',
-      marginHorizontal: 20,
-      marginTop: 20,
-      padding: 14,
-      backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+      marginHorizontal: 4,
+      marginTop: 16,
+      padding: 12,
+      backgroundColor: cardBg,
       borderRadius: 12,
-      borderWidth: 1,
-      borderColor: `${colors.accent.gold}30`,
+      borderWidth: 0.5,
+      borderColor: goldTint(0.1),
     },
     disclaimerText: {
       flex: 1,
-      fontSize: 11,
+      fontSize: 10,
       color: colors.text.secondary,
-      marginLeft: 10,
-      lineHeight: 16,
+      marginLeft: 8,
+      lineHeight: 14,
       textAlign: language === 'ar' ? 'right' : 'left',
       opacity: 0.8,
     },
   });
+};
