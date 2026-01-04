@@ -2,7 +2,7 @@
   "expo": {
     "name": "Prayer Times by AADIL",
     "slug": "prayer-times",
-    "version": "3.5.0",
+    "version": "3.6.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
   "userInterfaceStyle": "dark",
@@ -18,7 +18,7 @@
     "ios": {
       "supportsTablet": true,
         "bundleIdentifier": "com.aadilnoufal.prayertimes",
-      "buildNumber": "58",
+      "buildNumber": "80",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
   "NSLocationWhenInUseUsageDescription": "This app uses location to calculate accurate prayer times for your area.",

@@ -41,5 +41,23 @@
         <data android:scheme="exp+prayer-times"/>
       </intent-filter>
     </activity>
+    <receiver android:name=".PrayerWidget" android:exported="true">
+        <intent-filter>
+            <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            <action android:name="com.yourcompany.prayertimes.ACTION_AUTO_UPDATE" />
+        </intent-filter>
+        <meta-data
+            android:name="android.appwidget.provider"
+            android:resource="@xml/prayer_widget_info" />
+    </receiver>
+    <receiver android:name=".PrayerWidget4x2" android:exported="true">
+        <intent-filter>
+            <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            <action android:name="com.yourcompany.prayertimes.ACTION_AUTO_UPDATE_4X2" />
+        </intent-filter>
+        <meta-data
+            android:name="android.appwidget.provider"
+            android:resource="@xml/prayer_widget_4x2_info" />
+    </receiver>
   </application>
 </manifest>

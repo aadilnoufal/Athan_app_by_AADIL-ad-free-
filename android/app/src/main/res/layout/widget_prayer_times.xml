@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_background"
+    android:padding="8dp">
+
+    <!-- The Huge Circle Progress Bar -->
+    <ProgressBar
+        android:id="@+id/widget_progress_bar"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_centerInParent="true"
+        android:indeterminate="false"
+        android:max="100"
+        android:progress="75"
+        android:progressDrawable="@drawable/circular_progress"
+        android:rotation="-90" />
+
+    <!-- Content Inside the Circle -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerInParent="true"
+        android:orientation="vertical"
+        android:gravity="center">
+
+        <!-- Next Prayer Name -->
+        <TextView
+            android:id="@+id/widget_next_prayer_name"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="FAJR"
+            android:textColor="@color/midnight_text_secondary"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.15"
+            android:textAllCaps="true"
+            android:layout_marginBottom="2dp" />
+
+        <!-- Countdown Timer (Big) -->
+        <TextView
+            android:id="@+id/widget_time_remaining"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="-02:45"
+            android:textColor="@color/midnight_text_primary"
+            android:textSize="28sp"
+            android:textStyle="bold"
+            android:fontFamily="sans-serif-medium"
+            android:includeFontPadding="false" />
+
+        <!-- Next Prayer Time -->
+        <TextView
+            android:id="@+id/widget_next_prayer_time"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="05:30 AM"
+            android:textColor="@color/midnight_accent_gold"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:layout_marginTop="4dp" />
+
+    </LinearLayout>
+
+</RelativeLayout>
