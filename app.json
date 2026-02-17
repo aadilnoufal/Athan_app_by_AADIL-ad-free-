@@ -2,7 +2,7 @@
   "expo": {
     "name": "Prayer Times by AADIL",
     "slug": "prayer-times",
-    "version": "3.9.0",
+    "version": "3.9.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
   "userInterfaceStyle": "dark",
@@ -18,7 +18,7 @@
     "ios": {
       "supportsTablet": true,
         "bundleIdentifier": "com.aadilnoufal.prayertimes",
-      "buildNumber": "80",
+      "buildNumber": "82",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
   "NSLocationWhenInUseUsageDescription": "This app uses location to calculate accurate prayer times for your area.",
@@ -31,7 +31,7 @@
         "backgroundColor": "#121212"
       },
       "package": "com.yourcompany.prayertimes",
-      "versionCode": 63,
+      "versionCode": 90,
       "permissions": [
         "RECEIVE_BOOT_COMPLETED",
         "SCHEDULE_EXACT_ALARM",
@@ -44,7 +44,8 @@
         "USE_EXACT_ALARM",
         "FOREGROUND_SERVICE_MEDIA_PLAYBACK",
         "REQUEST_IGNORE_BATTERY_OPTIMIZATIONS",
-        "SYSTEM_ALERT_WINDOW"
+        "SYSTEM_ALERT_WINDOW",
+        "com.android.vending.BILLING"
       ],
       "allowBackup": true,
       "edgeToEdgeEnabled": true,
@@ -73,7 +74,7 @@
       "comment": "Android folder removed - EAS Build handles Android project generation from app.json configuration",
       "revenuecat": {
         "iosApiKey": "appl_HlFMTQjuEPSpeLuaudMrIpsLqsf",
-        "androidApiKey": ""
+        "androidApiKey": "goog_dfuJwpbmzyvVmySItVuilefFYFM"
       }
     },
     "newArchEnabled": true,

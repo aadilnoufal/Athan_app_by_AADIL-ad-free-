@@ -99,8 +99,11 @@ android {
         applicationId 'com.yourcompany.prayertimes'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 82
-        versionName "3.9"
+        versionCode 92
+        versionName "3.9.2"
+        
+        // Use Google Play Store flavor for react-native-iap
+        missingDimensionStrategy 'store', 'play'
     }
     signingConfigs {
         debug {

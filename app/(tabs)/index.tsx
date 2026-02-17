@@ -2980,7 +2980,8 @@ export default function Home() {
     console.log('🚀 DEBUG: openDonation pressed!');
     const extra: any = (Constants.expoConfig?.extra || (Constants as any).manifest?.extra || {});
     const rciOSKey = process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY || extra?.revenuecat?.iosApiKey;
-    const shouldUsePaywall = Platform.OS === 'ios' ? !!rciOSKey : false;
+    const rcAndroidKey = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY || extra?.revenuecat?.androidApiKey;
+    const shouldUsePaywall = Platform.OS === 'ios' ? !!rciOSKey : (Platform.OS === 'android' ? !!rcAndroidKey : false);
 
     if (shouldUsePaywall) {
       if (iapLoading && iapRetryCount < 3) {

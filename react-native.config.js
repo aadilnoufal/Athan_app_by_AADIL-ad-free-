@@ -1,4 +1,4 @@
-// Disable Android autolinking for react-native-iap (Android uses external links only)
+// Disable Android autolinking for react-native-iap (RevenueCat handles Android billing directly)
 module.exports = {
   dependencies: {
     'react-native-iap': {

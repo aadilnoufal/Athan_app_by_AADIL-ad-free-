@@ -11,4 +11,9 @@
 -keep class com.swmansion.reanimated.** { *; }
 -keep class com.facebook.react.turbomodule.** { *; }
 
+# RevenueCat
+-keep class com.revenuecat.purchases.** { *; }
+-keep class com.revenuecat.purchases.common.** { *; }
+-keep class com.revenuecat.purchases.hybridcommon.** { *; }
+
 # Add any project specific keep options here:

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { Platform, Alert } from 'react-native';
-import Purchases, { PurchasesPackage, CustomerInfo, MakePurchaseResult } from 'react-native-purchases';
+import Purchases, { PurchasesPackage, CustomerInfo, MakePurchaseResult, PRODUCT_CATEGORY } from 'react-native-purchases';
 
 // Minimal StoreProduct shape used in this app to avoid SDK type dependency mismatches
 export type StoreProduct = {
@@ -41,25 +41,40 @@ export const PurchaseProvider: React.FC<PurchaseProviderProps> = ({ children }) 
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo | null>(null);
   const [isPurchasing, setIsPurchasing] = useState(false);
 
-  // Gate logs/calls
+  // Gate logs/calls - now supports both iOS and Android
+  const IS_MOBILE = Platform.OS === 'ios' || Platform.OS === 'android';
   const IS_IOS = Platform.OS === 'ios';
-  const VERBOSE_RC = Boolean((process.env.EXPO_PUBLIC_RC_DEBUG || '').toString());
+  const IS_ANDROID = Platform.OS === 'android';
+  // Enable verbose logging for debugging on Android
+  const VERBOSE_RC = IS_ANDROID || Boolean((process.env.EXPO_PUBLIC_RC_DEBUG || '').toString());
   const debugLog = (...args: any[]) => {
-    if (__DEV__ && VERBOSE_RC) {
+    // Always log on Android for debugging, or when VERBOSE_RC is enabled
+    if (IS_ANDROID || (__DEV__ && VERBOSE_RC)) {
       // eslint-disable-next-line no-console
       console.log(...args);
     }
   };
 
   // Additional one-time support products to display alongside offerings
-  const DONATION_PRODUCT_IDS = [
-    'support_athan_app_26usd_1time',
-    'support_athan_app_500qr_1time',
-  ];
+  // These IDs should match the products configured in both App Store Connect and Google Play Console
+  const DONATION_PRODUCT_IDS = Platform.OS === 'ios' 
+    ? [
+        'support_athan_app_26usd_1time',
+        'support_athan_app_500qr_1time',
+      ]
+    : [
+        // Google Play product IDs
+        // Including subscription here ensures it appears even if Offerings aren't configured perfectly
+        
+        'support_athan_app_v1_4usd_1time',
+        'support_athan_app_26usd_1time',
+        'support_athan_app_500qr_1time',
+        'monthly_support_athan_app_4usd',
+      ];
 
   useEffect(() => {
-    if (!IS_IOS) {
-      // Skip RC network calls on Android in this project
+    if (!IS_MOBILE) {
+      // Skip RC network calls on non-mobile platforms
       setPackages([]);
       setProducts([]);
       setCustomerInfo(null);
@@ -74,20 +89,22 @@ export const PurchaseProvider: React.FC<PurchaseProviderProps> = ({ children }) 
   }, []);
 
   const fetchOfferings = async () => {
-    if (!IS_IOS) return;
+    if (!IS_MOBILE) return;
     setLoading(true);
     try {
-      debugLog('[RevenueCat] Fetching offerings...');
+      console.log('[RevenueCat] Fetching offerings...');
       const offerings = await Purchases.getOfferings();
+      console.log('[RevenueCat] All offerings:', JSON.stringify(Object.keys(offerings.all || {})));
       if (offerings.current) {
-        debugLog('[RevenueCat] Found current offering:', offerings.current.identifier);
+        console.log('[RevenueCat] Found current offering:', offerings.current.identifier);
+        console.log('[RevenueCat] Available packages:', offerings.current.availablePackages.map(p => p.identifier));
         setPackages(offerings.current.availablePackages);
       } else {
-        debugLog('[RevenueCat] No current offering found');
+        console.log('[RevenueCat] No current offering found - make sure you have set a CURRENT offering in RevenueCat dashboard');
         setPackages([]);
       }
     } catch (e) {
-      debugLog('[RevenueCat] Fetch offerings error:', e);
+      console.log('[RevenueCat] Fetch offerings error:', e);
       setPackages([]);
     } finally {
       setLoading(false);
@@ -95,10 +112,41 @@ export const PurchaseProvider: React.FC<PurchaseProviderProps> = ({ children }) 
   };
 
   const fetchProducts = async () => {
-    if (!IS_IOS) return;
+    if (!IS_MOBILE) return;
     try {
+      console.log('[RevenueCat] Fetching products with IDs:', DONATION_PRODUCT_IDS);
       if (!DONATION_PRODUCT_IDS.length) { setProducts([]); return; }
-      const storeProducts = await (Purchases as any).getProducts(DONATION_PRODUCT_IDS);
+      
+      let storeProducts: any[] = [];
+      if (Platform.OS === 'android') {
+        const subsIds = DONATION_PRODUCT_IDS.filter(id => id.includes('monthly'));
+        const inAppIds = DONATION_PRODUCT_IDS.filter(id => !id.includes('monthly'));
+
+        // Helper to fetch gracefully
+        const safeFetch = async (ids: string[], type: PRODUCT_CATEGORY) => {
+          if (!ids.length) return [];
+          try { return await Purchases.getProducts(ids, type); } 
+          catch (e) { console.log(`[RC] Failed to fetch ${type}:`, e); return []; }
+        };
+
+        // 1. Try to fetch as intended
+        let subs = await safeFetch(subsIds, PRODUCT_CATEGORY.SUBSCRIPTION);
+        let inApps = await safeFetch(inAppIds, PRODUCT_CATEGORY.NON_SUBSCRIPTION);
+
+        // 2. Fallback: If INAPPs are missing, maybe they were configured as Subs?
+        if (inAppIds.length > 0 && inApps.length === 0) {
+           console.log('[RC] InApps missing, retrying as SUBS...');
+           const retryInApps = await safeFetch(inAppIds, PRODUCT_CATEGORY.SUBSCRIPTION);
+           if (retryInApps.length > 0) inApps = retryInApps;
+        }
+
+        storeProducts = [...subs, ...inApps];
+      } else {
+        // iOS
+        storeProducts = await Purchases.getProducts(DONATION_PRODUCT_IDS);
+      }
+      
+      console.log('[RevenueCat] Raw store products:', storeProducts?.length || 0, 'items');
       const simplified: StoreProduct[] = (storeProducts || []).map((p: any) => ({
         identifier: p.identifier,
         priceString: p.priceString,
@@ -118,15 +166,15 @@ export const PurchaseProvider: React.FC<PurchaseProviderProps> = ({ children }) 
         return na - nb;
       });
       setProducts(sorted);
-      debugLog('[RevenueCat] Products fetched:', sorted.map(p => `${p.identifier} (${p.priceString})`));
+      console.log('[RevenueCat] Products fetched:', sorted.map(p => `${p.identifier} (${p.priceString})`));
     } catch (e) {
-      debugLog('[RevenueCat] Fetch products error:', e);
+      console.log('[RevenueCat] Fetch products error:', e);
       setProducts([]);
     }
   };
 
   const checkEntitlements = async () => {
-    if (!IS_IOS) return;
+    if (!IS_MOBILE) return;
     try {
       const info = await Purchases.getCustomerInfo();
       setCustomerInfo(info);
@@ -139,8 +187,8 @@ export const PurchaseProvider: React.FC<PurchaseProviderProps> = ({ children }) 
   };
 
   const purchase = async (purchasePackage: PurchasesPackage) => {
-    if (!IS_IOS) {
-      Alert.alert('Purchases Unavailable', 'In-app purchases are only available on iOS in this project.');
+    if (!IS_MOBILE) {
+      Alert.alert('Purchases Unavailable', 'In-app purchases are only available on mobile devices.');
       return;
     }
     if (isPurchasing) return;
@@ -165,20 +213,69 @@ export const PurchaseProvider: React.FC<PurchaseProviderProps> = ({ children }) 
   };
 
   const purchaseProductById = async (productId: string) => {
-    if (!IS_IOS) {
-      Alert.alert('Purchases Unavailable', 'In-app purchases are only available on iOS in this project.');
+    if (!IS_MOBILE) {
+      Alert.alert('Purchases Unavailable', 'In-app purchases are only available on mobile devices.');
       return;
     }
     if (isPurchasing) return;
     setIsPurchasing(true);
     try {
-      const { customerInfo }: MakePurchaseResult = await (Purchases as any).purchaseProduct(productId);
-      setCustomerInfo(customerInfo);
-      const active = Object.keys(customerInfo.entitlements.active);
-      if (active.length > 0) {
-        Alert.alert('🙏 Thank You!', 'Thank you for supporting our app!', [{ text: "You're Welcome! 😊" }]);
+      console.log('[RevenueCat] Attempting purchase for product:', productId);
+      
+      // For Android, we need to fetch the actual product first to get the correct type
+      let storeProduct: any = null;
+      if (Platform.OS === 'android') {
+        // If ID contains a colon (productId:basePlanId), use only the productId for fetching
+        const rawProductId = productId.split(':')[0];
+        console.log(`[RC] Fetching details for ${rawProductId} (original: ${productId})`);
+
+        // Fetch both types in parallel to ensure we find the product regardless of ID or configuration
+        // This handles cases where a product might be configured differently than its ID suggests
+        const [subs, inApps] = await Promise.all([
+          Purchases.getProducts([rawProductId], PRODUCT_CATEGORY.SUBSCRIPTION).catch(e => {
+            console.log('[RC] Sub fetch failed:', e); return [];
+          }),
+          Purchases.getProducts([rawProductId], PRODUCT_CATEGORY.NON_SUBSCRIPTION).catch(e => {
+            console.log('[RC] InApp fetch failed:', e); return [];
+          })
+        ]);
+
+        if (subs.length > 0) {
+          storeProduct = subs[0];
+          console.log('[RevenueCat] Found as SUBSCRIPTION');
+        } else if (inApps.length > 0) {
+          storeProduct = inApps[0];
+          console.log('[RevenueCat] Found as NON_SUBSCRIPTION');
+        }
+        
+        if (storeProduct) {
+          // Use purchaseStoreProduct for proper Android billing
+          const { customerInfo }: MakePurchaseResult = await Purchases.purchaseStoreProduct(storeProduct);
+          setCustomerInfo(customerInfo);
+          const active = Object.keys(customerInfo.entitlements.active);
+          if (active.length > 0) {
+            Alert.alert('🙏 Thank You!', 'Thank you for supporting our app!', [{ text: "You're Welcome! 😊" }]);
+          } else {
+            // Success but no entitlement (maybe consumption pending or just donation)
+            Alert.alert('🙏 Thank You!', 'Your purchase was successful!', [{ text: "You're Welcome! 😊" }]);
+          }
+        } else {
+          console.log('[RevenueCat] Product not found in either category:', productId);
+          // Fallback check: try legacy purchase if strictly necessary, 
+          // but usually if getProducts fails, purchase will fail too.
+          Alert.alert('Error', 'Product not found. Please try again later.', [{ text: 'OK' }]);
+        }
+      } else {
+        // iOS - original method works fine
+        const { customerInfo }: MakePurchaseResult = await (Purchases as any).purchaseProduct(productId);
+        setCustomerInfo(customerInfo);
+        const active = Object.keys(customerInfo.entitlements.active);
+        if (active.length > 0) {
+          Alert.alert('🙏 Thank You!', 'Thank you for supporting our app!', [{ text: "You're Welcome! 😊" }]);
+        }
       }
     } catch (e: any) {
+      console.log('[RevenueCat] Purchase error:', e?.code, e?.message, e);
       if (e?.userCancelled) return;
       if (__DEV__) {
         Alert.alert('Development Mode', 'Purchases need a real device/App Store sandbox.', [{ text: 'OK' }]);
@@ -192,8 +289,8 @@ export const PurchaseProvider: React.FC<PurchaseProviderProps> = ({ children }) 
   };
 
   const restorePurchases = async () => {
-    if (!IS_IOS) {
-      Alert.alert('Purchases Unavailable', 'Restore is only available on iOS in this project.');
+    if (!IS_MOBILE) {
+      Alert.alert('Purchases Unavailable', 'Restore is only available on mobile devices.');
       return;
     }
     try {

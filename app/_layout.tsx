@@ -230,7 +230,43 @@ function InnerLayout() {
             }
           }
         } else if (Platform.OS === 'android') {
-          console.log('[RevenueCat] Android IAP disabled — using external links.');
+          const publicAndroidKey = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY;
+          const androidKey = publicAndroidKey || revenuecat?.androidApiKey || 'goog_dfuJwpbmzyvVmySItVuilefFYFM';
+          if (!androidKey) {
+            console.log('[RevenueCat] Android API key missing in app.json extra.revenuecat. Skipping configure.');
+          } else {
+            await Purchases.configure({ apiKey: androidKey });
+            console.log('[RevenueCat] ✅ Android SDK configured successfully');
+          }
+
+          // Development-only debug for Android
+          if (__DEV__ && verboseRc) {
+            try {
+              console.log('[RevenueCat][DEBUG] Android - Fetching detailed diagnostics...');
+              const appUserId = await Purchases.getAppUserID();
+              console.log('[RevenueCat][DEBUG] App User ID:', appUserId);
+
+              const offerings = await Purchases.getOfferings();
+              console.log('[RevenueCat][DEBUG] Raw offerings object:', JSON.stringify(offerings, null, 2));
+
+              if (!offerings.current) {
+                console.log('[RevenueCat][DEBUG] No current offering. Checklist:');
+                console.log('  - Ensure an offering is marked CURRENT in RevenueCat dashboard');
+                console.log('  - Make sure at least one package inside it references a valid product');
+                console.log('  - Confirm product IDs in Google Play Console exactly match RevenueCat');
+              } else {
+                console.log('[RevenueCat][DEBUG] Current offering identifier:', offerings.current.identifier);
+                console.log('[RevenueCat][DEBUG] Packages in current offering:', offerings.current.availablePackages.map(p => ({
+                  pkgId: p.identifier,
+                  storeProductId: p.product.identifier,
+                  price: p.product.priceString,
+                  currency: p.product.currencyCode
+                })));
+              }
+            } catch (dbgErr) {
+              console.log('[RevenueCat][DEBUG] Android diagnostics failed:', dbgErr);
+            }
+          }
         }
         
       } catch (error) {

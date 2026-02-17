@@ -702,7 +702,8 @@ export default function SettingsScreen() {
   const openDonation = () => {
     const extra: any = (Constants.expoConfig?.extra || (Constants as any).manifest?.extra || {});
     const rciOSKey = process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY || extra?.revenuecat?.iosApiKey;
-    const shouldUsePaywall = Platform.OS === 'ios' ? !!rciOSKey : false;
+    const rcAndroidKey = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY || extra?.revenuecat?.androidApiKey;
+    const shouldUsePaywall = Platform.OS === 'ios' ? !!rciOSKey : (Platform.OS === 'android' ? !!rcAndroidKey : false);
 
     if (shouldUsePaywall) {
       // Force refresh if stuck loading and retry count is low
@@ -1141,15 +1142,19 @@ export default function SettingsScreen() {
                 <Text style={styles.enhancedSupportButtonText}>{t('supportDeveloper')}</Text>
               </MagicalButton>
               
-              {/* RevenueCat management (production-safe) for iOS */}
-              {Platform.OS === 'ios' && (
+              {/* RevenueCat management (production-safe) for iOS and Android */}
+              {(Platform.OS === 'ios' || Platform.OS === 'android') && (
                 <View style={{ marginTop: 16, padding: 12, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 12 }}>
                   <Text style={{ color: C.text.secondary, fontSize: 12, textAlign: 'center', marginBottom: 8 }}>
                     RevenueCat Status: Ready
                   </Text>
                   <TouchableOpacity
                     style={[styles.enhancedTestButton, { backgroundColor: '#333' }]}
-                    onPress={() => Linking.openURL('https://apps.apple.com/account/subscriptions')}
+                    onPress={() => Linking.openURL(
+                      Platform.OS === 'ios' 
+                        ? 'https://apps.apple.com/account/subscriptions'
+                        : 'https://play.google.com/store/account/subscriptions'
+                    )}
                     disabled={iapLoading}
                   >
                     <Text style={styles.enhancedTestButtonText}>{t('manageSubscriptions')}</Text>
