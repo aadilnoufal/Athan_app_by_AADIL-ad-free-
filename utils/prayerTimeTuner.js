@@ -123,16 +123,16 @@ export function applyLocalDataCityAdjustments(times, cityId, isLocalData = false
   // Define city-specific adjustments for local data
   const cityAdjustments = {
     'abu-samra': {
-      Fajr: 5,    // +5 minutes
-      Maghrib: 1  // +1 minute
+      Fajr: 3,    // +3 minutes
+      Maghrib: 2  // +2 minutes
     },
     'dukhan': {
-      Fajr: 3,    // +3 minutes
-      Maghrib: 3  // +3 minutes
+      Fajr: 4,    // +4 minutes
+      Maghrib: 2  // +2 minutes
     },
     'alshamal': {
-      Fajr: -1,   // -1 minute
-      Maghrib: 2  // +2 minutes
+      Fajr: 2,    // +2 minutes
+      Maghrib: -1 // -1 minute
     }
   };
 
