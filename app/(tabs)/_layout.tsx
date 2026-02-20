@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 import { useColorScheme, View, Dimensions, StyleSheet } from 'react-native';
-import { FontAwesome } from '@expo/vector-icons';
+import { FontAwesome, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useEffect, useState } from 'react';
 import { SepiaColors } from '../../constants/sepiaColors';
@@ -14,26 +14,26 @@ export default function TabLayout() {
   const { colors, isDark: themeIsDark } = useTheme();
   const { t } = useLanguage();
   const darkMode = themeIsDark; // prefer theme toggle over system
-  
+
   // Dynamic screen dimensions that update on orientation change
   const [screenData, setScreenData] = useState(Dimensions.get('window'));
-  
+
   useEffect(() => {
     const onChange = (result: { window: any }) => {
       setScreenData(result.window);
     };
-    
+
     const subscription = Dimensions.addEventListener('change', onChange);
     return () => subscription?.remove();
   }, []);
-  
+
   // Get current screen dimensions for responsive design
   const { width, height } = screenData;
   const isLandscape = width > height;
   const isTablet = width >= 768; // Consider tablets as devices with width >= 768
   const isSmallScreen = width < 375; // Small phones like iPhone SE
   const isLargeScreen = width >= 414; // Large phones like iPhone Pro Max
-  
+
   // Calculate optimized responsive values
   const getTabBarHeight = () => {
     // Base height plus safe area insets for proper spacing
@@ -42,25 +42,25 @@ export default function TabLayout() {
     else if (isLargeScreen) baseHeight = isLandscape ? 55 : 65;
     else if (isSmallScreen) baseHeight = isLandscape ? 45 : 55;
     else baseHeight = isLandscape ? 50 : 60;
-    
+
     // Add bottom inset to ensure tab bar is above system navigation
     return baseHeight + (insets?.bottom || 0);
   };
-  
+
   const getIconSize = () => {
     if (isTablet) return isLandscape ? 26 : 30;
     if (isLargeScreen) return isLandscape ? 22 : 26;
     if (isSmallScreen) return isLandscape ? 18 : 22;
     return isLandscape ? 20 : 24;
   };
-  
+
   const getFontSize = () => {
     if (isTablet) return isLandscape ? 13 : 15;
     if (isLargeScreen) return isLandscape ? 11 : 13;
     if (isSmallScreen) return isLandscape ? 9 : 11;
     return isLandscape ? 10 : 12;
   };
-  
+
   const getPadding = () => {
     // Optimize padding values to reduce unused space
     if (isTablet) return { top: isLandscape ? 6 : 12, bottom: isLandscape ? 6 : 12 }; // Reduced padding
@@ -126,6 +126,14 @@ export default function TabLayout() {
           }}
         />
         <Tabs.Screen
+          name="quran"
+          options={{
+            title: t('quran'),
+            headerShown: false,
+            tabBarIcon: ({ color }) => <TabBarIcon name="book-open-variant" color={color} iconSize={getIconSize()} />,
+          }}
+        />
+        <Tabs.Screen
           name="qibla"
           options={{
             title: t('qibla'),
@@ -146,13 +154,17 @@ export default function TabLayout() {
   );
 }
 
-function TabBarIcon(props: { 
-  name: React.ComponentProps<typeof FontAwesome>['name']; 
-  color: string; 
+function TabBarIcon(props: {
+  name: string;
+  color: string;
   iconSize: number;
 }) {
-  const { iconSize, ...restProps } = props;
-  return <FontAwesome size={iconSize} style={{ marginBottom: -2 }} {...restProps} />; // Adjusted icon margin
+  const { iconSize, name, color } = props;
+  // Use MaterialCommunityIcons for Quran tab, FontAwesome for others
+  if (name === 'book-open-variant') {
+    return <MaterialCommunityIcons name={name} size={iconSize} color={color} style={{ marginBottom: -2 }} />;
+  }
+  return <FontAwesome name={name as any} size={iconSize} style={{ marginBottom: -2 }} color={color} />;
 }
 
 // Styles for optimal tab bar positioning

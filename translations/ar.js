@@ -5,7 +5,7 @@ export default {
   today: 'اليوم',
   tomorrow: 'غداً',
   days: 'أيام',
-  
+
   // Prayer names
   Fajr: 'الفجر',
   Sunrise: 'الشروق',
@@ -13,7 +13,7 @@ export default {
   Asr: 'العصر',
   Maghrib: 'المغرب',
   Isha: 'العشاء',
-  
+
   // Prayer notification messages
   fajrMessage: "حان وقت صلاة الفجر",
   sunriseMessage: "شروق الشمس",
@@ -21,7 +21,7 @@ export default {
   asrMessage: "حان وقت صلاة العصر",
   maghribMessage: "حان وقت صلاة المغرب",
   ishaMessage: "حان وقت صلاة العشاء",
-  
+
   // Home screen
   next: 'التالي',
   nextPrayer: 'الصلاة القادمة',
@@ -30,7 +30,7 @@ export default {
   location: 'الموقع',
   calculating: 'جاري الحساب...',
   madeBy: 'صنع بـ ❤️ بواسطة عادل نوفل',
-  
+
   // Tabs
   prayerTimes: 'أوقات الصلاة',
   dua: 'أدعية',
@@ -49,7 +49,7 @@ export default {
   recalibrate: 'إعادة المعايرة',
   retry: 'حاول مرة أخرى',
   openSettings: 'فتح الإعدادات',
-  
+
   // Settings screen
   settings: 'الإعدادات',
   appearance: 'المظهر',
@@ -64,7 +64,7 @@ export default {
   testInAppAlert: 'اختبار تنبيه داخل التطبيق',
   status: 'الحالة',
   manageSubscriptions: 'إدارة اشتراكات Apple',
-  
+
   // Location settings
   locationSettings: 'إعدادات الموقع',
   updateLocation: 'تحديث الموقع',
@@ -76,7 +76,7 @@ export default {
   selectCountry: 'اختر البلد',
   selectState: 'اختر المنطقة',
   selectCity: 'اختر المدينة',
-  
+
   // Add UAE locations
   UAE: 'الإمارات العربية المتحدة',
   Dubai: 'دبي',
@@ -84,21 +84,21 @@ export default {
   'Rural Area Dubai': 'المنطقة الريفية دبي',
   Hatta: 'حتا',
   'Al Ain': 'العين',
-  
+
   // About section
   about: 'حول التطبيق',
   appVersion: 'مواقيت الصلاة الإصدار ١.١.١',
   aboutText: 'احصل على مواقيت صلاة دقيقة مخصصة لموقعك. بينما نسعى لأعلى درجات الدقة، يرجى ملاحظة أن التوقيتات الفعلية قد تختلف قليلاً.',
   supportApp: 'دعم التطبيق',
   supportDeveloper: 'دعم المطور',
-  
+
   // Support dialog
   supportTitle: 'دعم المطور',
   supportMessage: 'شكراً لتفكيرك في التبرع للحفاظ على هذا التطبيق خالياً من الإعلانات! تبرعك سيساعد في دعم المطور ومساعدته في توسيع هذا التطبيق ليشمل بلدان أخرى وتحسينه. هذا اختياري تماماً ويمكنك استخدام التطبيق مجاناً بدون أي مشاكل.',
   maybeLater: 'ربما لاحقاً',
   oneTimeSupport: 'دعم لمرة واحدة',
   monthlySupport: 'دعم شهري',
-  
+
   // Qibla screen
   qiblaTitle: 'القبلة',
   qiblaSubtitleText: 'الاتجاه نحو الكعبة المشرفة',
@@ -118,7 +118,7 @@ export default {
   qiblaAccuracyLow: 'منخفضة',
   qiblaAccuracyPoor: 'معايرة',
   qiblaDisclaimer: 'بسم الله. تم تطوير محدد القبلة هذا بعناية واختباره للدقة، ولكن كما هو الحال مع أي بوصلة رقمية، قد تختلف النتائج بناءً على مستشعرات الجهاز والتداخل المغناطيسي. نوصي بكل احترام بالتحقق من الاتجاه باستخدام وسائل أخرى عند الإمكان، مثل موقع الشمس أو استشارة المساجد المحلية. تقبل الله ﷻ صلواتكم بغض النظر عن الاختلافات الطفيفة في الاتجاه، فهو الرحمن الرحيم العليم. بذل المطور كل جهد لضمان الدقة ولكن لا يمكن ضمان الكمال في جميع الظروف.',
-  
+
   // Misc
   language: 'اللغة',
   english: 'الإنجليزية',
@@ -130,4 +130,52 @@ export default {
   failedCache: 'فشل في مسح ذاكرة التخزين المؤقت. يرجى المحاولة مرة أخرى.',
   connectionError: 'خطأ في الاتصال',
   connectionErrorMessage: 'فشل تحميل أوقات الصلاة. استخدام البيانات المحفوظة إن وجدت.',
+
+  // Quran tab
+  quran: 'القرآن',
+  quranTitle: 'القرآن الكريم',
+  quranSubtitle: 'اقرأ القرآن الكريم',
+  surahs: 'السور',
+  ayahs: 'الآيات',
+  meccan: 'مكية',
+  medinan: 'مدنية',
+  verses: 'آيات',
+  juz: 'جزء',
+  page: 'صفحة',
+  searchQuran: 'ابحث في القرآن...',
+  noResults: 'لا توجد نتائج',
+  searchMinChars: 'أدخل 3 أحرف على الأقل للبحث',
+
+  // Quran reading
+  arabic: 'عربي',
+  translation: 'ترجمة',
+  arabicOnly: 'عربي فقط',
+  arabicAndEnglish: 'عربي + إنجليزي',
+  bismillah: 'بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ',
+
+  // Quran download / offline
+  downloadSurah: 'تحميل السورة',
+  downloadAll: 'تحميل القرآن كاملاً',
+  downloading: 'جاري التحميل...',
+  downloaded: 'تم التحميل',
+  downloadProgress: 'جاري تحميل {downloaded} من {total}...',
+  downloadComplete: 'اكتمل التحميل',
+  downloadFailed: 'فشل التحميل',
+  downloadFailedMsg: 'تعذر التحميل. يرجى التحقق من اتصالك بالإنترنت والمحاولة مرة أخرى.',
+  offlineAvailable: 'متاح بدون إنترنت',
+  deleteDownload: 'حذف التحميل',
+  deleteAllDownloads: 'مسح جميع تحميلات القرآن',
+  deleteAllConfirm: 'سيؤدي هذا إلى حذف جميع بيانات القرآن المحملة وتحرير مساحة التخزين. هل تريد المتابعة؟',
+  deleteAllSuccess: 'تم مسح جميع تحميلات القرآن.',
+  storageUsed: 'المساحة المستخدمة',
+
+  // Quran settings
+  quranSettings: 'إعدادات القرآن',
+  defaultEdition: 'العرض الافتراضي',
+  quranDownloads: 'تحميلات القرآن',
+  downloadedSurahs: 'السور المحملة',
+  noDownloads: 'لم يتم تحميل أي سورة بعد',
+  cancel: 'إلغاء',
+  delete: 'حذف',
+  confirm: 'تأكيد',
 };

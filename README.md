@@ -10,6 +10,7 @@ Prayer Times by AADIL is a comprehensive, advertisement-free mobile application 
 
 ✨ **Ad-Free Experience** - Completely free from advertisements  
 🕐 **Accurate Prayer Times** - Precise prayer time calculations  
+📖 **Quran Reader** - Browse all 114 surahs with Arabic text and English translation, keyword search, and optional per-surah or full Quran offline download  
 🧭 **Qibla Direction** - Real-time qibla compass  
 🔔 **Smart Notifications** - Customizable prayer reminders  
 🌙 **Islamic Calendar** - Hijri and Gregorian calendar integration  

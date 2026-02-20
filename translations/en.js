@@ -5,7 +5,7 @@ export default {
   today: 'Today',
   tomorrow: 'Tomorrow',
   days: 'days',
-  
+
   // Prayer names
   Fajr: 'Fajr',
   Sunrise: 'Sunrise',
@@ -13,7 +13,7 @@ export default {
   Asr: 'Asr',
   Maghrib: 'Maghrib',
   Isha: 'Isha',
-  
+
   // Prayer notification messages
   fajrMessage: "It's time for Fajr prayer",
   sunriseMessage: "The sun has risen",
@@ -21,7 +21,7 @@ export default {
   asrMessage: "It's time for Asr prayer",
   maghribMessage: "It's time for Maghrib prayer",
   ishaMessage: "It's time for Isha prayer",
-  
+
   // Home screen
   next: 'Next',
   nextPrayer: 'Next Prayer',
@@ -30,7 +30,7 @@ export default {
   location: 'Location',
   calculating: 'Calculating...',
   madeBy: 'Made with ❤️ by AADIL NOUFAL',
-  
+
   // Tabs
   prayerTimes: 'Prayer Times',
   dua: 'Dua',
@@ -49,7 +49,7 @@ export default {
   recalibrate: 'Recalibrate',
   retry: 'Try Again',
   openSettings: 'Open Settings',
-  
+
   // Settings screen
   settings: 'Settings',
   appearance: 'Appearance',
@@ -64,7 +64,7 @@ export default {
   testInAppAlert: 'Test In-App Alert',
   status: 'Status',
   manageSubscriptions: 'Manage Apple Subscriptions',
-  
+
   // Location settings
   locationSettings: 'Location Settings',
   updateLocation: 'Update Location',
@@ -76,7 +76,7 @@ export default {
   selectCountry: 'Select Country',
   selectState: 'Select State',
   selectCity: 'Select City',
-  
+
   // Add UAE locations
   UAE: 'United Arab Emirates',
   Dubai: 'Dubai',
@@ -84,21 +84,21 @@ export default {
   'Rural Area Dubai': 'Rural Area Dubai',
   Hatta: 'Hatta',
   'Al Ain': 'Al Ain',
-  
+
   // About section
   about: 'About',
   appVersion: 'Prayer Times v1.1.1',
   aboutText: 'Get accurate prayer times customized for your location. While we strive for the highest precision, please note that actual timings may slightly differ.',
   supportApp: 'Support the App',
   supportDeveloper: 'Support Developer',
-  
+
   // Support dialog
   supportTitle: 'Support the Developer',
   supportMessage: 'Thank you for considering a donation to keep this app ad-free! Your donation will help support the developer and to help him expand this app to other countries and make it better. This is completely optional and you can use the app for free without any issues.',
   maybeLater: 'Maybe Later',
   oneTimeSupport: 'One-Time Support',
   monthlySupport: 'Monthly Support',
-  
+
   // Qibla screen
   qiblaTitle: 'Qibla',
   qiblaSubtitleText: 'Direction to Kaaba',
@@ -118,7 +118,7 @@ export default {
   qiblaAccuracyLow: 'Low',
   qiblaAccuracyPoor: 'Calibrate',
   qiblaDisclaimer: 'Bismillah. This Qibla finder has been developed with care and tested for accuracy, but as with any digital compass, results may vary based on device sensors and magnetic interference. We kindly recommend verifying the direction using other means when possible, such as the position of the sun or consulting local mosques. May Allah ﷻ accept your prayers regardless of minor directional variations, as He is the Most Merciful and All-Knowing. The developer has made every effort to ensure accuracy but cannot guarantee perfection in all conditions.',
-  
+
   // Misc
   language: 'Language',
   english: 'English',
@@ -130,4 +130,52 @@ export default {
   failedCache: 'Failed to clear cache. Please try again.',
   connectionError: 'Connection Error',
   connectionErrorMessage: 'Failed to load prayer times. Using offline data if available.',
+
+  // Quran tab
+  quran: 'Quran',
+  quranTitle: 'The Holy Quran',
+  quranSubtitle: 'Read the Noble Quran',
+  surahs: 'Surahs',
+  ayahs: 'Ayahs',
+  meccan: 'Meccan',
+  medinan: 'Medinan',
+  verses: 'Verses',
+  juz: 'Juz',
+  page: 'Page',
+  searchQuran: 'Search the Quran...',
+  noResults: 'No results found',
+  searchMinChars: 'Enter at least 3 characters to search',
+
+  // Quran reading
+  arabic: 'Arabic',
+  translation: 'Translation',
+  arabicOnly: 'Arabic Only',
+  arabicAndEnglish: 'Arabic + English',
+  bismillah: 'بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ',
+
+  // Quran download / offline
+  downloadSurah: 'Download Surah',
+  downloadAll: 'Download Full Quran',
+  downloading: 'Downloading...',
+  downloaded: 'Downloaded',
+  downloadProgress: 'Downloading {downloaded} of {total}...',
+  downloadComplete: 'Download Complete',
+  downloadFailed: 'Download Failed',
+  downloadFailedMsg: 'Could not download. Please check your internet connection and try again.',
+  offlineAvailable: 'Available Offline',
+  deleteDownload: 'Remove Download',
+  deleteAllDownloads: 'Clear All Quran Downloads',
+  deleteAllConfirm: 'This will remove all downloaded Quran data and free up storage. Continue?',
+  deleteAllSuccess: 'All Quran downloads have been cleared.',
+  storageUsed: 'Storage Used',
+
+  // Quran settings
+  quranSettings: 'Quran Settings',
+  defaultEdition: 'Default Display',
+  quranDownloads: 'Quran Downloads',
+  downloadedSurahs: 'Downloaded Surahs',
+  noDownloads: 'No surahs downloaded yet',
+  cancel: 'Cancel',
+  delete: 'Delete',
+  confirm: 'Confirm',
 };
