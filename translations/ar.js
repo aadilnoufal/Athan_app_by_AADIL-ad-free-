@@ -151,7 +151,9 @@ export default {
   translation: 'ترجمة',
   arabicOnly: 'عربي فقط',
   arabicAndEnglish: 'عربي + إنجليزي',
-  bismillah: 'بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ',
+  arabicAndTranslation: 'عربي + ترجمة',
+  scrollToCurrentVerse: 'انتقل إلى الآية الحالية',
+  bismillah: 'بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ',
 
   // Quran download / offline
   downloadSurah: 'تحميل السورة',
@@ -178,4 +180,49 @@ export default {
   cancel: 'إلغاء',
   delete: 'حذف',
   confirm: 'تأكيد',
+
+  // Quran font & display
+  quranFontSize: 'حجم خط القرآن',
+  fontSizeSmall: 'صغير',
+  fontSizeLarge: 'كبير',
+  quranFontPreview: 'بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ',
+  quranFontPreviewEn: 'بسم الله الرحمن الرحيم',
+  quranAutoScrollWithAudio: 'التمرير التلقائي مع الصوت',
+  quranAutoScrollWithAudioDescription: 'تمييز الآية الحالية وإبقاؤها قرب أعلى الصفحة أثناء تشغيل الصوت',
+  tapAyahToPlay: 'اضغط على أي آية لتشغيل الصوت',
+  stopAudio: 'إيقاف',
+  nowPlaying: 'يتم التشغيل الآن',
+
+  // Quran translation edition
+  translationEdition: 'الترجمة',
+  selectTranslation: 'اختر الترجمة',
+  searchTranslations: 'ابحث في الترجمات...',
+  currentTranslation: 'الترجمة الحالية',
+  translationLanguage: 'اللغة',
+  noTranslationsFound: 'لا توجد ترجمات',
+
+  // Quran reciter / audio
+  reciter: 'القارئ',
+  selectReciter: 'اختر القارئ',
+  audioPlayer: 'مشغل الصوت',
+  playing: 'يشغل',
+  paused: 'متوقف',
+  downloadAudio: 'تحميل الصوت',
+  downloadingAudio: 'جاري تحميل الصوت...',
+  audioDownloaded: 'تم تحميل الصوت',
+  deleteAudio: 'حذف الصوت',
+  playFromHere: 'تشغيل من هنا',
+  noAudioAvailable: 'لا يوجد صوت',
+  audioError: 'خطأ في الصوت',
+  audioErrorMsg: 'تعذر تشغيل الصوت. يرجى التحقق من اتصالك.',
+  autoPlay: 'تشغيل تلقائي',
+
+  // Quran settings hint
+  quranSettingsHint: 'خصص حجم الخط والترجمة والقارئ في الإعدادات ← القرآن',
+  quranSettingsHintShort: 'المزيد في الإعدادات ← القرآن',
+
+  // Search improvements
+  searchResultsFor: 'نتائج البحث عن',
+  noResultsFor: 'لا توجد نتائج لـ',
+  tapToSearch: 'اضغط بحث للعثور على الآيات',
 };

@@ -150,8 +150,8 @@ export default {
   arabic: 'Arabic',
   translation: 'Translation',
   arabicOnly: 'Arabic Only',
-  arabicAndEnglish: 'Arabic + English',
-  bismillah: 'بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ',
+  arabicAndEnglish: 'Arabic + English', arabicAndTranslation: 'Arabic + Translation',
+  scrollToCurrentVerse: 'Scroll to current verse', bismillah: 'بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ',
 
   // Quran download / offline
   downloadSurah: 'Download Surah',
@@ -178,4 +178,49 @@ export default {
   cancel: 'Cancel',
   delete: 'Delete',
   confirm: 'Confirm',
+
+  // Quran font & display
+  quranFontSize: 'Quran Font Size',
+  fontSizeSmall: 'Small',
+  fontSizeLarge: 'Large',
+  quranFontPreview: 'بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ',
+  quranFontPreviewEn: 'In the name of Allah, the Most Gracious, the Most Merciful',
+  quranAutoScrollWithAudio: 'Auto-scroll with audio',
+  quranAutoScrollWithAudioDescription: 'Highlight current verse and keep it near the top while audio plays',
+  tapAyahToPlay: 'Tap any verse to play audio',
+  stopAudio: 'Stop',
+  nowPlaying: 'Now Playing',
+
+  // Quran translation edition
+  translationEdition: 'Translation',
+  selectTranslation: 'Select Translation',
+  searchTranslations: 'Search translations...',
+  currentTranslation: 'Current Translation',
+  translationLanguage: 'Language',
+  noTranslationsFound: 'No translations found',
+
+  // Quran reciter / audio
+  reciter: 'Reciter',
+  selectReciter: 'Select Reciter',
+  audioPlayer: 'Audio Player',
+  playing: 'Playing',
+  paused: 'Paused',
+  downloadAudio: 'Download Audio',
+  downloadingAudio: 'Downloading Audio...',
+  audioDownloaded: 'Audio Downloaded',
+  deleteAudio: 'Delete Audio',
+  playFromHere: 'Play from here',
+  noAudioAvailable: 'No audio available',
+  audioError: 'Audio Error',
+  audioErrorMsg: 'Could not play audio. Please check your connection.',
+  autoPlay: 'Auto-play',
+
+  // Quran settings hint
+  quranSettingsHint: 'Customize font size, translation & reciter in Settings → Quran',
+  quranSettingsHintShort: 'More options in Settings → Quran',
+
+  // Search improvements
+  searchResultsFor: 'Results for',
+  noResultsFor: 'No results found for',
+  tapToSearch: 'Tap search to find verses',
 };

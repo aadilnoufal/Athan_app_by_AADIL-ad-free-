@@ -1,3 +1,4 @@
+import Slider from '@react-native-community/slider';
 import { Modal } from 'react-native';
 import RevenueCatPaywall from '../components/RevenueCatPaywall';
 import React, { useState, useEffect } from 'react';
@@ -15,6 +16,8 @@ import {
   Platform,
   Dimensions,
   ActivityIndicator,
+  FlatList,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -58,7 +61,18 @@ import {
   deleteAllQuranData,
   downloadFullQuran,
   DownloadProgress,
+  getQuranFontScale,
+  setQuranFontScale,
+  getQuranAutoScrollWithAudio,
+  setQuranAutoScrollWithAudio,
+  getTranslationEdition,
+  setTranslationEdition,
+  getReciterPref,
+  setReciterPref,
+  getTranslationEditionsCached,
+  getAudioEditionsCached,
 } from '../../utils/quranStorage';
+import { EditionInfo, EDITIONS } from '../../lib/quranApi';
 
 // Define interfaces
 interface LanguageItem {
@@ -129,6 +143,15 @@ export default function SettingsScreen() {
   const [quranStorageSize, setQuranStorageSize] = useState(0);
   const [quranFullDownloading, setQuranFullDownloading] = useState(false);
   const [quranDownloadProgress, setQuranDownloadProgress] = useState<DownloadProgress | null>(null);
+  const [quranFontScale, setQuranFontScaleState] = useState(1.0);
+  const [quranAutoScrollWithAudio, setQuranAutoScrollWithAudioState] = useState(true);
+  const [quranTranslationEdition, setQuranTranslationEditionState] = useState<string>(EDITIONS.ENGLISH);
+  const [quranReciter, setQuranReciterState] = useState<string>(EDITIONS.DEFAULT_RECITER);
+  const [translationEditions, setTranslationEditions] = useState<EditionInfo[]>([]);
+  const [audioEditions, setAudioEditions] = useState<EditionInfo[]>([]);
+  const [showTranslationPicker, setShowTranslationPicker] = useState(false);
+  const [showReciterPicker, setShowReciterPicker] = useState(false);
+  const [editionSearchQuery, setEditionSearchQuery] = useState('');
 
   // Time-based gradient colors for dynamic backgrounds (light mode only)
   const getTimeBasedGradient = () => {
@@ -219,17 +242,36 @@ export default function SettingsScreen() {
   useEffect(() => {
     (async () => {
       try {
-        const [pref, count, size] = await Promise.all([
+        const [pref, count, size, fontSc, autoScrollPref, trEd, recPref] = await Promise.all([
           getEditionPref(),
           getDownloadedCount(),
           getTotalDownloadSize(),
+          getQuranFontScale(),
+          getQuranAutoScrollWithAudio(),
+          getTranslationEdition(),
+          getReciterPref(),
         ]);
         setQuranEditionPref(pref);
         setQuranDownloadedCount(count);
         setQuranStorageSize(size);
+        setQuranFontScaleState(fontSc);
+        setQuranAutoScrollWithAudioState(autoScrollPref);
+        setQuranTranslationEditionState(trEd);
+        setQuranReciterState(recPref);
       } catch (e) {
         console.log('Error loading Quran settings:', e);
       }
+    })();
+    // Pre-load edition lists
+    (async () => {
+      try {
+        const [trEditions, auEditions] = await Promise.all([
+          getTranslationEditionsCached(),
+          getAudioEditionsCached(),
+        ]);
+        setTranslationEditions(trEditions);
+        setAudioEditions(auEditions);
+      } catch { /* silent */ }
     })();
   }, []);
 
@@ -295,6 +337,64 @@ export default function SettingsScreen() {
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
+
+  // Font scale handler (0.75 – 1.5) via slider
+  const handleFontScaleChange = async (value: number) => {
+    const rounded = parseFloat(value.toFixed(2));
+    setQuranFontScaleState(rounded);
+  };
+  const handleFontScaleChangeComplete = async (value: number) => {
+    const rounded = parseFloat(value.toFixed(2));
+    setQuranFontScaleState(rounded);
+    await setQuranFontScale(rounded);
+  };
+
+  const handleQuranAutoScrollToggle = async (value: boolean) => {
+    setQuranAutoScrollWithAudioState(value);
+    await setQuranAutoScrollWithAudio(value);
+  };
+
+  // Translation edition handler
+  const handleTranslationEditionChange = async (identifier: string) => {
+    setQuranTranslationEditionState(identifier);
+    await setTranslationEdition(identifier);
+    setShowTranslationPicker(false);
+    setEditionSearchQuery('');
+  };
+
+  // Reciter handler
+  const handleReciterChange = async (identifier: string) => {
+    setQuranReciterState(identifier);
+    await setReciterPref(identifier);
+    setShowReciterPicker(false);
+  };
+
+  // ISO 639-1 language code → English name (for search by language name)
+  const LANG_NAMES: Record<string, string> = {
+    ar: 'arabic', az: 'azerbaijani', ba: 'bashkir', bn: 'bengali', bs: 'bosnian',
+    cs: 'czech', de: 'german', dv: 'divehi maldivian', en: 'english', es: 'spanish',
+    fa: 'persian farsi', fr: 'french', ha: 'hausa', hi: 'hindi', id: 'indonesian',
+    it: 'italian', ja: 'japanese', ko: 'korean', ku: 'kurdish', ml: 'malayalam',
+    ms: 'malay', nl: 'dutch', no: 'norwegian', pl: 'polish', ps: 'pashto',
+    pt: 'portuguese', ro: 'romanian', ru: 'russian', sd: 'sindhi', so: 'somali',
+    sq: 'albanian', sv: 'swedish', sw: 'swahili', ta: 'tamil', te: 'telugu',
+    tg: 'tajik', th: 'thai', tr: 'turkish', tt: 'tatar', ug: 'uyghur',
+    uk: 'ukrainian', ur: 'urdu', uz: 'uzbek', zh: 'chinese',
+  };
+
+  // Filter translation editions by search (supports language code, name, identifier, englishName, and full language name)
+  const filteredTranslations = translationEditions.filter((ed) => {
+    if (!editionSearchQuery) return true;
+    const q = editionSearchQuery.toLowerCase();
+    const langName = LANG_NAMES[ed.language] ?? '';
+    return (
+      ed.name.toLowerCase().includes(q) ||
+      ed.language.toLowerCase().includes(q) ||
+      ed.identifier.toLowerCase().includes(q) ||
+      ed.englishName.toLowerCase().includes(q) ||
+      langName.includes(q)
+    );
+  });
 
   const loadSettings = async () => {
     try {
@@ -1264,13 +1364,109 @@ export default function SettingsScreen() {
                   { fontSize: 13 },
                   quranEditionPref === 'both' && styles.selectedEnhancedLanguageName,
                 ]}>
-                  {t('arabicAndEnglish')}
+                  {t('arabicAndTranslation')}
                 </Text>
                 {quranEditionPref === 'both' && (
                   <MaterialCommunityIcons name="check" size={18} color={C.accent.gold} />
                 )}
               </MagicalButton>
             </View>
+
+            {/* Font size control */}
+            <Text style={styles.enhancedSettingSubtitle}>{t('quranFontSize')}</Text>
+            <View style={{ marginBottom: 14 }}>
+              {/* Slider with min/max labels */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                <Text style={{ color: C.text.tertiary, fontSize: 12 }}>A</Text>
+                <View style={{ flex: 1, marginHorizontal: 8 }}>
+                  <Slider
+                    minimumValue={0.75}
+                    maximumValue={1.5}
+                    step={0.05}
+                    value={quranFontScale}
+                    onValueChange={handleFontScaleChange}
+                    onSlidingComplete={handleFontScaleChangeComplete}
+                    minimumTrackTintColor={C.accent.gold}
+                    maximumTrackTintColor={isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)'}
+                    thumbTintColor={C.accent.gold}
+                  />
+                </View>
+                <Text style={{ color: C.text.tertiary, fontSize: 18, fontWeight: '700' }}>A</Text>
+              </View>
+              <Text style={{ color: C.accent.gold, fontWeight: '700', textAlign: 'center', fontSize: 14, marginBottom: 10 }}>
+                {Math.round(quranFontScale * 100)}%
+              </Text>
+
+              {/* Live Arabic preview */}
+              <View style={{
+                borderRadius: 12,
+                padding: 14,
+                backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+                borderWidth: 0.5,
+                borderColor: `${C.accent.gold}30`,
+              }}>
+                <Text style={{
+                  color: C.text.primary,
+                  fontSize: Math.round(24 * quranFontScale),
+                  lineHeight: Math.round(42 * quranFontScale),
+                  textAlign: 'right',
+                  marginBottom: 8,
+                }}>
+                  {t('quranFontPreview')}
+                </Text>
+                <Text style={{
+                  color: C.text.secondary,
+                  fontSize: Math.round(16 * quranFontScale),
+                  lineHeight: Math.round(26 * quranFontScale),
+                }}>
+                  {t('quranFontPreviewEn')}
+                </Text>
+              </View>
+            </View>
+
+            {/* Auto-scroll with audio */}
+            <View style={[styles.enhancedSettingContainer, { marginBottom: 14 }]}>
+              <View style={{ flex: 1, paddingRight: 10 }}>
+                <Text style={styles.enhancedSettingLabel}>{t('quranAutoScrollWithAudio')}</Text>
+                <Text style={styles.enhancedSettingDescription}>{t('quranAutoScrollWithAudioDescription')}</Text>
+              </View>
+              <Switch
+                value={quranAutoScrollWithAudio}
+                onValueChange={handleQuranAutoScrollToggle}
+                trackColor={{ false: C.special.disabled, true: C.accent.gold }}
+                thumbColor={quranAutoScrollWithAudio ? C.accent.gold : C.surface.secondary}
+              />
+            </View>
+
+            {/* Translation edition picker */}
+            <Text style={styles.enhancedSettingSubtitle}>{t('translationEdition')}</Text>
+            <TouchableOpacity
+              onPress={() => setShowTranslationPicker(true)}
+              style={[styles.enhancedSettingContainer, { marginBottom: 14, borderWidth: 0.5, borderColor: 'rgba(218,165,32,0.2)', borderRadius: 10, paddingVertical: 10 }]}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.enhancedSettingLabel, { fontWeight: '600' }]}>{t('currentTranslation')}</Text>
+                <Text style={[styles.enhancedSettingDescription, { marginTop: 2 }]}>
+                  {translationEditions.find(e => e.identifier === quranTranslationEdition)?.name ?? quranTranslationEdition}
+                </Text>
+              </View>
+              <MaterialCommunityIcons name="chevron-right" size={20} color={C.text.tertiary} />
+            </TouchableOpacity>
+
+            {/* Reciter picker */}
+            <Text style={styles.enhancedSettingSubtitle}>{t('reciter')}</Text>
+            <TouchableOpacity
+              onPress={() => setShowReciterPicker(true)}
+              style={[styles.enhancedSettingContainer, { marginBottom: 14, borderWidth: 0.5, borderColor: 'rgba(218,165,32,0.2)', borderRadius: 10, paddingVertical: 10 }]}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.enhancedSettingLabel, { fontWeight: '600' }]}>{t('selectReciter')}</Text>
+                <Text style={[styles.enhancedSettingDescription, { marginTop: 2 }]}>
+                  {audioEditions.find(e => e.identifier === quranReciter)?.name ?? quranReciter}
+                </Text>
+              </View>
+              <MaterialCommunityIcons name="chevron-right" size={20} color={C.text.tertiary} />
+            </TouchableOpacity>
 
             {/* Download stats */}
             <View style={styles.enhancedSettingContainer}>
@@ -1382,6 +1578,98 @@ export default function SettingsScreen() {
           <View style={{ height: 40 }} />
         </ScrollView>
       </View>
+
+      {/* ── Translation Edition Picker Modal ───────────────────── */}
+      <Modal visible={showTranslationPicker} animationType="slide" transparent>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
+          <View style={{ backgroundColor: C.background.primary, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '80%', paddingBottom: 30 }}>
+            {/* Modal header */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 0.5, borderBottomColor: 'rgba(218,165,32,0.15)' }}>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: C.text.primary }}>{t('selectTranslation')}</Text>
+              <TouchableOpacity onPress={() => { setShowTranslationPicker(false); setEditionSearchQuery(''); }}>
+                <MaterialCommunityIcons name="close" size={22} color={C.text.tertiary} />
+              </TouchableOpacity>
+            </View>
+            {/* Search input */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, marginVertical: 8, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)', borderWidth: 0.5, borderColor: 'rgba(218,165,32,0.15)' }}>
+              <MaterialCommunityIcons name="magnify" size={18} color={C.text.tertiary} />
+              <TextInput
+                style={{ flex: 1, marginLeft: 8, fontSize: 14, color: C.text.primary, paddingVertical: 0 }}
+                placeholder={t('searchTranslations')}
+                placeholderTextColor={C.text.tertiary}
+                value={editionSearchQuery}
+                onChangeText={setEditionSearchQuery}
+                autoCorrect={false}
+              />
+            </View>
+            {/* Edition list */}
+            <FlatList
+              data={filteredTranslations}
+              keyExtractor={(item) => item.identifier}
+              keyboardShouldPersistTaps="handled"
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  onPress={() => handleTranslationEditionChange(item.identifier)}
+                  style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: 'rgba(218,165,32,0.08)' }}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: C.text.primary }}>{item.name}</Text>
+                    <Text style={{ fontSize: 12, color: C.text.secondary, marginTop: 2 }}>{item.language} · {item.identifier}</Text>
+                  </View>
+                  {quranTranslationEdition === item.identifier && (
+                    <MaterialCommunityIcons name="check-circle" size={20} color={C.accent.gold} />
+                  )}
+                </TouchableOpacity>
+              )}
+              ListEmptyComponent={
+                <View style={{ alignItems: 'center', padding: 20 }}>
+                  <Text style={{ color: C.text.secondary, fontSize: 14 }}>{t('noTranslationsFound')}</Text>
+                </View>
+              }
+            />
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Reciter Picker Modal ───────────────────────────────── */}
+      <Modal visible={showReciterPicker} animationType="slide" transparent>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
+          <View style={{ backgroundColor: C.background.primary, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '70%', paddingBottom: 30 }}>
+            {/* Modal header */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 0.5, borderBottomColor: 'rgba(218,165,32,0.15)' }}>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: C.text.primary }}>{t('selectReciter')}</Text>
+              <TouchableOpacity onPress={() => setShowReciterPicker(false)}>
+                <MaterialCommunityIcons name="close" size={22} color={C.text.tertiary} />
+              </TouchableOpacity>
+            </View>
+            {/* Reciter list */}
+            <FlatList
+              data={audioEditions}
+              keyExtractor={(item) => item.identifier}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  onPress={() => handleReciterChange(item.identifier)}
+                  style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: 'rgba(218,165,32,0.08)' }}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: C.text.primary }}>{item.name}</Text>
+                    <Text style={{ fontSize: 12, color: C.text.secondary, marginTop: 2 }}>{item.englishName}</Text>
+                  </View>
+                  {quranReciter === item.identifier && (
+                    <MaterialCommunityIcons name="check-circle" size={20} color={C.accent.gold} />
+                  )}
+                </TouchableOpacity>
+              )}
+              ListEmptyComponent={
+                <View style={{ alignItems: 'center', padding: 20 }}>
+                  <ActivityIndicator size="small" color={C.accent.gold} />
+                  <Text style={{ color: C.text.secondary, fontSize: 14, marginTop: 8 }}>{t('loading')}</Text>
+                </View>
+              }
+            />
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }

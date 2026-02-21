@@ -18,9 +18,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
     SurahMeta,
     SurahData,
+    EditionInfo,
+    fetchSurah,
     fetchSurahDual,
+    fetchSurahWithTranslation,
     fetchFullQuranDual,
     fetchSurahList,
+    fetchTranslationEditions,
+    fetchAudioEditions,
+    fetchSurahAudio,
     EDITIONS,
 } from '../lib/quranApi';
 
@@ -28,11 +34,21 @@ import {
 
 const QURAN_DIR = `${FileSystem.documentDirectory}quran/`;
 const SURAHS_DIR = `${QURAN_DIR}surahs/`;
+const AUDIO_DIR = `${QURAN_DIR}audio/`;
 const META_FILE = `${QURAN_DIR}meta.json`;
 
 // AsyncStorage keys
-const INDEX_KEY = '@quran_download_index'; // JSON of DownloadIndex
-const EDITION_PREF_KEY = '@quran_edition_pref'; // 'arabic' | 'both'
+const INDEX_KEY = '@quran_download_index';          // JSON of DownloadIndex
+const EDITION_PREF_KEY = '@quran_edition_pref';     // 'arabic' | 'both'
+const FONT_SCALE_KEY = '@quran_font_scale';         // float e.g. '1.0'
+const AUTO_SCROLL_WITH_AUDIO_KEY = '@quran_auto_scroll_with_audio'; // 'true' | 'false'
+const TRANSLATION_EDITION_KEY = '@quran_translation_edition'; // e.g. 'en.sahih'
+const RECITER_KEY = '@quran_reciter';               // e.g. 'ar.alafasy'
+const EDITIONS_CACHE_KEY = '@quran_editions_list';  // cached translation editions JSON
+const RECITERS_CACHE_KEY = '@quran_reciters_list';  // cached audio editions JSON
+const SETTINGS_HINT_KEY = '@quran_settings_hint_dismissed'; // '1' when dismissed
+const AUDIO_INDEX_KEY = '@quran_audio_download_index'; // JSON of { [surahNum_reciter]: true }
+const BISMILLAH_CACHE_KEY = '@quran_bismillah_cache'; // JSON of { [edition]: bismillahText }
 
 /* ---------- Types ---------- */
 
@@ -259,4 +275,237 @@ export async function getTotalDownloadSize(): Promise<number> {
 export async function getDownloadedCount(): Promise<number> {
     const index = await readIndex();
     return Object.keys(index.surahs).length;
+}
+
+/* ---------- Public: Font scale preference ---------- */
+
+/** Get the Quran font scale multiplier (default 1.0, range 0.75–1.5). */
+export async function getQuranFontScale(): Promise<number> {
+    try {
+        const val = await AsyncStorage.getItem(FONT_SCALE_KEY);
+        if (val) {
+            const n = parseFloat(val);
+            if (!isNaN(n) && n >= 0.75 && n <= 1.5) return n;
+        }
+    } catch { /* ignore */ }
+    return 1.0;
+}
+
+export async function setQuranFontScale(scale: number): Promise<void> {
+    await AsyncStorage.setItem(FONT_SCALE_KEY, String(Math.max(0.75, Math.min(1.5, scale))));
+}
+
+/** Get whether audio playback should auto-scroll/highlight current ayah (default true). */
+export async function getQuranAutoScrollWithAudio(): Promise<boolean> {
+    try {
+        const val = await AsyncStorage.getItem(AUTO_SCROLL_WITH_AUDIO_KEY);
+        if (val === 'false') return false;
+        if (val === 'true') return true;
+    } catch { /* ignore */ }
+    return true;
+}
+
+export async function setQuranAutoScrollWithAudio(enabled: boolean): Promise<void> {
+    await AsyncStorage.setItem(AUTO_SCROLL_WITH_AUDIO_KEY, enabled ? 'true' : 'false');
+}
+
+/* ---------- Public: Bismillah text cache per edition ---------- */
+
+/**
+ * Get the Bismillah text for a translation edition (surah 1, ayah 1).
+ * Cached in AsyncStorage so we only fetch once per edition.
+ * Used to strip the Bismillah from first ayah of surahs 2-113.
+ */
+export async function getBismillahText(edition: string): Promise<string | null> {
+    try {
+        const raw = await AsyncStorage.getItem(BISMILLAH_CACHE_KEY);
+        const cache: Record<string, string> = raw ? JSON.parse(raw) : {};
+        if (cache[edition]) return cache[edition];
+
+        // Fetch surah 1 (Al-Fatiha) in this edition — ayah 1 IS the bismillah
+        const surah1 = await fetchSurah(1, edition);
+        const bismillah = surah1.ayahs[0]?.text ?? null;
+        if (bismillah) {
+            cache[edition] = bismillah;
+            await AsyncStorage.setItem(BISMILLAH_CACHE_KEY, JSON.stringify(cache));
+        }
+        return bismillah;
+    } catch {
+        return null;
+    }
+}
+
+/* ---------- Public: Translation edition preference ---------- */
+
+/** Get the user's chosen translation edition identifier (default: en.sahih). */
+export async function getTranslationEdition(): Promise<string> {
+    try {
+        const val = await AsyncStorage.getItem(TRANSLATION_EDITION_KEY);
+        if (val && val.length > 0) return val;
+    } catch { /* ignore */ }
+    return EDITIONS.ENGLISH;
+}
+
+export async function setTranslationEdition(edition: string): Promise<void> {
+    await AsyncStorage.setItem(TRANSLATION_EDITION_KEY, edition);
+}
+
+/* ---------- Public: Reciter preference ---------- */
+
+/** Get the user's chosen reciter edition (default: ar.alafasy). */
+export async function getReciterPref(): Promise<string> {
+    try {
+        const val = await AsyncStorage.getItem(RECITER_KEY);
+        if (val && val.length > 0) return val;
+    } catch { /* ignore */ }
+    return EDITIONS.DEFAULT_RECITER;
+}
+
+export async function setReciterPref(edition: string): Promise<void> {
+    await AsyncStorage.setItem(RECITER_KEY, edition);
+}
+
+/* ---------- Public: Cached edition lists (7-day TTL) ---------- */
+
+interface CachedEditions {
+    editions: EditionInfo[];
+    cachedAt: number;
+}
+
+const CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+/** Get cached translation editions, fetching from API if stale or missing. */
+export async function getTranslationEditionsCached(): Promise<EditionInfo[]> {
+    try {
+        const raw = await AsyncStorage.getItem(EDITIONS_CACHE_KEY);
+        if (raw) {
+            const cached: CachedEditions = JSON.parse(raw);
+            if (Date.now() - cached.cachedAt < CACHE_TTL) return cached.editions;
+        }
+    } catch { /* fall through */ }
+
+    const editions = await fetchTranslationEditions();
+    await AsyncStorage.setItem(EDITIONS_CACHE_KEY, JSON.stringify({ editions, cachedAt: Date.now() }));
+    return editions;
+}
+
+/** Get cached audio (reciter) editions, fetching from API if stale or missing. */
+export async function getAudioEditionsCached(): Promise<EditionInfo[]> {
+    try {
+        const raw = await AsyncStorage.getItem(RECITERS_CACHE_KEY);
+        if (raw) {
+            const cached: CachedEditions = JSON.parse(raw);
+            if (Date.now() - cached.cachedAt < CACHE_TTL) return cached.editions;
+        }
+    } catch { /* fall through */ }
+
+    const editions = await fetchAudioEditions();
+    await AsyncStorage.setItem(RECITERS_CACHE_KEY, JSON.stringify({ editions, cachedAt: Date.now() }));
+    return editions;
+}
+
+/* ---------- Public: Settings hint dismissed ---------- */
+
+export async function isSettingsHintDismissed(): Promise<boolean> {
+    const val = await AsyncStorage.getItem(SETTINGS_HINT_KEY);
+    return val === '1';
+}
+
+export async function dismissSettingsHint(): Promise<void> {
+    await AsyncStorage.setItem(SETTINGS_HINT_KEY, '1');
+}
+
+/* ---------- Public: Audio download management ---------- */
+
+async function ensureAudioDir(reciterEdition: string): Promise<string> {
+    const dir = `${AUDIO_DIR}${reciterEdition}/`;
+    const info = await FileSystem.getInfoAsync(dir);
+    if (!info.exists) {
+        await FileSystem.makeDirectoryAsync(dir, { intermediates: true });
+    }
+    return dir;
+}
+
+function audioFilePath(reciterEdition: string, globalAyahNumber: number): string {
+    return `${AUDIO_DIR}${reciterEdition}/${globalAyahNumber}.mp3`;
+}
+
+async function readAudioIndex(): Promise<Record<string, boolean>> {
+    try {
+        const raw = await AsyncStorage.getItem(AUDIO_INDEX_KEY);
+        if (raw) return JSON.parse(raw);
+    } catch { /* ignore */ }
+    return {};
+}
+
+async function writeAudioIndex(index: Record<string, boolean>): Promise<void> {
+    await AsyncStorage.setItem(AUDIO_INDEX_KEY, JSON.stringify(index));
+}
+
+function audioIndexKey(surahNumber: number, reciterEdition: string): string {
+    return `${surahNumber}_${reciterEdition}`;
+}
+
+/** Check if a surah's audio is downloaded for a given reciter. */
+export async function isSurahAudioDownloaded(surahNumber: number, reciterEdition: string): Promise<boolean> {
+    const index = await readAudioIndex();
+    return !!index[audioIndexKey(surahNumber, reciterEdition)];
+}
+
+/**
+ * Download all ayah audio files for a surah.
+ * @returns total bytes downloaded (approximate)
+ */
+export async function downloadSurahAudio(
+    surahNumber: number,
+    reciterEdition: string,
+    onProgress?: (downloaded: number, total: number) => void,
+): Promise<number> {
+    await ensureAudioDir(reciterEdition);
+
+    // Fetch surah with audio URLs
+    const surahData = await fetchSurahAudio(surahNumber, reciterEdition);
+    let totalBytes = 0;
+
+    for (let i = 0; i < surahData.ayahs.length; i++) {
+        const ayah = surahData.ayahs[i];
+        if (!ayah.audio) continue;
+
+        const dest = audioFilePath(reciterEdition, ayah.number);
+        const info = await FileSystem.getInfoAsync(dest);
+        if (!info.exists) {
+            const result = await FileSystem.downloadAsync(ayah.audio, dest);
+            if (result.status === 200) {
+                const fInfo = await FileSystem.getInfoAsync(dest);
+                totalBytes += (fInfo as any).size || 0;
+            }
+        }
+        onProgress?.(i + 1, surahData.ayahs.length);
+    }
+
+    // Mark in index
+    const index = await readAudioIndex();
+    index[audioIndexKey(surahNumber, reciterEdition)] = true;
+    await writeAudioIndex(index);
+
+    return totalBytes;
+}
+
+/** Get the local file URI for an ayah's audio, or null if not downloaded. */
+export async function getLocalAudioUri(reciterEdition: string, globalAyahNumber: number): Promise<string | null> {
+    const path = audioFilePath(reciterEdition, globalAyahNumber);
+    try {
+        const info = await FileSystem.getInfoAsync(path);
+        if (info.exists) return path;
+    } catch { /* ignore */ }
+    return null;
+}
+
+/** Delete a surah's downloaded audio files. */
+export async function deleteSurahAudio(surahNumber: number, reciterEdition: string): Promise<void> {
+    // We'd need to know the global ayah numbers; simplest: remove the index entry.
+    // Actual files will be cleaned up on next full clear.
+    const index = await readAudioIndex();
+    delete index[audioIndexKey(surahNumber, reciterEdition)];
+    await writeAudioIndex(index);
 }

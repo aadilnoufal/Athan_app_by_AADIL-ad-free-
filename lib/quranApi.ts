@@ -2,10 +2,12 @@
  * Quran API client for alquran.cloud
  *
  * Endpoints used:
- *   GET /v1/surah          – list of all 114 surahs (metadata)
- *   GET /v1/surah/{number}/{edition} – full surah text in a given edition
- *   GET /v1/quran/{edition} – entire Quran text in a given edition
+ *   GET /v1/surah                       – list of all 114 surahs (metadata)
+ *   GET /v1/surah/{number}/{edition}    – full surah text in a given edition
+ *   GET /v1/quran/{edition}             – entire Quran text in a given edition
  *   GET /v1/search/{keyword}/{scope}/{edition} – keyword search
+ *   GET /v1/edition/type/translation    – all text translation editions
+ *   GET /v1/edition/type/versebyverse   – all per-ayah audio editions (reciters)
  *
  * No auth required. Rate-limit is unknown so we keep requests conservative.
  */
@@ -16,6 +18,7 @@ const BASE = 'https://api.alquran.cloud/v1';
 export const EDITIONS = {
     ARABIC: 'quran-uthmani',       // Uthmani Arabic script
     ENGLISH: 'en.sahih',           // Sahih International English translation
+    DEFAULT_RECITER: 'ar.alafasy', // Mishary Al-Afasy (most popular)
 } as const;
 
 export type EditionKey = keyof typeof EDITIONS;
@@ -38,6 +41,8 @@ export interface Ayah {
     juz: number;
     page: number;
     hizbQuarter: number;
+    audio?: string;           // MP3 URL (present when fetching audio editions)
+    audioSecondary?: string[]; // Fallback audio URLs
 }
 
 export interface SurahData {
@@ -61,6 +66,17 @@ export interface SearchMatch {
 export interface SearchResult {
     count: number;
     matches: SearchMatch[];
+}
+
+/** Metadata about an API edition (translation, audio, tafsir, etc.) */
+export interface EditionInfo {
+    identifier: string;
+    language: string;
+    name: string;
+    englishName: string;
+    format: 'text' | 'audio';
+    type: 'translation' | 'versebyverse' | 'tafsir' | 'quran' | 'transliteration';
+    direction: 'rtl' | 'ltr' | null;
 }
 
 /* ---------- Helpers ---------- */
@@ -149,4 +165,55 @@ export async function searchQuran(
     return apiFetch<SearchResult>(
         `/search/${encodeURIComponent(keyword)}/${scope}/${edition}`,
     );
+}
+
+/* ---------- Edition catalogue ---------- */
+
+/**
+ * Fetch all available editions of a given type.
+ * @param type e.g. 'translation', 'versebyverse', 'tafsir'
+ */
+export async function fetchEditions(type?: string): Promise<EditionInfo[]> {
+    const path = type ? `/edition/type/${type}` : '/edition';
+    return apiFetch<EditionInfo[]>(path);
+}
+
+/** Convenience: fetch all text translation editions. */
+export async function fetchTranslationEditions(): Promise<EditionInfo[]> {
+    return fetchEditions('translation');
+}
+
+/** Convenience: fetch all per-ayah audio (reciter) editions. */
+export async function fetchAudioEditions(): Promise<EditionInfo[]> {
+    return fetchEditions('versebyverse');
+}
+
+/* ---------- Audio ---------- */
+
+/**
+ * Fetch a surah with audio URLs for a given reciter edition.
+ * Each ayah in the response will have `audio` and `audioSecondary` fields.
+ */
+export async function fetchSurahAudio(
+    surahNumber: number,
+    reciterEdition: string = EDITIONS.DEFAULT_RECITER,
+): Promise<SurahData> {
+    return apiFetch<SurahData>(`/surah/${surahNumber}/${reciterEdition}`);
+}
+
+/* ---------- Flexible dual fetch ---------- */
+
+/**
+ * Fetch a surah's Arabic text and a chosen translation edition.
+ * Returns [arabicSurah, translationSurah].
+ */
+export async function fetchSurahWithTranslation(
+    surahNumber: number,
+    translationEdition: string = EDITIONS.ENGLISH,
+): Promise<[SurahData, SurahData]> {
+    const [ar, tr] = await Promise.all([
+        fetchSurah(surahNumber, EDITIONS.ARABIC),
+        fetchSurah(surahNumber, translationEdition),
+    ]);
+    return [ar, tr];
 }
