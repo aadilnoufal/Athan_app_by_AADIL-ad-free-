@@ -72,6 +72,9 @@ import {
   getTranslationEditionsCached,
   getAudioEditionsCached,
   downloadAllAudio,
+  getQuranFontFamily,
+  setQuranFontFamily,
+  QuranFontFamily,
 } from '../../utils/quranStorage';
 import { EditionInfo, EDITIONS } from '../../lib/quranApi';
 
@@ -144,7 +147,7 @@ export default function SettingsScreen() {
   const [quranStorageSize, setQuranStorageSize] = useState(0);
   const [quranFullDownloading, setQuranFullDownloading] = useState(false);
   const [quranDownloadProgress, setQuranDownloadProgress] = useState<DownloadProgress | null>(null);
-  const [quranFontScale, setQuranFontScaleState] = useState(1.15);
+  const [quranFontScale, setQuranFontScaleState] = useState(1.2);
   const [quranAutoScrollWithAudio, setQuranAutoScrollWithAudioState] = useState(true);
   const [quranTranslationEdition, setQuranTranslationEditionState] = useState<string>(EDITIONS.ENGLISH);
   const [quranReciter, setQuranReciterState] = useState<string>(EDITIONS.DEFAULT_RECITER);
@@ -155,6 +158,7 @@ export default function SettingsScreen() {
   const [editionSearchQuery, setEditionSearchQuery] = useState('');
   const [audioFullDownloading, setAudioFullDownloading] = useState(false);
   const [audioDownloadProgress, setAudioDownloadProgress] = useState<{ done: number; total: number } | null>(null);
+  const [quranFontFamilyState, setQuranFontFamilyState] = useState<QuranFontFamily>('default');
 
   // Time-based gradient colors for dynamic backgrounds (light mode only)
   const getTimeBasedGradient = () => {
@@ -245,7 +249,7 @@ export default function SettingsScreen() {
   useEffect(() => {
     (async () => {
       try {
-        const [pref, count, size, fontSc, autoScrollPref, trEd, recPref] = await Promise.all([
+        const [pref, count, size, fontSc, autoScrollPref, trEd, recPref, fontFamPref] = await Promise.all([
           getEditionPref(),
           getDownloadedCount(),
           getTotalDownloadSize(),
@@ -253,6 +257,7 @@ export default function SettingsScreen() {
           getQuranAutoScrollWithAudio(),
           getTranslationEdition(),
           getReciterPref(),
+          getQuranFontFamily(),
         ]);
         setQuranEditionPref(pref);
         setQuranDownloadedCount(count);
@@ -261,6 +266,7 @@ export default function SettingsScreen() {
         setQuranAutoScrollWithAudioState(autoScrollPref);
         setQuranTranslationEditionState(trEd);
         setQuranReciterState(recPref);
+        setQuranFontFamilyState(fontFamPref);
       } catch (e) {
         console.log('Error loading Quran settings:', e);
       }
@@ -399,6 +405,12 @@ export default function SettingsScreen() {
     setQuranReciterState(identifier);
     await setReciterPref(identifier);
     setShowReciterPicker(false);
+  };
+
+  // Font family handler
+  const handleFontFamilyChange = async (family: QuranFontFamily) => {
+    setQuranFontFamilyState(family);
+    await setQuranFontFamily(family);
   };
 
   // ISO 639-1 language code → English name (for search by language name)
@@ -1468,6 +1480,38 @@ export default function SettingsScreen() {
                 trackColor={{ false: C.special.disabled, true: C.accent.gold }}
                 thumbColor={quranAutoScrollWithAudio ? C.accent.gold : C.surface.secondary}
               />
+            </View>
+
+            {/* Quran Arabic font family */}
+            <Text style={styles.enhancedSettingSubtitle}>{t('quranFontFamily')}</Text>
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+              {([
+                { key: 'default' as QuranFontFamily, label: t('fontDefault') },
+                { key: 'Amiri' as QuranFontFamily, label: t('fontAmiri') },
+                { key: 'ScheherazadeNew' as QuranFontFamily, label: t('fontScheherazade') },
+              ]).map(({ key, label }) => (
+                <MagicalButton
+                  key={key}
+                  onPress={() => handleFontFamilyChange(key)}
+                  style={[
+                    styles.enhancedLanguageOption,
+                    { flex: 1, minWidth: 90 },
+                    quranFontFamilyState === key && styles.selectedEnhancedLanguageOption,
+                  ]}
+                  glowColor={quranFontFamilyState === key ? C.accent.amber : C.accent.gold}
+                >
+                  <Text style={[
+                    styles.enhancedLanguageName,
+                    { fontSize: 12 },
+                    quranFontFamilyState === key && styles.selectedEnhancedLanguageName,
+                  ]}>
+                    {label}
+                  </Text>
+                  {quranFontFamilyState === key && (
+                    <MaterialCommunityIcons name="check" size={16} color={C.accent.gold} />
+                  )}
+                </MagicalButton>
+              ))}
             </View>
 
             {/* Translation edition picker */}

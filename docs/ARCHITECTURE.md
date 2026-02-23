@@ -100,7 +100,7 @@ User changes "Auto-scroll with audio" in Settings
 
 User taps download icon on a surah
   → quranStorage.downloadSurah(n)
-    → fetches both editions, writes JSON files to quran/surahs/
+    → fetches both editions (Arabic, Translation), writes JSON files to quran/surahs/
     → updates AsyncStorage download index
 
 User triggers "Download Full Quran" from Settings
@@ -130,5 +130,8 @@ User clears downloads from Settings
 6. **Bismillah stripping** – API includes Bismillah in ayah 1 text; `stripBismillah()` fetches the exact bismillah from the API's own surah 1 ayah 1 for reliable comparison, with tatweel-normalized constant fallbacks.
 7. **Cached edition lists** – Translation and audio edition lists cached with 7-day TTL to avoid repeated API calls.
 8. **Local surah search** – Real-time as-you-type filtering with 200+ aliases for common misspellings, replacing the unreliable remote API search.
-9. **Continue from last read** – Saves surah number + name to AsyncStorage on open; displayed as a card atop the surah list.
+9. **Continue from last read** – Saves surah number + name + ayah index to AsyncStorage on open; displayed as a card atop the surah list. Bookmark card takes priority when set.
 10. **Reciter invalidation** – When reciter preference changes, cached audio URLs and download status are re-evaluated to avoid playing stale audio.
+11. **Ayah reference search** – Regex-based detection of `N:N` patterns in search input, validated against surah list metadata, shown as a quick-jump card.
+12. **Custom Quran fonts** – Amiri and Scheherazade New (OFL-licensed) bundled in `assets/fonts/`, loaded at runtime via `expo-font`. Preference persisted via AsyncStorage.
+13. **Single bookmark** – One bookmark stored in AsyncStorage; replaces Continue Reading card when set. Bookmark icon shown per ayah in reading view.

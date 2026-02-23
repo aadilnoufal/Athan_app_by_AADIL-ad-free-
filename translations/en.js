@@ -239,4 +239,25 @@ export default {
   searchResultsFor: 'Results for',
   noResultsFor: 'No results found for',
   tapToSearch: 'Tap search to find verses',
+
+  // Font family
+  quranFontFamily: 'Quran Arabic Font',
+  fontDefault: 'System Default',
+  fontAmiri: 'Amiri',
+  fontScheherazade: 'Scheherazade New',
+
+  // Bookmark
+  bookmark: 'Bookmark',
+  bookmarkSet: 'Bookmark Set',
+  bookmarkRemoved: 'Bookmark Removed',
+  bookmarkAyah: 'Bookmark this Ayah',
+  removeBookmark: 'Remove Bookmark',
+  goToBookmark: 'Go to Bookmark',
+  bookmarked: 'Bookmarked',
+
+  // Ayah reference search
+  goToAyah: 'Go to Ayah',
+  invalidReference: 'Invalid reference. Use format like 2:14 (Surah:Ayah)',
+  surahNotFound: 'Surah not found',
+  ayahOutOfRange: 'Ayah number out of range',
 };

@@ -53,7 +53,14 @@ import {
     getLastRead,
     setLastRead,
     LastReadEntry,
+    getQuranFontFamily,
+    QuranFontFamily,
+    getBookmark,
+    setBookmark,
+    removeBookmark,
+    BookmarkEntry,
 } from '../../utils/quranStorage';
+import * as Font from 'expo-font';
 
 /* ================================================================
    VIEW MODES:
@@ -268,7 +275,7 @@ export default function QuranScreen() {
 
     // Translation edition & font scale
     const [translationEdition, setTranslationEditionState] = useState<string>(EDITIONS.ENGLISH);
-    const [fontScale, setFontScaleState] = useState(1.15);
+    const [fontScale, setFontScaleState] = useState(1.2);
 
     // Offline index (surah numbers that are downloaded)
     const [downloadedSet, setDownloadedSet] = useState<Set<number>>(new Set());
@@ -276,6 +283,13 @@ export default function QuranScreen() {
 
     // Continue from last read
     const [lastRead, setLastReadState] = useState<LastReadEntry | null>(null);
+
+    // Bookmark
+    const [bookmarkEntry, setBookmarkEntryState] = useState<BookmarkEntry | null>(null);
+
+    // Quran font family
+    const [quranFontFamily, setQuranFontFamilyState] = useState<QuranFontFamily>('default');
+    const [fontsLoaded, setFontsLoaded] = useState(false);
 
     // Search
     const [searchQuery, setSearchQuery] = useState('');
@@ -380,6 +394,26 @@ export default function QuranScreen() {
         surahHeaderEnglish: Math.round(16 * fontScale),
     }), [fontScale]);
 
+    // ── Resolved font family for Arabic text ──────────────────────
+    const arabicFontFamily = useMemo(() => {
+        if (!fontsLoaded || quranFontFamily === 'default') return undefined;
+        return quranFontFamily; // 'Amiri' or 'ScheherazadeNew'
+    }, [quranFontFamily, fontsLoaded]);
+
+    // ── Ayah reference pattern detector (e.g., "2:14" or "2 : 14") ──
+    const ayahRefMatch = useMemo(() => {
+        const q = searchQuery.trim();
+        const m = q.match(/^(\d{1,3})\s*:\s*(\d{1,3})$/);
+        if (!m) return null;
+        const surahNum = parseInt(m[1], 10);
+        const ayahNum = parseInt(m[2], 10);
+        if (surahNum < 1 || surahNum > 114 || ayahNum < 1) return null;
+        const surah = surahList.find(s => s.number === surahNum);
+        if (!surah) return null;
+        if (ayahNum > surah.numberOfAyahs) return null;
+        return { surahNum, ayahNum, surah };
+    }, [searchQuery, surahList]);
+
     // ── Filtered surah list (real-time local search with fuzzy matching) ──
     const filteredSurahList = useMemo(() => {
         const q = searchQuery.trim().toLowerCase().replace(/[-']/g, '');
@@ -412,7 +446,7 @@ export default function QuranScreen() {
         (async () => {
             try {
                 setLoading(true);
-                const [list, pref, idx, scale, trEd, recPref, autoScrollPref, hintDismissed, lastReadEntry] = await Promise.all([
+                const [list, pref, idx, scale, trEd, recPref, autoScrollPref, hintDismissed, lastReadEntry, fontFamPref, bookmarkData] = await Promise.all([
                     getSurahListCached(),
                     getEditionPref(),
                     getDownloadIndex(),
@@ -422,6 +456,8 @@ export default function QuranScreen() {
                     getQuranAutoScrollWithAudio(),
                     isSettingsHintDismissed(),
                     getLastRead(),
+                    getQuranFontFamily(),
+                    getBookmark(),
                 ]);
                 setSurahList(list);
                 setEditionPref(pref);
@@ -433,6 +469,21 @@ export default function QuranScreen() {
                 autoScrollEnabled.current = autoScrollPref;
                 setShowSettingsHint(!hintDismissed);
                 setLastReadState(lastReadEntry);
+                setQuranFontFamilyState(fontFamPref);
+                setBookmarkEntryState(bookmarkData);
+
+                // Load custom fonts
+                try {
+                    await Font.loadAsync({
+                        'Amiri': require('../../assets/fonts/Amiri-Regular.ttf'),
+                        'Amiri-Bold': require('../../assets/fonts/Amiri-Bold.ttf'),
+                        'ScheherazadeNew': require('../../assets/fonts/ScheherazadeNew-Regular.ttf'),
+                    });
+                    setFontsLoaded(true);
+                } catch {
+                    // Fonts failed to load; fall back to system font
+                    setFontsLoaded(true);
+                }
             } catch (e: any) {
                 setError(e.message ?? 'Failed to load surah list');
             } finally {
@@ -446,13 +497,15 @@ export default function QuranScreen() {
         useCallback(() => {
             (async () => {
                 try {
-                    const [scale, pref, trEd, recPref, autoScrollPref, idx] = await Promise.all([
+                    const [scale, pref, trEd, recPref, autoScrollPref, idx, fontFamPref, bookmarkData] = await Promise.all([
                         getQuranFontScale(),
                         getEditionPref(),
                         getTranslationEdition(),
                         getReciterPref(),
                         getQuranAutoScrollWithAudio(),
                         getDownloadIndex(),
+                        getQuranFontFamily(),
+                        getBookmark(),
                     ]);
                     setFontScaleState(scale);
                     setEditionPref(pref);
@@ -461,6 +514,8 @@ export default function QuranScreen() {
                     setAutoScrollWithAudio(autoScrollPref);
                     autoScrollEnabled.current = autoScrollPref;
                     setDownloadedSet(new Set(Object.keys(idx.surahs).map(Number)));
+                    setQuranFontFamilyState(fontFamPref);
+                    setBookmarkEntryState(bookmarkData);
                 } catch { }
             })();
 
@@ -583,6 +638,7 @@ export default function QuranScreen() {
                         }
                     }
                     setCurrentSurahTr(trData);
+
                     const [trBis, arBis] = await Promise.all([trBismillahPromise, arBismillahPromise]);
                     trBismillahRef.current = trBis;
                     arBismillahRef.current = arBis;
@@ -971,19 +1027,20 @@ export default function QuranScreen() {
 
     // ── Scroll to saved ayah after surah data loads ───────────────
     useEffect(() => {
-        if (!surahLoading && mode === 'read' && scrollToAyahRef.current !== null && scrollToAyahRef.current > 0) {
+        if (!surahLoading && mode === 'read' && scrollToAyahRef.current !== null && scrollToAyahRef.current >= 0) {
             const targetAyah = scrollToAyahRef.current;
-            scrollToAyahRef.current = null;
             // Poll until the target ayah's layout is available (handles large surahs)
             let attempts = 0;
             const interval = setInterval(() => {
                 attempts++;
                 const y = ayahLayoutsRef.current[targetAyah];
                 if (y !== undefined && scrollRef.current) {
-                    (scrollRef.current as any).scrollTo({ y, animated: false });
+                    (scrollRef.current as any).scrollTo({ y: Math.max(0, y - 12), animated: false });
+                    scrollToAyahRef.current = null;
                     clearInterval(interval);
-                } else if (attempts >= 20) {
-                    // Give up after ~4 seconds
+                } else if (attempts >= 60) {
+                    // Give up after ~12 seconds
+                    scrollToAyahRef.current = null;
                     clearInterval(interval);
                 }
             }, 200);
@@ -1077,7 +1134,7 @@ export default function QuranScreen() {
                 </View>
 
                 {/* Arabic name */}
-                <Text style={[s.surahArabicName, { color: colors.text.primary }]}>{item.name}</Text>
+                <Text style={[s.surahArabicName, { color: colors.text.primary, fontFamily: arabicFontFamily }]}>{item.name}</Text>
 
                 {/* Download / offline indicator */}
                 <View style={s.surahActions}>
@@ -1236,7 +1293,7 @@ export default function QuranScreen() {
                 >
                     {/* Surah header card */}
                     <View style={[s.surahHeaderCard, { backgroundColor: goldTint(isDark ? 0.08 : 0.06), borderColor: goldTint(0.2) }]}>
-                        <Text style={[s.surahHeaderArabic, { color: colors.text.primary, fontSize: fs.surahHeaderArabic }]}>{currentSurahAr.name}</Text>
+                        <Text style={[s.surahHeaderArabic, { color: colors.text.primary, fontSize: fs.surahHeaderArabic, fontFamily: arabicFontFamily }]}>{currentSurahAr.name}</Text>
                         <Text style={[s.surahHeaderEnglish, { color: colors.accent.gold, fontSize: fs.surahHeaderEnglish }]}>
                             {currentSurahAr.englishName} – {currentSurahAr.englishNameTranslation}
                         </Text>
@@ -1271,11 +1328,12 @@ export default function QuranScreen() {
                                 </Text>
                             </TouchableOpacity>
                         </View>
+
                     </View>
 
                     {/* Bismillah banner (skip for Surah 9 and Surah 1) */}
                     {shouldStripBismillah && (
-                        <Text style={[s.bismillah, { color: colors.text.primary, fontSize: fs.bismillah }]}>{t('bismillah')}</Text>
+                        <Text style={[s.bismillah, { color: colors.text.primary, fontSize: fs.bismillah, fontFamily: arabicFontFamily }]}>{t('bismillah')}</Text>
                     )}
 
                     {/* Ayahs */}
@@ -1294,7 +1352,15 @@ export default function QuranScreen() {
                                 activeOpacity={0.7}
                                 onPress={() => playAyah(idx)}
                                 onLayout={(e) => {
-                                    ayahLayoutsRef.current[idx] = e.nativeEvent.layout.y;
+                                    const y = e.nativeEvent.layout.y;
+                                    ayahLayoutsRef.current[idx] = y;
+
+                                    // If we are waiting to jump to this ayah (e.g. from "2:14"),
+                                    // scroll as soon as this layout is measured.
+                                    if (scrollToAyahRef.current === idx && scrollRef.current) {
+                                        scrollRef.current.scrollTo({ y: Math.max(0, y - 12), animated: false });
+                                        scrollToAyahRef.current = null;
+                                    }
                                 }}
                                 style={[
                                     s.ayahCard,
@@ -1302,12 +1368,54 @@ export default function QuranScreen() {
                                     isCurrentAyah && { borderColor: colors.accent.gold, borderWidth: 1.5, backgroundColor: goldTint(isDark ? 0.12 : 0.06) },
                                 ]}
                             >
-                                {/* Ayah header row: number pill + play icon */}
+                                {/* Ayah header row: number pill + bookmark + play icon */}
                                 <View style={s.ayahHeaderRow}>
                                     <View style={[s.ayahNumberPill, { backgroundColor: goldTint(isDark ? 0.12 : 0.08) }]}>
                                         <Text style={[s.ayahNumberText, { color: colors.accent.gold }]}>{ayah.numberInSurah}</Text>
                                     </View>
                                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                        {/* Bookmark button */}
+                                        <TouchableOpacity
+                                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                            onPress={async () => {
+                                                const isCurrent = bookmarkEntry
+                                                    && bookmarkEntry.surahNumber === currentSurahAr!.number
+                                                    && bookmarkEntry.ayahIndex === idx;
+                                                if (isCurrent) {
+                                                    await removeBookmark();
+                                                    setBookmarkEntryState(null);
+                                                } else {
+                                                    const entry: BookmarkEntry = {
+                                                        surahNumber: currentSurahAr!.number,
+                                                        surahName: currentSurahAr!.englishName,
+                                                        surahNameArabic: currentSurahAr!.name,
+                                                        ayahIndex: idx,
+                                                        ayahNumberInSurah: ayah.numberInSurah,
+                                                        timestamp: Date.now(),
+                                                    };
+                                                    await setBookmark(entry);
+                                                    setBookmarkEntryState(entry);
+                                                }
+                                            }}
+                                        >
+                                            <MaterialCommunityIcons
+                                                name={
+                                                    bookmarkEntry
+                                                        && bookmarkEntry.surahNumber === currentSurahAr!.number
+                                                        && bookmarkEntry.ayahIndex === idx
+                                                        ? 'bookmark'
+                                                        : 'bookmark-outline'
+                                                }
+                                                size={20}
+                                                color={
+                                                    bookmarkEntry
+                                                        && bookmarkEntry.surahNumber === currentSurahAr!.number
+                                                        && bookmarkEntry.ayahIndex === idx
+                                                        ? colors.accent.gold
+                                                        : colors.text.tertiary
+                                                }
+                                            />
+                                        </TouchableOpacity>
                                         {isCurrentAyah && isPlaying ? (
                                             <View style={[s.ayahPlayIndicator, { backgroundColor: goldTint(isDark ? 0.15 : 0.10) }]}>
                                                 <MaterialCommunityIcons name="volume-high" size={14} color={colors.accent.gold} />
@@ -1325,7 +1433,7 @@ export default function QuranScreen() {
                                 </View>
 
                                 {/* Arabic text */}
-                                <Text style={[s.ayahArabic, { color: colors.text.primary, fontSize: fs.ayahArabic, lineHeight: fs.ayahArabicLH }]}>{arText}</Text>
+                                <Text style={[s.ayahArabic, { color: colors.text.primary, fontSize: fs.ayahArabic, lineHeight: fs.ayahArabicLH, fontFamily: arabicFontFamily }]}>{arText}</Text>
 
                                 {/* Translation (if enabled) */}
                                 {showTranslation && trText && (
@@ -1430,7 +1538,7 @@ export default function QuranScreen() {
                         </TouchableOpacity>
                     </View>
                 ) : mode === 'list' ? (
-                    filteredSurahList.length === 0 && searchQuery.trim().length > 0 ? (
+                    filteredSurahList.length === 0 && searchQuery.trim().length > 0 && !ayahRefMatch ? (
                         <View style={s.center}>
                             <MaterialCommunityIcons name="book-search-outline" size={48} color={colors.text.tertiary} />
                             <Text style={[s.emptyText, { color: colors.text.secondary }]}>
@@ -1442,29 +1550,83 @@ export default function QuranScreen() {
                             data={filteredSurahList}
                             keyExtractor={(item) => `${item.number}`}
                             renderItem={({ item }) => <SurahListItem item={item} />}
-                            ListHeaderComponent={lastRead && !searchQuery.trim() ? (
-                                <TouchableOpacity
-                                    activeOpacity={0.7}
-                                    onPress={() => {
-                                        scrollToAyahRef.current = lastRead.ayahIndex;
-                                        openSurah(lastRead.surahNumber);
-                                    }}
-                                    style={[s.continueCard, { backgroundColor: goldTint(isDark ? 0.10 : 0.06), borderColor: goldTint(0.30) }]}
-                                >
-                                    <View style={s.continueIconWrap}>
-                                        <MaterialCommunityIcons name="book-open-page-variant" size={24} color={colors.accent.gold} />
-                                    </View>
-                                    <View style={{ flex: 1 }}>
-                                        <Text style={[s.continueLabel, { color: colors.text.secondary }]}>{t('continueReading')}</Text>
-                                        <Text style={[s.continueSurah, { color: colors.text.primary }]}>
-                                            {lastRead.surahName}
-                                            {lastRead.ayahIndex > 0 ? ` · ${t('ayah')} ${lastRead.ayahIndex + 1}` : ''}
-                                        </Text>
-                                        <Text style={[s.continueArabic, { color: colors.text.secondary }]}>{lastRead.surahNameArabic}</Text>
-                                    </View>
-                                    <MaterialCommunityIcons name="chevron-right" size={22} color={colors.accent.gold} />
-                                </TouchableOpacity>
-                            ) : null}
+                            ListHeaderComponent={
+                                <>
+                                    {/* Ayah reference quick-jump card (e.g. user typed "2:14") */}
+                                    {ayahRefMatch && (
+                                        <TouchableOpacity
+                                            activeOpacity={0.7}
+                                            onPress={() => {
+                                                scrollToAyahRef.current = ayahRefMatch.ayahNum - 1;
+                                                openSurah(ayahRefMatch.surahNum);
+                                            }}
+                                            style={[s.continueCard, { backgroundColor: goldTint(isDark ? 0.12 : 0.08), borderColor: colors.accent.gold }]}
+                                        >
+                                            <View style={[s.continueIconWrap, { backgroundColor: goldTint(isDark ? 0.18 : 0.12) }]}>
+                                                <MaterialCommunityIcons name="book-arrow-right" size={22} color={colors.accent.gold} />
+                                            </View>
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={[s.continueLabel, { color: colors.accent.gold }]}>{t('goToAyah')}</Text>
+                                                <Text style={[s.continueSurah, { color: colors.text.primary }]}>
+                                                    {ayahRefMatch.surah.englishName} · {t('ayah')} {ayahRefMatch.ayahNum}
+                                                </Text>
+                                                <Text style={[s.continueArabic, { color: colors.text.secondary }]}>{ayahRefMatch.surah.name}</Text>
+                                            </View>
+                                            <MaterialCommunityIcons name="chevron-right" size={22} color={colors.accent.gold} />
+                                        </TouchableOpacity>
+                                    )}
+
+                                    {/* Bookmark card (shown when no search query and bookmark exists) */}
+                                    {!searchQuery.trim() && bookmarkEntry && (
+                                        <TouchableOpacity
+                                            activeOpacity={0.7}
+                                            onPress={() => {
+                                                scrollToAyahRef.current = bookmarkEntry.ayahIndex;
+                                                openSurah(bookmarkEntry.surahNumber);
+                                            }}
+                                            style={[s.continueCard, { backgroundColor: goldTint(isDark ? 0.10 : 0.06), borderColor: goldTint(0.30) }]}
+                                        >
+                                            <View style={s.continueIconWrap}>
+                                                <MaterialCommunityIcons name="bookmark" size={24} color={colors.accent.gold} />
+                                            </View>
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={[s.continueLabel, { color: colors.text.secondary }]}>{t('bookmarked')}</Text>
+                                                <Text style={[s.continueSurah, { color: colors.text.primary }]}>
+                                                    {bookmarkEntry.surahName}
+                                                    {` · ${t('ayah')} ${bookmarkEntry.ayahNumberInSurah}`}
+                                                </Text>
+                                                <Text style={[s.continueArabic, { color: colors.text.secondary }]}>{bookmarkEntry.surahNameArabic}</Text>
+                                            </View>
+                                            <MaterialCommunityIcons name="chevron-right" size={22} color={colors.accent.gold} />
+                                        </TouchableOpacity>
+                                    )}
+
+                                    {/* Continue reading card (shown when no search query, no bookmark, but lastRead exists) */}
+                                    {!searchQuery.trim() && !bookmarkEntry && lastRead && (
+                                        <TouchableOpacity
+                                            activeOpacity={0.7}
+                                            onPress={() => {
+                                                scrollToAyahRef.current = lastRead.ayahIndex;
+                                                openSurah(lastRead.surahNumber);
+                                            }}
+                                            style={[s.continueCard, { backgroundColor: goldTint(isDark ? 0.10 : 0.06), borderColor: goldTint(0.30) }]}
+                                        >
+                                            <View style={s.continueIconWrap}>
+                                                <MaterialCommunityIcons name="book-open-page-variant" size={24} color={colors.accent.gold} />
+                                            </View>
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={[s.continueLabel, { color: colors.text.secondary }]}>{t('continueReading')}</Text>
+                                                <Text style={[s.continueSurah, { color: colors.text.primary }]}>
+                                                    {lastRead.surahName}
+                                                    {lastRead.ayahIndex > 0 ? ` · ${t('ayah')} ${lastRead.ayahIndex + 1}` : ''}
+                                                </Text>
+                                                <Text style={[s.continueArabic, { color: colors.text.secondary }]}>{lastRead.surahNameArabic}</Text>
+                                            </View>
+                                            <MaterialCommunityIcons name="chevron-right" size={22} color={colors.accent.gold} />
+                                        </TouchableOpacity>
+                                    )}
+                                </>
+                            }
                             contentContainerStyle={{ paddingBottom: 100 }}
                             showsVerticalScrollIndicator={false}
                             keyboardShouldPersistTaps="handled"

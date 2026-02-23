@@ -23,6 +23,7 @@ import {
     fetchSurahDual,
     fetchSurahWithTranslation,
     fetchFullQuranDual,
+    fetchFullQuran,
     fetchSurahList,
     fetchTranslationEditions,
     fetchAudioEditions,
@@ -50,6 +51,8 @@ const SETTINGS_HINT_KEY = '@quran_settings_hint_dismissed'; // '1' when dismisse
 const AUDIO_INDEX_KEY = '@quran_audio_download_index'; // JSON of { [surahNum_reciter]: true }
 const BISMILLAH_CACHE_KEY = '@quran_bismillah_cache'; // JSON of { [edition]: bismillahText }
 const LAST_READ_KEY = '@quran_last_read';             // JSON of LastReadEntry
+const QURAN_FONT_FAMILY_KEY = '@quran_font_family';   // 'default' | 'Amiri' | 'ScheherazadeNew'
+const BOOKMARK_KEY = '@quran_bookmark';               // JSON of BookmarkEntry
 
 /* ---------- Types ---------- */
 
@@ -153,8 +156,10 @@ export async function downloadSurah(surahNumber: number): Promise<DownloadedSura
     const arJson = JSON.stringify(ar);
     const enJson = JSON.stringify(en);
 
-    await FileSystem.writeAsStringAsync(surahFilePath(surahNumber, 'ar'), arJson);
-    await FileSystem.writeAsStringAsync(surahFilePath(surahNumber, 'en'), enJson);
+    await Promise.all([
+        FileSystem.writeAsStringAsync(surahFilePath(surahNumber, 'ar'), arJson),
+        FileSystem.writeAsStringAsync(surahFilePath(surahNumber, 'en'), enJson),
+    ]);
 
     const entry: DownloadedSurahEntry = {
         surahNumber,
@@ -221,8 +226,10 @@ export async function downloadFullQuran(
         const arJson = JSON.stringify(ar);
         const enJson = JSON.stringify(en);
 
-        await FileSystem.writeAsStringAsync(surahFilePath(num, 'ar'), arJson);
-        await FileSystem.writeAsStringAsync(surahFilePath(num, 'en'), enJson);
+        await Promise.all([
+            FileSystem.writeAsStringAsync(surahFilePath(num, 'ar'), arJson),
+            FileSystem.writeAsStringAsync(surahFilePath(num, 'en'), enJson),
+        ]);
 
         index.surahs[num] = {
             surahNumber: num,
@@ -280,7 +287,7 @@ export async function getDownloadedCount(): Promise<number> {
 
 /* ---------- Public: Font scale preference ---------- */
 
-/** Get the Quran font scale multiplier (default 1.15, range 0.75–1.5). */
+/** Get the Quran font scale multiplier (default 1.2, range 0.75–1.5). */
 export async function getQuranFontScale(): Promise<number> {
     try {
         const val = await AsyncStorage.getItem(FONT_SCALE_KEY);
@@ -289,7 +296,7 @@ export async function getQuranFontScale(): Promise<number> {
             if (!isNaN(n) && n >= 0.75 && n <= 1.5) return n;
         }
     } catch { /* ignore */ }
-    return 1.15;
+    return 1.2;
 }
 
 export async function setQuranFontScale(scale: number): Promise<void> {
@@ -334,6 +341,55 @@ export async function getLastRead(): Promise<LastReadEntry | null> {
 /** Save last read position. */
 export async function setLastRead(entry: LastReadEntry): Promise<void> {
     await AsyncStorage.setItem(LAST_READ_KEY, JSON.stringify(entry));
+}
+
+/* ---------- Public: Quran font family preference ---------- */
+
+export type QuranFontFamily = 'default' | 'Amiri' | 'ScheherazadeNew';
+
+/** Get the user's chosen Quran Arabic font family (default: 'default'). */
+export async function getQuranFontFamily(): Promise<QuranFontFamily> {
+    try {
+        const val = await AsyncStorage.getItem(QURAN_FONT_FAMILY_KEY);
+        if (val === 'Amiri' || val === 'ScheherazadeNew') return val;
+    } catch { /* ignore */ }
+    return 'default';
+}
+
+export async function setQuranFontFamily(family: QuranFontFamily): Promise<void> {
+    await AsyncStorage.setItem(QURAN_FONT_FAMILY_KEY, family);
+}
+
+/* ---------- Public: Single bookmark ---------- */
+
+export interface BookmarkEntry {
+    surahNumber: number;
+    surahName: string;        // English name for display
+    surahNameArabic: string;  // Arabic name for display
+    ayahIndex: number;        // 0-based index within surah
+    ayahNumberInSurah: number; // 1-based ayah number
+    timestamp: number;        // epoch ms
+}
+
+/** Get the user's bookmark, or null if none set. */
+export async function getBookmark(): Promise<BookmarkEntry | null> {
+    try {
+        const raw = await AsyncStorage.getItem(BOOKMARK_KEY);
+        if (!raw) return null;
+        return JSON.parse(raw) as BookmarkEntry;
+    } catch {
+        return null;
+    }
+}
+
+/** Save a bookmark (replaces any previous one). */
+export async function setBookmark(entry: BookmarkEntry): Promise<void> {
+    await AsyncStorage.setItem(BOOKMARK_KEY, JSON.stringify(entry));
+}
+
+/** Remove the current bookmark. */
+export async function removeBookmark(): Promise<void> {
+    await AsyncStorage.removeItem(BOOKMARK_KEY);
 }
 
 /* ---------- Public: Bismillah text cache per edition ---------- */

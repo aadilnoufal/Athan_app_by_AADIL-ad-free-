@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.15.0] - 2025-07-20
+
+### Added
+- **Ayah Reference Search** – Type a reference like `2:14` in the Quran search bar to instantly jump to Surah Al-Baqarah, Ayah 14. Validates surah/ayah ranges and shows a quick-jump card above the surah list.
+- **Quran Font Options** – Choose between system default, Amiri, or Scheherazade New fonts for Arabic Quran text. Configurable in Settings → Quran section. Fonts are OFL-licensed and bundled with the app.
+- **Ayah Bookmark** – Tap the bookmark icon on any ayah to save a single bookmark. The bookmark card replaces "Continue Reading" at the top of the surah list when set. Tap again to remove the bookmark.
+
+### Changed
+- **Default Font Scale 120%** – Quran text default size increased from 115% to 120% for better readability.
+
 ## [3.14.0] - 2025-07-19
 
 ### Fixed

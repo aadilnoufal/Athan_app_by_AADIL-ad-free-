@@ -241,4 +241,25 @@ export default {
   searchResultsFor: 'نتائج البحث عن',
   noResultsFor: 'لا توجد نتائج لـ',
   tapToSearch: 'اضغط بحث للعثور على الآيات',
+
+  // Font family
+  quranFontFamily: 'خط القرآن العربي',
+  fontDefault: 'الخط الافتراضي',
+  fontAmiri: 'أميري',
+  fontScheherazade: 'شهرزاد',
+
+  // Bookmark
+  bookmark: 'علامة مرجعية',
+  bookmarkSet: 'تم حفظ العلامة',
+  bookmarkRemoved: 'تم إزالة العلامة',
+  bookmarkAyah: 'وضع علامة على هذه الآية',
+  removeBookmark: 'إزالة العلامة',
+  goToBookmark: 'الذهاب إلى العلامة',
+  bookmarked: 'معلّم',
+
+  // Ayah reference search
+  goToAyah: 'اذهب إلى الآية',
+  invalidReference: 'مرجع غير صالح. استخدم صيغة مثل 2:14 (سورة:آية)',
+  surahNotFound: 'السورة غير موجودة',
+  ayahOutOfRange: 'رقم الآية خارج النطاق',
 };
