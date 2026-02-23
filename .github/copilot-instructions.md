@@ -69,3 +69,8 @@ Do not consider a task complete until the above docs are reviewed and updated wh
 - Write code that is **scalable and maintainable** for future developers.
 - Prefer solutions that reduce future complexity, not increase it.
 - When in doubt, choose the approach that is easiest to understand and change later.
+
+## learings
+-if you make a mistake note that nistake down and ho not to cause it againg in a leassons.md file and also note down the solution you implemented to fix it in the same file, this will help you to avoid making the same mistake again and also will help you to solve similar problems in the future.
+- Always ask clarifying questions when requirements are ambiguous.
+- Write comprehensive tests covering happy paths, edge cases, and error states.

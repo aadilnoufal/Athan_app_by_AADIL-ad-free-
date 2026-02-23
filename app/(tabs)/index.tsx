@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef, Dispatch, SetStateAction } from 'react';
-import { 
-  StyleSheet, 
-  Text, 
-  View, 
-  StatusBar, 
-  TouchableOpacity, 
+import {
+  StyleSheet,
+  Text,
+  View,
+  StatusBar,
+  TouchableOpacity,
   Pressable,
   ScrollView,
   ActivityIndicator,
@@ -44,14 +44,14 @@ import { usePurchase } from '../contexts/RevenueCatContext';
 const { width: screenWidth } = Dimensions.get('window');
 
 // Import time utilities for improved timezone and countdown handling
-import { 
-  findNextPrayer, 
-  calculateTimeRemaining, 
+import {
+  findNextPrayer,
+  calculateTimeRemaining,
   convertTo12HourFormat,
-  isSamePrayerTime 
+  isSamePrayerTime
 } from '../../utils/timeUtils';
 // Import Notifee prayer notification services (enterprise-grade reliability)
-import { 
+import {
   initializeNotifeePrayerNotifications,
   cancelAllNotifeePrayerNotifications,
   cancelAllNotificationsCompletely,
@@ -67,10 +67,10 @@ import {
 import { ensurePrayerNotificationWindow, forceRescheduleAllNotifications } from '../../utils/prayerNotificationScheduler';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 // Import background task utilities
-import { 
+import {
   setupBackgroundTask,
   unregisterBackgroundTask,
-  getBackgroundFetchStatus 
+  getBackgroundFetchStatus
 } from '../../utils/backgroundTask';
 
 // Get status bar height to ensure proper padding
@@ -184,11 +184,11 @@ const AnimatedPrayerIcon = ({ prayer, active, size = 24, color, subtle = false }
   const rotation = rotate.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
   const iconName = (
     prayer === 'Fajr' ? 'weather-sunset-up' :
-    prayer === 'Sunrise' ? 'white-balance-sunny' :
-    prayer === 'Dhuhr' ? 'sun-wireless' :
-    prayer === 'Asr' ? 'weather-sunny' :
-    prayer === 'Maghrib' ? 'weather-sunset-down' :
-    'weather-night'
+      prayer === 'Sunrise' ? 'white-balance-sunny' :
+        prayer === 'Dhuhr' ? 'sun-wireless' :
+          prayer === 'Asr' ? 'weather-sunny' :
+            prayer === 'Maghrib' ? 'weather-sunset-down' :
+              'weather-night'
   );
 
   const transforms: any[] = subtle ? [] : [{ scale }];
@@ -239,8 +239,8 @@ export default function Home() {
       justifyContent: 'flex-end',
       paddingRight: 0,
       flexShrink: 0,
-  zIndex: 10,
-  elevation: 3,
+      zIndex: 10,
+      elevation: 3,
     },
     refreshButton: {
       backgroundColor: `${C.surface.secondary}CC`,
@@ -255,16 +255,16 @@ export default function Home() {
       flexDirection: 'row',
       alignItems: 'center',
       backgroundColor: C.accent.gold,
-  paddingHorizontal: 14,
-  paddingVertical: 8,
-  borderRadius: 16,
-  minWidth: 140,
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderRadius: 16,
+      minWidth: 140,
     },
     donateText: {
       color: C.text.inverse,
-  marginLeft: 8,
-  fontWeight: '700',
-  letterSpacing: 0.4,
+      marginLeft: 8,
+      fontWeight: '700',
+      letterSpacing: 0.4,
     },
     locationContainer: {
       flexDirection: 'row',
@@ -476,7 +476,7 @@ export default function Home() {
     sparkle: { position: 'absolute', zIndex: 1 },
     magicalHeader: {
       position: 'relative', paddingVertical: 8, paddingHorizontal: 12, marginBottom: 0, borderRadius: 20,
-      backgroundColor: 'transparent', borderWidth: 0, borderColor: 'transparent', 
+      backgroundColor: 'transparent', borderWidth: 0, borderColor: 'transparent',
       // REMOVED: overflow: 'hidden' - this was blocking touch events on Android
     },
     headerGlow: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: C.accent.gold, borderRadius: 20 },
@@ -526,9 +526,9 @@ export default function Home() {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-  // Dark mode previously used a faint white overlay which appeared like the old light sepia.
-  // Use themed surface color instead for a solid dark surface.
-  backgroundColor: isDark ? C.surface.primary : C.surface.primary,
+      // Dark mode previously used a faint white overlay which appeared like the old light sepia.
+      // Use themed surface color instead for a solid dark surface.
+      backgroundColor: isDark ? C.surface.primary : C.surface.primary,
       borderRadius: 20,
       paddingVertical: 12,
       paddingHorizontal: 16,
@@ -560,8 +560,8 @@ export default function Home() {
     enhancedHijriDate: { color: C.text.secondary, fontSize: 12, fontWeight: '500', marginLeft: 8, letterSpacing: 0.2, opacity: 0.9 },
     countdownSection: { alignItems: 'center', marginBottom: 15 },
     enhancedTimesContainer: {
-  // Use proper themed elevated surface in dark mode instead of translucent white.
-  backgroundColor: isDark ? C.surface.elevated : C.surface.primary,
+      // Use proper themed elevated surface in dark mode instead of translucent white.
+      backgroundColor: isDark ? C.surface.elevated : C.surface.primary,
       borderRadius: 20,
       padding: 12,
       marginBottom: 12,
@@ -575,8 +575,8 @@ export default function Home() {
     timesHeaderText: { color: C.text.primary, fontSize: 18, fontWeight: '700', marginLeft: 10, letterSpacing: 0.5 },
     prayerTimesGrid: { gap: 8 },
     enhancedPrayerItem: {
-  // Solid surface color for dark mode to avoid light sepia bleed-through.
-  backgroundColor: isDark ? C.surface.primary : C.surface.secondary,
+      // Solid surface color for dark mode to avoid light sepia bleed-through.
+      backgroundColor: isDark ? C.surface.primary : C.surface.secondary,
       borderRadius: 16,
       padding: 12,
       borderWidth: 0.5,
@@ -657,10 +657,10 @@ export default function Home() {
   }), [C, isDark]);
   const router = useRouter();
   const { t, currentLang, changeLanguage, availableLanguages } = useLanguage();
-  
+
   // Add isFirstLoad state to track first launch
   const [isFirstLoad, setIsFirstLoad] = useState(true);
-  
+
   // Core state
   const [prayerTimes, setPrayerTimes] = useState<PrayerData | null>(null);
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -671,31 +671,31 @@ export default function Home() {
   const [countdown, setCountdown] = useState('');
   const [countdownLoading, setCountdownLoading] = useState(true);
   const [lastPrayerTime, setLastPrayerTime] = useState<Date | null>(null);
-  
+
   // Location and region settings
   const [regionId, setRegionId] = useState(DEFAULT_REGION);
   const [location, setLocation] = useState('');
   const [method, setMethod] = useState(0);
   const [tuningParams, setTuningParams] = useState('');
   const availableRegions = getAvailableRegions();
-  
+
   // UI state
   const [refreshing, setRefreshing] = useState(false);
   const [showRegionPicker, setShowRegionPicker] = useState(false);
   const [showLanguageSelector, setShowLanguageSelector] = useState(false);
   const [appState, setAppState] = useState(AppState.currentState);
   const [regionChanging, setRegionChanging] = useState(false);
-  
+
   // Progress tracking
   const [progressAnimation] = useState(new Animated.Value(0));
   const [progressPercent, setProgressPercent] = useState(0);
   const [totalSeconds, setTotalSeconds] = useState(0);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  
+
   // Date management
   const [lastRefreshDate, setLastRefreshDate] = useState('');
   const [lastDateCheckTime, setLastDateCheckTime] = useState(0);
-  
+
   // Notifications
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({
@@ -721,7 +721,7 @@ export default function Home() {
   };
 
   // Enhanced notification setup and management
-  
+
   // ✨ MAGICAL ANIMATIONS & VISUAL ENHANCEMENTS ✨
   const [sparkleAnimation] = useState(new Animated.Value(0));
   const [floatingAnimation] = useState(new Animated.Value(0));
@@ -732,20 +732,20 @@ export default function Home() {
   const [footerStarAnimation] = useState(new Animated.Value(0));
   const [moonPhaseAnimation] = useState(new Animated.Value(0));
   const [footerBreathingAnimation] = useState(new Animated.Value(1)); // Separate for footer opacity
-  
+
   // ✨ MAGICAL BUTTON ANIMATIONS ✨
   const [buttonGlowAnimation] = useState(new Animated.Value(0));
   const [buttonPulseAnimation] = useState(new Animated.Value(1));
   const [arrowBounceAnimation] = useState(new Animated.Value(0)); // For translateX (non-native)
   const [locationShimmerAnimation] = useState(new Animated.Value(0));
   const [refreshSpinAnimation] = useState(new Animated.Value(0));
-  
+
   // Separate shimmer animations that require layout properties (non-native driver)
   const [footerShimmerAnimation] = useState(new Animated.Value(0));
   const [buttonShimmerAnimation] = useState(new Animated.Value(0));
-  
+
   // Sparkle positions for floating sparkles (non-native driver for layout properties)
-  const [sparkles] = useState(() => 
+  const [sparkles] = useState(() =>
     Array.from({ length: 6 }, (_, i) => ({
       id: i,
       x: new Animated.Value(Math.random() * screenWidth),
@@ -757,7 +757,7 @@ export default function Home() {
   );
 
   // Header magical elements (non-native driver for layout properties)
-  const [headerStars] = useState(() => 
+  const [headerStars] = useState(() =>
     Array.from({ length: 4 }, (_, i) => ({
       id: i,
       x: new Animated.Value(30 + Math.random() * 200),
@@ -769,7 +769,7 @@ export default function Home() {
   );
 
   // Footer magical elements (non-native driver for layout properties)
-  const [footerElements] = useState(() => 
+  const [footerElements] = useState(() =>
     Array.from({ length: 5 }, (_, i) => ({
       id: i,
       x: new Animated.Value(20 + Math.random() * 280),
@@ -823,18 +823,20 @@ export default function Home() {
         style={{
           transform: [
             { scale: sparkle.scale },
-            { rotate: sparkle.rotation.interpolate({
-              inputRange: [0, 1],
-              outputRange: ['0deg', '360deg']
-            })}
+            {
+              rotate: sparkle.rotation.interpolate({
+                inputRange: [0, 1],
+                outputRange: ['0deg', '360deg']
+              })
+            }
           ],
           opacity: sparkle.opacity,
         }}
       >
-        <MaterialCommunityIcons 
-          name="star-four-points" 
-          size={12 + (index % 3) * 4} 
-          color={C.accent.gold} 
+        <MaterialCommunityIcons
+          name="star-four-points"
+          size={12 + (index % 3) * 4}
+          color={C.accent.gold}
           style={{ opacity: 0.6 }}
         />
       </Animated.View>
@@ -861,7 +863,7 @@ export default function Home() {
         ]}
         pointerEvents="none"
       />
-      
+
       {/* Header sparkles and stars */}
       {/* TEMPORARILY DISABLED - Header stars causing potential text rendering issues */}
       {/*
@@ -898,10 +900,10 @@ export default function Home() {
         </Animated.View>
       ))}
       */}
-      
+
       {/* Header content */}
       <View style={styles.header}>
-        <Animated.Text 
+        <Animated.Text
           style={[
             styles.headerTitle,
             {
@@ -930,14 +932,14 @@ export default function Home() {
                 }
               ]}
             >
-              <MaterialCommunityIcons 
-                name="refresh" 
-                size={20} 
-                color={C.accent.gold} 
+              <MaterialCommunityIcons
+                name="refresh"
+                size={20}
+                color={C.accent.gold}
               />
             </Animated.View>
           </MagicalButton>
-          
+
           <MagicalButton
             onPress={openDonation}
             style={styles.donateButton}
@@ -946,7 +948,7 @@ export default function Home() {
             <MaterialCommunityIcons name="gift" size={20} color={C.text.inverse} />
             <Text style={styles.donateText}>{t('supportApp')}</Text>
           </MagicalButton>
-          
+
           {/* Language selector removed (moved to Settings screen) */}
         </View>
       </View>
@@ -982,7 +984,7 @@ export default function Home() {
           }
         ]}
       />
-      
+
       {/* Footer magical elements */}
       {/* TEMPORARILY DISABLED - Footer elements causing potential text rendering issues */}
       {/*
@@ -1028,55 +1030,63 @@ export default function Home() {
       */}
       {/* Footer content */}
       <View style={styles.footerContent}>
-        <Animated.View 
+        <Animated.View
           style={[
             styles.footerMoon,
             {
               transform: [
-                { scale: moonPhaseAnimation.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [1, 1.1]
-                })},
-                { rotate: moonPhaseAnimation.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: ['0deg', '15deg']
-                })}
+                {
+                  scale: moonPhaseAnimation.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [1, 1.1]
+                  })
+                },
+                {
+                  rotate: moonPhaseAnimation.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: ['0deg', '15deg']
+                  })
+                }
               ]
             }
           ]}
         >
-          <MaterialCommunityIcons 
-            name="moon-waning-crescent" 
-            size={24} 
+          <MaterialCommunityIcons
+            name="moon-waning-crescent"
+            size={24}
             color={C.accent.amber}
             style={{ opacity: 0.8 }}
           />
         </Animated.View>
-        
+
         <Text style={styles.footerText}>
           ✨ {t('appName')} - {new Date().getFullYear()} ✨
         </Text>
-        
-        <Animated.View 
+
+        <Animated.View
           style={[
             styles.footerStar,
             {
               transform: [
-                { scale: footerStarAnimation.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [0.8, 1.2]
-                })},
-                { rotate: footerStarAnimation.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: ['0deg', '360deg']
-                })}
+                {
+                  scale: footerStarAnimation.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.8, 1.2]
+                  })
+                },
+                {
+                  rotate: footerStarAnimation.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: ['0deg', '360deg']
+                  })
+                }
               ]
             }
           ]}
         >
-          <MaterialCommunityIcons 
-            name="star-four-points" 
-            size={20} 
+          <MaterialCommunityIcons
+            name="star-four-points"
+            size={20}
             color={C.accent.gold}
             style={{ opacity: 0.7 }}
           />
@@ -1086,14 +1096,14 @@ export default function Home() {
   );
 
   // ✨ MAGICAL BUTTON COMPONENT ✨
-  const MagicalButton = ({ 
-    onPress, 
-    onLongPress, 
-    disabled = false, 
-    style, 
-    children, 
-  glowColor = C.accent.gold,
-    pulseSize = 1.1 
+  const MagicalButton = ({
+    onPress,
+    onLongPress,
+    disabled = false,
+    style,
+    children,
+    glowColor = C.accent.gold,
+    pulseSize = 1.1
   }: {
     onPress?: () => void;
     onLongPress?: () => void;
@@ -1136,35 +1146,35 @@ export default function Home() {
         style
       ]}
     >
-        {/* Button shimmer effect */}
-        <Animated.View
-          style={[
-            styles.buttonShimmer,
-            {
-              opacity: buttonShimmerAnimation.interpolate({
-                inputRange: [0, 0.5, 1],
-                outputRange: [0, 0.2, 0]
-              }),
-              transform: [{
-                translateX: buttonShimmerAnimation.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [-100, 200]
-                })
-              }]
-            }
-          ]}
-          pointerEvents="none"
+      {/* Button shimmer effect */}
+      <Animated.View
+        style={[
+          styles.buttonShimmer,
+          {
+            opacity: buttonShimmerAnimation.interpolate({
+              inputRange: [0, 0.5, 1],
+              outputRange: [0, 0.2, 0]
+            }),
+            transform: [{
+              translateX: buttonShimmerAnimation.interpolate({
+                inputRange: [0, 1],
+                outputRange: [-100, 200]
+              })
+            }]
+          }
+        ]}
+        pointerEvents="none"
       />
       {children}
     </TouchableOpacity>
   );
 
   // ✨ MAGICAL ARROW BUTTON ✨
-  const MagicalArrowButton = ({ 
-    direction, 
-    onPress, 
+  const MagicalArrowButton = ({
+    direction,
+    onPress,
     disabled = false,
-    iconName 
+    iconName
   }: {
     direction: 'left' | 'right';
     onPress: () => void;
@@ -1181,13 +1191,13 @@ export default function Home() {
         }
       ]}
       glowColor={disabled ? SepiaColors.special.disabled : SepiaColors.accent.gold}
-  // TODO: migrate remaining SepiaColors within styles at bottom to use theme
+    // TODO: migrate remaining SepiaColors within styles at bottom to use theme
     >
       <Animated.View
         style={[
           {
             transform: [
-              { 
+              {
                 translateX: arrowBounceAnimation.interpolate({
                   inputRange: [0, 1],
                   outputRange: direction === 'left' ? [-2, 2] : [2, -2]
@@ -1198,10 +1208,10 @@ export default function Home() {
           }
         ]}
       >
-        <MaterialCommunityIcons 
+        <MaterialCommunityIcons
           name={iconName as any}
-          size={28} 
-          color={disabled ? SepiaColors.special.disabled : SepiaColors.accent.gold} 
+          size={28}
+          color={disabled ? SepiaColors.special.disabled : SepiaColors.accent.gold}
         />
       </Animated.View>
     </MagicalButton>
@@ -1226,7 +1236,7 @@ export default function Home() {
         ]}
         pointerEvents="none"
       />
-      
+
       {/* Main circular progress */}
       <Svg width={size} height={size} style={styles.circularProgress}>
         <Defs>
@@ -1236,7 +1246,7 @@ export default function Home() {
             <Stop offset="100%" stopColor={SepiaColors.accent.copper} />
           </LinearGradient>
         </Defs>
-        
+
         {/* Background circle */}
         <Circle
           cx={size / 2}
@@ -1247,7 +1257,7 @@ export default function Home() {
           fill="none"
           opacity={0.3}
         />
-        
+
         {/* Progress circle with gradient */}
         <Circle
           cx={size / 2}
@@ -1262,9 +1272,9 @@ export default function Home() {
           transform={`rotate(-90 ${size / 2} ${size / 2})`}
         />
       </Svg>
-      
+
       {/* Center content with breathing animation */}
-      <Animated.View 
+      <Animated.View
         style={[
           styles.circularContent,
           {
@@ -1292,71 +1302,71 @@ export default function Home() {
     </View>
   );
   const notificationInitialized = useRef(false);
-  
+
   useEffect(() => {
     // Prevent multiple notification system initializations
     if (notificationInitialized.current) {
       return;
     }
-    
+
     notificationInitialized.current = true;
-    
+
     const initializeNotifications = async () => {
       try {
         // Initialize the Notifee notification service (enterprise-grade reliability)
         console.log('🔧 Initializing Notifee prayer notification system...');
         const initialized = await initializeNotifeePrayerNotifications();
-        
+
         if (!initialized) {
           console.warn('Failed to initialize Notifee notifications - continuing without notifications');
           return;
-      }
-      
-      // Request exact alarm permission for Android 12+
-      await requestExactAlarmPermission();
-      
-      // Check and handle battery optimization (optional - don't block initialization)
-      setTimeout(() => {
-        checkAndHandleBatteryOptimization();
-      }, 3000); // Delay to avoid overwhelming user with permission requests
-      
-      // Check and handle power manager (optional - don't block initialization)
-      setTimeout(() => {
-        checkAndHandlePowerManager();
-      }, 6000); // Further delay to spread out permission requests
-      
-      // Check and update notification settings
-      await checkNotificationSettings();
-      
-      // Setup background task for notification management
-      const backgroundSetup = await setupBackgroundTask();
-      if (!backgroundSetup) {
-        console.warn('Background task setup failed - notifications may not work when app is closed');
-      }
-      
-      // Check background fetch status
-      const bgStatus = await getBackgroundFetchStatus();
-      console.log('Background fetch status:', bgStatus.statusText);
+        }
+
+        // Request exact alarm permission for Android 12+
+        await requestExactAlarmPermission();
+
+        // Check and handle battery optimization (optional - don't block initialization)
+        setTimeout(() => {
+          checkAndHandleBatteryOptimization();
+        }, 3000); // Delay to avoid overwhelming user with permission requests
+
+        // Check and handle power manager (optional - don't block initialization)
+        setTimeout(() => {
+          checkAndHandlePowerManager();
+        }, 6000); // Further delay to spread out permission requests
+
+        // Check and update notification settings
+        await checkNotificationSettings();
+
+        // Setup background task for notification management
+        const backgroundSetup = await setupBackgroundTask();
+        if (!backgroundSetup) {
+          console.warn('Background task setup failed - notifications may not work when app is closed');
+        }
+
+        // Check background fetch status
+        const bgStatus = await getBackgroundFetchStatus();
+        console.log('Background fetch status:', bgStatus.statusText);
       } catch (error) {
         console.error('❌ Critical error in notification initialization:', error);
         // Don't crash the app - continue without notifications
       }
     };
-    
+
     initializeNotifications().catch(err => {
       console.error('❌ Unhandled notification init error:', err);
     });
-    
+
     const checkForSettingsChanges = async () => {
       try {
         const notifEnabled = await AsyncStorage.getItem('notifications_enabled');
         const notifSettings = await AsyncStorage.getItem('notification_settings');
-        
+
         if (notifEnabled !== null) {
           const isEnabled = notifEnabled === 'true';
           if (isEnabled !== notificationsEnabled) {
             setNotificationsEnabled(isEnabled);
-            
+
             if (isEnabled && prayerTimes) {
               // If notifications were just enabled, clear timestamp and schedule them
               console.log('Notifications enabled, clearing timestamp and scheduling...');
@@ -1370,7 +1380,7 @@ export default function Home() {
             }
           }
         }
-        
+
         if (notifSettings !== null) {
           const parsed = JSON.parse(notifSettings);
           setNotificationSettings(prev => ({ ...prev, ...parsed }));
@@ -1388,18 +1398,18 @@ export default function Home() {
         console.error('Error checking notification settings:', error);
       }
     };
-    
+
     const settingsInterval = setInterval(checkForSettingsChanges, 10000);
-    
+
     const notificationListener = async () => {
       const updateFlag = await AsyncStorage.getItem('notifications_updated');
-      
+
       if (updateFlag) {
         console.log('🔄 Notification settings changed, forcing full reschedule...');
         await AsyncStorage.removeItem('notifications_updated');
         await AsyncStorage.removeItem('last_notification_scheduled'); // Clear timestamp for fresh scheduling
         await checkNotificationSettings();
-        
+
         // Force a complete reschedule instead of just topping up
         await forceRescheduleAllNotifications();
       }
@@ -1407,21 +1417,21 @@ export default function Home() {
       // Check notification health
       if (notificationsEnabled && prayerTimes) {
         const status = await getScheduledNotifeePrayerNotifications();
-        
+
         // If we have no scheduled notifications but should have them, reschedule
         if (status.length === 0) {
           const now = new Date();
           const hasRemainingPrayers = Object.entries(prayerTimes.times).some(([prayer, timeStr]) => {
             if (!timeStr || timeStr === '--:--') return false;
-            
+
             const [hours, minutes] = timeStr.split(':').map(Number);
             if (isNaN(hours) || isNaN(minutes)) return false;
-            
+
             const prayerDate = new Date();
             prayerDate.setHours(hours, minutes, 0, 0);
             return prayerDate > now && notificationSettings[prayer as keyof NotificationSettings];
           });
-          
+
           if (hasRemainingPrayers) {
             console.log('Health check: Missing notifications, forcing reschedule...');
             // Clear the timestamp to allow immediate rescheduling
@@ -1433,11 +1443,11 @@ export default function Home() {
         }
       }
     };
-    
+
     const flagsInterval = setInterval(() => {
       notificationListener();
     }, 60000); // Check every 60 seconds to reduce frequency
-    
+
     return () => {
       clearInterval(settingsInterval);
       clearInterval(flagsInterval);
@@ -1451,10 +1461,10 @@ export default function Home() {
       // Check notification permissions using Notifee service status instead of scheduled count
       const serviceStatus = await getNotifeeServiceStatus();
       console.log('🔍 Notifee service status check:', serviceStatus);
-      
+
       // Check if permissions are actually granted (not just if notifications are scheduled)
       const hasPermissions = serviceStatus && serviceStatus.permissionsGranted;
-      
+
       if (!hasPermissions) {
         console.log('❌ Notification permissions not granted, disabling notifications');
         setNotificationsEnabled(false);
@@ -1465,7 +1475,7 @@ export default function Home() {
       console.log('✅ Notification permissions are granted, checking settings...');
       const notifEnabled = await AsyncStorage.getItem('notifications_enabled');
       const notifSettings = await AsyncStorage.getItem('notification_settings');
-      
+
       if (notifEnabled !== null) {
         const isEnabled = notifEnabled === 'true';
         console.log(`📱 Notification enabled from storage: ${isEnabled}`);
@@ -1476,7 +1486,7 @@ export default function Home() {
         setNotificationsEnabled(true);
         await AsyncStorage.setItem('notifications_enabled', 'true');
       }
-      
+
       if (notifSettings !== null) {
         setNotificationSettings(JSON.parse(notifSettings));
       } else {
@@ -1496,12 +1506,12 @@ export default function Home() {
       // Log notification status for debugging
       const debugStatus = await getScheduledNotifeePrayerNotifications();
       console.log(`Notifee notification settings loaded - Enabled: ${notifEnabled === 'true'}, Scheduled: ${debugStatus.length}`);
-      
+
     } catch (error) {
       console.error('Error loading notification settings:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error('Error details:', errorMessage);
-      
+
       // Only disable notifications if it's a permission-related error
       // Don't disable for background task or other unrelated errors
       if (errorMessage.includes('permission') || errorMessage.includes('Permission')) {
@@ -1536,32 +1546,32 @@ export default function Home() {
       // Implement cooldown to prevent infinite loops
       const now = Date.now();
       if (now - lastScheduleAttempt.current < SCHEDULE_COOLDOWN) {
-        console.log(`⏱️ Schedule cooldown active, skipping (${SCHEDULE_COOLDOWN/1000}s cooldown)`);
+        console.log(`⏱️ Schedule cooldown active, skipping (${SCHEDULE_COOLDOWN / 1000}s cooldown)`);
         return;
       }
       lastScheduleAttempt.current = now;
-      
+
       console.log(`🔄 ===== SCHEDULING NOTIFICATIONS FOR TODAY =====`);
       console.log(`🔄 notificationsEnabled: ${notificationsEnabled}`);
       console.log(`🔄 prayerTimes available: ${!!(prayerTimes && prayerTimes.times)}`);
       console.log(`🔄 notificationSettings:`, notificationSettings);
-      
+
       // Respect user's choice - if notifications are disabled, don't schedule anything
       if (!notificationsEnabled) {
         console.log('⏭️ Notifications disabled by user, skipping scheduling');
         return;
       }
-      
+
       // Use the new improved notification system
       if (!prayerTimes || !prayerTimes.times) {
         console.log('❌ No prayer data available for scheduling notifications');
         return;
       }
-      
-  console.log('✅ All conditions met, ensuring rolling prayer notification window...');
-  await ensurePrayerNotificationWindow();
-  console.log('✅ Rolling prayer notification window ensured');
-      
+
+      console.log('✅ All conditions met, ensuring rolling prayer notification window...');
+      await ensurePrayerNotificationWindow();
+      console.log('✅ Rolling prayer notification window ensured');
+
     } catch (error) {
       console.error('❌ Error with new notification system:', error);
     }
@@ -1572,13 +1582,13 @@ export default function Home() {
 
   // Region configuration management
   const regionLoadingRef = useRef(false);
-  
+
   useEffect(() => {
     // Prevent multiple region config loads
     if (regionLoadingRef.current) {
       return;
     }
-    
+
     regionLoadingRef.current = true;
     loadRegionConfig().finally(() => {
       setTimeout(() => {
@@ -1591,12 +1601,12 @@ export default function Home() {
   useFocusEffect(
     useCallback(() => {
       console.log('Home screen focused, checking for region changes...');
-      
+
       const checkForRegionChanges = async () => {
         try {
           const savedRegion = await AsyncStorage.getItem('selected_region');
           const regionToUse = savedRegion || DEFAULT_REGION;
-          
+
           // Only reload if the region actually changed
           if (regionToUse !== regionId) {
             console.log(`Region changed from ${regionId} to ${regionToUse}, reloading...`);
@@ -1614,9 +1624,9 @@ export default function Home() {
           await loadRegionConfig();
         }
       };
-      
+
       checkForRegionChanges();
-      
+
       // Safety mechanism: if we're still loading after 5 seconds and have prayer times, stop loading
       const loadingTimeout = setTimeout(() => {
         if (loading && prayerTimes) {
@@ -1624,25 +1634,25 @@ export default function Home() {
           setLoading(false);
         }
       }, 5000);
-      
+
       return () => {
         clearTimeout(loadingTimeout);
       };
     }, [regionId, prayerTimes, loading])
   );
-  
+
   const loadRegionConfig = async (): Promise<void> => {
     try {
       const savedRegion = await AsyncStorage.getItem('selected_region');
       const regionToUse = savedRegion || DEFAULT_REGION;
-      
+
       console.log(`Loading region config for: ${regionToUse}`);
-      
+
       const config = getRegionConfig(regionToUse);
-      
+
       if (config) {
         console.log(`Setting region to: ${config.id}, location: ${config.location}`);
-        
+
         // Always apply config on first load to ensure data is displayed
         if (isFirstLoad) {
           console.log('First load detected, applying region config and fetching data...');
@@ -1651,11 +1661,11 @@ export default function Home() {
           setMethod(config.method);
           setTuningParams(config.tuningParams);
           setIsFirstLoad(false);
-          
+
           // Set loading state for first load
           setPrayerTimes(null);
           setLoading(true);
-          
+
           // Trigger an immediate fetch after setting the config
           setTimeout(() => {
             console.log('Triggering first data fetch...');
@@ -1664,20 +1674,20 @@ export default function Home() {
               setLoading(false);
             });
           }, 500);
-          
+
           return;
         }
-        
+
         // Regular flow for subsequent loads
         const regionChanged = config.id !== regionId || config.location !== location;
-        
+
         if (regionChanged) {
           console.log('Region configuration changed, updating...');
           setRegionId(config.id);
           setLocation(config.location);
           setMethod(config.method);
           setTuningParams(config.tuningParams);
-          
+
           // Clear prayer times to force refetch with new region
           setPrayerTimes(null);
           setLoading(true);
@@ -1690,13 +1700,13 @@ export default function Home() {
         if (defaultConfig) {
           console.log('No config found, using default region');
           const regionChanged = DEFAULT_REGION !== regionId || defaultConfig.location !== location || isFirstLoad;
-          
+
           if (regionChanged) {
             setRegionId(DEFAULT_REGION);
             setLocation(defaultConfig.location);
             setMethod(defaultConfig.method);
             setTuningParams(defaultConfig.tuningParams);
-            
+
             // Clear prayer times to force refetch
             setPrayerTimes(null);
             setLoading(true);
@@ -1726,14 +1736,14 @@ export default function Home() {
     if (now - lastDateCheckTime < 60000) {
       return;
     }
-    
+
     setLastDateCheckTime(now);
-    
+
     const today = format(new Date(), 'yyyy-MM-dd');
-    
+
     if (lastRefreshDate !== today) {
       setLastRefreshDate(today);
-      
+
       if (lastRefreshDate !== '') {
         console.log('Auto-refreshing at new day');
         clearCache(false);
@@ -1742,31 +1752,31 @@ export default function Home() {
       }
     }
   };
-  
+
   const clearCache = async (showAlerts = true) => {
     try {
       setRefreshing(true);
-      
+
       // Clear all cached data
       const keys = await AsyncStorage.getAllKeys();
       const prayerKeys = keys.filter(key => key.startsWith('prayer_'));
-      
+
       if (prayerKeys.length > 0) {
         await AsyncStorage.multiRemove(prayerKeys);
       }
-      
+
       const today = format(new Date(), 'yyyy-MM-dd');
       await AsyncStorage.setItem('last_refresh_date', today);
       setLastRefreshDate(today);
-      
+
       // Fetch fresh data (no cache)
       await fetchAndCachePrayerTimes();
-      
+
       // Only reschedule notifications if they are enabled and we haven't scheduled recently
       if (notificationsEnabled) {
         const lastScheduled = await AsyncStorage.getItem('last_notification_scheduled');
         const now = Date.now();
-        
+
         // Only reschedule if it's been more than 1 minute since last scheduling to prevent spam
         if (!lastScheduled || now - parseInt(lastScheduled) > 60000) {
           console.log('Refresh: Rescheduling notifications after cache clear');
@@ -1775,7 +1785,7 @@ export default function Home() {
           console.log('Refresh: Skipping notification rescheduling - recently scheduled');
         }
       }
-      
+
       if (showAlerts) {
         Alert.alert(
           t('cacheCleared'),
@@ -1810,7 +1820,7 @@ export default function Home() {
         console.error('Error getting last refresh date:', error);
       }
     };
-    
+
     getLastRefreshDate();
   }, []);
 
@@ -1819,17 +1829,17 @@ export default function Home() {
     setProgressPercent(0);
     progressAnimation.setValue(0);
     setElapsedSeconds(0);
-    
+
     if (location && method !== undefined && tuningParams !== undefined) {
       console.log(`Fetching prayer times for day +${currentDay}, location: ${location}`);
-      
+
       // Using a more reliable way to fetch data with a retry mechanism for first load
       const fetchDataWithRetry = async () => {
         try {
           await fetchPrayerTimes();
         } catch (error) {
           console.error('Error in data fetch effect:', error);
-          
+
           // If this is first load or we have no prayer times, try one more time after a delay
           if (!prayerTimes) {
             console.log('Retrying data fetch in 2 seconds...');
@@ -1844,14 +1854,14 @@ export default function Home() {
           }
         }
       };
-      
+
       fetchDataWithRetry();
     } else {
       // If we don't have location config yet, ensure we're not stuck loading
       setTimeout(() => {
         if (loading && (!location || method === undefined || tuningParams === undefined)) {
           console.log('Configuration incomplete, stopping loading state');
-          
+
           // If we're still in first load but have no config, force default config
           if (isFirstLoad) {
             console.log('First load with incomplete config, forcing default config...');
@@ -1865,46 +1875,46 @@ export default function Home() {
               return; // This will trigger the effect again with proper config
             }
           }
-          
+
           setLoading(false);
         }
       }, 3000);
     }
-    
+
     const countdownTimer = setInterval(() => {
       updateCountdown();
     }, 1000);
-    
+
     const dateCheckTimer = setInterval(() => {
       checkDayChange();
     }, 60000);
-    
+
     return () => {
       clearInterval(countdownTimer);
       clearInterval(dateCheckTimer);
     };
   }, [currentDay, lastRefreshDate, location, method, tuningParams, isFirstLoad]);
-  
+
   // Prayer times fetching - NO CACHE, ALWAYS FRESH
   const fetchPrayerTimes = async () => {
     try {
       setLoading(true);
       console.log('Always fetching fresh data - no cache used');
-      
+
       // Add a timeout to prevent infinite loading
       const timeoutPromise = new Promise((_, reject) => {
         setTimeout(() => reject(new Error('Request timeout')), 15000); // 15 second timeout
       });
-      
+
       // Check if this is first load and add extra logging
       if (isFirstLoad || !prayerTimes) {
         console.log('Fetching prayer times for first load or after no data...');
       }
-      
+
       await Promise.race([fetchAndCachePrayerTimes(), timeoutPromise]);
     } catch (error) {
       console.error('Error fetching prayer times:', error);
-      
+
       // If we have existing prayer times and this is just a refresh, keep the old data
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       if (prayerTimes && errorMessage !== 'Request timeout') {
@@ -1912,7 +1922,7 @@ export default function Home() {
         setLoading(false);
         return;
       }
-      
+
       // Create fallback data if this is first load or we have no prayer times
       if (isFirstLoad || !prayerTimes) {
         console.log('Error on first load, creating fallback data');
@@ -1942,7 +1952,7 @@ export default function Home() {
         setPrayerTimes(fallbackTimes);
         setIsFirstLoad(false);
       }
-      
+
       Alert.alert(
         t('connectionError'),
         t('connectionErrorMessage'),
@@ -1951,7 +1961,7 @@ export default function Home() {
       setLoading(false);
     }
   };
-  
+
   // Convert 24h to 12h format
   const convertTo12HourFormat = (timeStr: string): string => {
     const [hours, minutes] = timeStr.split(':').map(Number);
@@ -1965,21 +1975,21 @@ export default function Home() {
     try {
       const fetchDate = addDays(new Date(), currentDay);
       const formattedDate = format(fetchDate, 'dd-MM-yyyy');
-      
+
       console.log(`Fetching FRESH prayer times for ${formattedDate}, location: ${location}`);
-      
+
       // Always use local CSV data (year-agnostic)
       const localData = getPrayerTimesFromLocalData(fetchDate) as PrayerData | null;
-      
+
       if (localData) {
         console.log(`Using local CSV prayer time data for ${formattedDate}`);
-        
+
         const cityId = extractCityIdFromRegionId(regionId);
         console.log(`Applying local data adjustments for city: ${cityId}`);
-        
+
         let timings = { ...localData.times } as any;
         timings = applyLocalDataCityAdjustments(timings, cityId, true);
-        
+
         const formattedTimes: PrayerData = {
           date: localData.date,
           hijriDate: localData.hijriDate,
@@ -1995,12 +2005,12 @@ export default function Home() {
             Isha: convertTo12HourFormat(timings.Isha)
           }
         };
-        
+
         // NO CACHING - Just set the data directly
-        setPrayerTimes(formattedTimes); 
-        updateNextPrayer(formattedTimes); 
+        setPrayerTimes(formattedTimes);
+        updateNextPrayer(formattedTimes);
         setLoading(false);
-        
+
         if (currentDay === 0 && notificationsEnabled) {
           setTimeout(async () => {
             console.log('Clearing old notifications and scheduling fresh ones for updated prayer times');
@@ -2021,7 +2031,7 @@ export default function Home() {
       }
     } catch (error) {
       console.error('Error fetching prayer times:', error);
-      
+
       if (retryCount < 3) {
         console.log(`Retrying prayer time fetch (attempt ${retryCount + 1} of 3)...`);
         const delay = Math.pow(2, retryCount) * 1000;
@@ -2030,7 +2040,7 @@ export default function Home() {
         }, delay);
         return;
       }
-      
+
       // Fallback for any day when all retries fail
       console.log('Creating fallback prayer times data after all retries failed');
       const today = addDays(new Date(), currentDay);
@@ -2056,15 +2066,15 @@ export default function Home() {
           Isha: '--:--'
         }
       };
-      
+
       // Always set fallback data to prevent blank screen
       setPrayerTimes(fallbackTimes);
-      
+
       // If this was the first load, mark it as complete
       if (isFirstLoad) {
         setIsFirstLoad(false);
       }
-      
+
       setLoading(false);
     }
   };
@@ -2073,7 +2083,7 @@ export default function Home() {
   useEffect(() => {
     // TEMPORARILY DISABLED - All magical animations commented out to fix driver conflicts
     console.log('🚫 Magical animations temporarily disabled to fix driver conflicts');
-    
+
     /*
     // Start continuous sparkle animations
     const startSparkleAnimations = () => {
@@ -2467,7 +2477,7 @@ export default function Home() {
 
   // Prayer Time Monitoring System - Automatically detects when prayer times arrive
   const lastTriggeredPrayer = useRef<string | null>(null);
-  
+
   // ❌ REMOVED: Prayer monitoring system - AlarmManager handles notifications automatically
   // The prayer monitoring system was causing infinite loops and conflicts with AlarmManager.
   // AlarmManager + Notifee handle notifications perfectly on their own.
@@ -2485,34 +2495,34 @@ export default function Home() {
       console.log('⚠️ updateNextPrayer: No prayer data available');
       return;
     }
-    
+
     console.log('🔄 Calculating next prayer time...');
-    
+
     // Use the improved utility function
     const next = findNextPrayer(data.times, data.times12h, currentDay) as NextPrayer | null;
-    
+
     if (next) {
       console.log(`📋 findNextPrayer returned: ${next.name} at ${next.time}`);
       console.log(`📋 Current nextPrayer: ${nextPrayer?.name || 'none'}`);
-      
+
       // Only update if the prayer is actually different (prevents unnecessary re-renders)
-      const isDifferent = !nextPrayer || 
-        nextPrayer.name !== next.name || 
+      const isDifferent = !nextPrayer ||
+        nextPrayer.name !== next.name ||
         !isSamePrayerTime(nextPrayer.date, next.date);
-      
+
       console.log(`📋 isDifferent: ${isDifferent}`);
-      
+
       if (isDifferent) {
         console.log(`🔄 Next prayer updated: ${next.name} at ${next.time}`);
         setNextPrayer(next);
-        
+
         // Reset countdown when prayer changes to fix stuck countdown
         setCountdown('');
         setCountdownLoading(true);
-        
+
         // Reset the countdown trigger ref when prayer successfully changes
         countdownTriggeredRefresh.current = '';
-        
+
         console.log(`🔄 Prayer changed from ${nextPrayer?.name || 'none'} to ${next.name} - countdown reset`);
       } else {
         console.log(`⏱️ Next prayer unchanged: ${next.name} at ${next.time}`);
@@ -2546,7 +2556,7 @@ export default function Home() {
         if (!isNaN(hour) && !isNaN(minute)) {
           const prayerDate = new Date(today);
           prayerDate.setHours(hour, minute, 0, 0);
-          
+
           if (prayerDate <= now) {
             lastPrayer = prayerDate;
           } else {
@@ -2573,34 +2583,34 @@ export default function Home() {
     return lastPrayer;
   };
   const safetyMechanismTriggered = useRef<string>('');
-  
+
   const updateCountdown = useCallback(() => {
     if (!nextPrayer) return;
-    
+
     const now = new Date();
     const prayerTime = new Date(nextPrayer.date);
-    
+
     const diffSeconds = Math.max(0, differenceInSeconds(prayerTime, now));
-    
+
     if (diffSeconds <= 0) {
       // Prayer time has passed! 
-      
+
       // Only log this once per prayer to prevent spam
       const logKey = `${nextPrayer.name}-passed`;
       if (lastCountdownLog.current !== logKey) {
         console.log(`⏰ Countdown: ${nextPrayer.name} prayer time has passed`);
         lastCountdownLog.current = logKey;
       }
-      
+
       // Show that time has passed
       setCountdown('00:00:00');
-      
+
       // Immediately update to next prayer when countdown reaches zero
       // Only trigger once per prayer to prevent loops
       const refreshKey = `${nextPrayer.name}-${prayerTime.getTime()}`;
-      
+
       console.log(`🔍 Countdown zero check - refreshKey: ${refreshKey}, stored: ${countdownTriggeredRefresh.current}, currentDay: ${currentDay}, hasPrayerTimes: ${!!prayerTimes}`);
-      
+
       if (countdownTriggeredRefresh.current !== refreshKey && currentDay === 0 && prayerTimes) {
         countdownTriggeredRefresh.current = refreshKey;
         console.log('🔄 Countdown reached zero - advancing to next prayer immediately');
@@ -2609,10 +2619,10 @@ export default function Home() {
       } else {
         console.log('⚠️ Countdown zero BUT not triggering update - already triggered or wrong conditions');
       }
-      
+
       return;
     }
-    
+
     // Reset log key when prayer is active
     const activeLogKey = `${nextPrayer.name}-active`;
     if (lastCountdownLog.current !== activeLogKey) {
@@ -2620,45 +2630,45 @@ export default function Home() {
     }
 
     // ✨ NEW ENHANCED COUNTDOWN LOGIC ✨
-    
+
     // Find the last prayer that already passed
     const lastPrayer = findLastPrayer(prayerTimes?.times, prayerTimes?.times12h);
-    
+
     if (lastPrayer) {
       // Calculate total time span between last prayer and next prayer
       const totalTimeSpan = differenceInSeconds(prayerTime, lastPrayer);
       const elapsedTime = differenceInSeconds(now, lastPrayer);
       const remainingTime = differenceInSeconds(prayerTime, now);
-      
+
       // Calculate progress percentage (0-100)
       const progressPercentage = Math.min(100, Math.max(0, (elapsedTime / totalTimeSpan) * 100));
-      
-      console.log(`⏱️ Enhanced Countdown: ${Math.round(progressPercentage)}% progress, ${Math.floor(remainingTime/60)}m remaining`);
-      
+
+      console.log(`⏱️ Enhanced Countdown: ${Math.round(progressPercentage)}% progress, ${Math.floor(remainingTime / 60)}m remaining`);
+
       // Determine countdown display based on remaining time
       const oneHourInSeconds = 3600;
-      
+
       if (remainingTime <= oneHourInSeconds) {
         // Final hour: Show time remaining
         const minutesRemaining = Math.floor(remainingTime / 60);
         const secondsRemaining = remainingTime % 60;
-        
+
         // Show just time remaining in final hour
         const finalHourDisplay = `${minutesRemaining}m ${secondsRemaining}s`;
-        
+
         if (countdown !== finalHourDisplay) {
           setCountdown(finalHourDisplay);
         }
-        
+
         // Update the beautiful circular progress indicator to show hour proportion
         const hourElapsed = oneHourInSeconds - remainingTime;
         const hourProgress = Math.max(0, Math.min(1, hourElapsed / oneHourInSeconds));
-        
+
         if (Math.abs(hourProgress - progressPercent) > 0.01) {
           setProgressPercent(hourProgress);
           setTotalSeconds(oneHourInSeconds);
           setElapsedSeconds(hourElapsed);
-          
+
           Animated.timing(progressAnimation, {
             toValue: hourProgress,
             duration: 300,
@@ -2666,28 +2676,28 @@ export default function Home() {
             easing: Easing.out(Easing.ease)
           }).start();
         }
-        
+
       } else {
         // More than 1 hour: Show time remaining
         const hoursRemaining = Math.floor(remainingTime / 3600);
         const minutesRemaining = Math.floor((remainingTime % 3600) / 60);
-        
+
         // Show just time remaining without percentage
         const progressDisplay = `${hoursRemaining}h ${minutesRemaining}m`;
-        
+
         if (countdown !== progressDisplay) {
           setCountdown(progressDisplay);
         }
-        
+
         // For more than 1 hour, show overall progress in the circular indicator
         // Scale the overall progress to fit the circle (0-1 range)
         const circularProgress = Math.max(0, Math.min(1, progressPercentage / 100));
-        
+
         if (Math.abs(circularProgress - progressPercent) > 0.01) {
           setProgressPercent(circularProgress);
           setTotalSeconds(totalTimeSpan);
           setElapsedSeconds(elapsedTime);
-          
+
           Animated.timing(progressAnimation, {
             toValue: circularProgress,
             duration: 300,
@@ -2696,40 +2706,40 @@ export default function Home() {
           }).start();
         }
       }
-      
+
       // Update last prayer time state if it changed
       if (!lastPrayerTime || lastPrayerTime.getTime() !== lastPrayer.getTime()) {
         setLastPrayerTime(lastPrayer);
       }
-      
+
     } else {
       // Fallback to proportional countdown if we can't determine last prayer
       const hoursRemaining = Math.floor(diffSeconds / 3600);
       const minutesRemaining = Math.floor((diffSeconds % 3600) / 60);
       const secondsRemaining = diffSeconds % 60;
-      
+
       // Calculate a basic progress (assuming 6-hour prayer intervals)
       const basicProgress = Math.min(100, Math.max(0, 100 - (diffSeconds / (6 * 3600)) * 100));
-      
+
       // Always show proportional display even in fallback
       const oneHourInSeconds = 3600;
-      
+
       if (diffSeconds <= oneHourInSeconds) {
         // Final hour: Show time remaining
         const timeDisplay = `${minutesRemaining}m ${secondsRemaining}s`;
-        
+
         if (countdown !== timeDisplay) {
           setCountdown(timeDisplay);
         }
-        
+
         const hourElapsed = oneHourInSeconds - diffSeconds;
         const hourProgress = Math.max(0, Math.min(1, hourElapsed / oneHourInSeconds));
-        
+
         if (Math.abs(hourProgress - progressPercent) > 0.01) {
           setProgressPercent(hourProgress);
           setTotalSeconds(oneHourInSeconds);
           setElapsedSeconds(hourElapsed);
-          
+
           Animated.timing(progressAnimation, {
             toValue: hourProgress,
             duration: 300,
@@ -2740,19 +2750,19 @@ export default function Home() {
       } else {
         // More than 1 hour: Show time remaining
         const progressDisplay = `${hoursRemaining}h ${minutesRemaining}m`;
-        
+
         if (countdown !== progressDisplay) {
           setCountdown(progressDisplay);
         }
-        
+
         // Show basic progress in circular indicator
         const circularProgress = Math.max(0, Math.min(1, basicProgress / 100));
-        
+
         if (Math.abs(circularProgress - progressPercent) > 0.01) {
           setProgressPercent(circularProgress);
           setTotalSeconds(6 * 3600); // 6 hour assumption
           setElapsedSeconds((6 * 3600) * circularProgress);
-          
+
           Animated.timing(progressAnimation, {
             toValue: circularProgress,
             duration: 300,
@@ -2762,22 +2772,22 @@ export default function Home() {
         }
       }
     }
-    
+
     // Mark countdown as loaded
     if (countdownLoading) {
       setCountdownLoading(false);
     }
   }, [nextPrayer, currentDay, progressPercent, countdown, prayerTimes, lastPrayerTime, countdownLoading, updateNextPrayer]);
-  
+
   // Timer management for countdown - only when app is in foreground
   useEffect(() => {
     let countdownTimer: NodeJS.Timeout | null = null;
-    
+
     if (nextPrayer && appState === 'active') { // Only run when app is active (foreground)
       updateCountdown();
       countdownTimer = setInterval(updateCountdown, 1000);
     }
-    
+
     return () => {
       if (countdownTimer) clearInterval(countdownTimer);
     };
@@ -2788,7 +2798,7 @@ export default function Home() {
     if (nextPrayer) {
       // Only show loading very briefly to prevent glitching
       setCountdownLoading(true);
-      
+
       // Shorter timeout to reduce glitching
       const resetTimeout = setTimeout(() => {
         // Reset progress animation to 0 when prayer changes
@@ -2796,36 +2806,36 @@ export default function Home() {
         setProgressPercent(0);
         setCountdownLoading(false);
       }, 150); // Reduced to 150ms for faster response
-      
+
       return () => clearTimeout(resetTimeout);
     }
   }, [nextPrayer]);
 
   // Animated circular progress component
-  const AnimatedCircularProgress = ({ 
-    progress, 
-    size, 
-    strokeWidth 
-  }: { 
-    progress: number, 
-    size: number, 
-    strokeWidth: number 
+  const AnimatedCircularProgress = ({
+    progress,
+    size,
+    strokeWidth
+  }: {
+    progress: number,
+    size: number,
+    strokeWidth: number
   }) => {
     const radius = (size - strokeWidth) / 2;
     const circumference = radius * 2 * Math.PI;
-    
+
     const animatedStrokeDashoffset = progressAnimation.interpolate({
       inputRange: [0, 1],
       outputRange: [circumference, 0],
       extrapolate: 'clamp'
     });
-    
+
     const AnimatedCircle = Animated.createAnimatedComponent(Circle);
-    
+
     // Check if we should show progress (less than 1 hour remaining)
-    const shouldShowProgress = nextPrayer && 
+    const shouldShowProgress = nextPrayer &&
       differenceInSeconds(new Date(nextPrayer.date), new Date()) <= 3600;
-    
+
     return (
       <View style={{ width: size, height: size }}>
         <Svg width={size} height={size}>
@@ -2837,7 +2847,7 @@ export default function Home() {
             r={radius}
             strokeWidth={strokeWidth}
           />
-          
+
           {shouldShowProgress && (
             <AnimatedCircle
               stroke={SepiaColors.accent.gold}
@@ -2850,11 +2860,11 @@ export default function Home() {
               strokeDashoffset={animatedStrokeDashoffset}
               strokeLinecap="round"
               rotation="-90"
-              origin={`${size/2}, ${size/2}`}
+              origin={`${size / 2}, ${size / 2}`}
             />
           )}
         </Svg>
-        
+
         <View style={styles.progressCenter}>
           {nextPrayer && (
             <>
@@ -2888,45 +2898,45 @@ export default function Home() {
     if (currentDay > 0) {
       const newDay = currentDay - 1;
       setCurrentDay(newDay);
-      
+
       if (newDay === 0) {
         setCurrentDate(new Date());
       } else {
         setCurrentDate(prevDate => addDays(prevDate, -1));
       }
-      
+
       setNextPrayer(null);
       setCountdown('');
-      
+
       console.log(`Moving to day +${newDay}`);
     }
   };
-  
+
   const goToNextDay = () => {
     console.log('🚀 DEBUG: goToNextDay pressed!');
     if (currentDay < 9) {
       const newDay = currentDay + 1;
       setCurrentDay(newDay);
-      
+
       setCurrentDate(prevDate => addDays(prevDate, 1));
-      
+
       setNextPrayer(null);
       setCountdown('');
-      
+
       console.log(`Moving to day +${newDay}`);
     }
   };
-  
+
   // Language functions
   const toggleLanguageSelector = () => {
     setShowLanguageSelector(!showLanguageSelector);
   };
-  
+
   const selectLanguage = async (langId: string): Promise<void> => {
     await changeLanguage(langId);
     setShowLanguageSelector(false);
   };
-  
+
   // Language selector component
   const LanguageSelector = () => (
     <Modal
@@ -2999,21 +3009,21 @@ export default function Home() {
       t('supportMessage'),
       [
         { text: t('maybeLater'), style: 'cancel' },
-        { 
-          text: t('oneTimeSupport'), 
+        {
+          text: t('oneTimeSupport'),
           onPress: () => {
-            Linking.openURL('https://nas.io/checkout-global?communityId=640f2dbae2d22dff16a554d9&communityCode=AADIL_NOUFAL&requestor=signupRequestor&linkClicked=https%3A%2F%2Fnas.io%2Fportal%2Fproducts%2F67e825d377e3fc39a8ba9b0d%3Ftab%3Dcontent&sourceInfoType=folder&sourceInfoOrigin=67e825d377e3fc39a8ba9b0d').catch((err: Error) => 
+            Linking.openURL('https://nas.io/checkout-global?communityId=640f2dbae2d22dff16a554d9&communityCode=AADIL_NOUFAL&requestor=signupRequestor&linkClicked=https%3A%2F%2Fnas.io%2Fportal%2Fproducts%2F67e825d377e3fc39a8ba9b0d%3Ftab%3Dcontent&sourceInfoType=folder&sourceInfoOrigin=67e825d377e3fc39a8ba9b0d').catch((err: Error) =>
               console.error('An error occurred while opening the link:', err)
             );
-          } 
+          }
         },
-        { 
-          text: t('monthlySupport'), 
+        {
+          text: t('monthlySupport'),
           onPress: () => {
-            Linking.openURL('https://nas.io/checkout-global?communityId=67e828db202755d3615d3a6b&communityCode=AD_FREE_ATHAN&requestor=signupRequestor&linkClicked=https%3A%2F%2Fnas.io%2Fcheckout-widget%3FcommunityCode%3DAD_FREE_ATHAN%26communitySlug%3D%252Fad-free-athan%26buttonText%3DJoin%2520as%2520member%26buttonTextColorHex%3D%2523000%26buttonBgColorHex%3D%2523fccb1d%26widgetTheme%3Dlight%26backgroundColorHex%3D%2523fff%2522%2520width%3D%2522100%25%2522%2520height%3D%2522320%2522%2520frameborder%3D%25220%2522%2520referrerpolicy%3D%2522no-referrer&fromWidget=1').catch((err: Error) => 
+            Linking.openURL('https://nas.io/checkout-global?communityId=67e828db202755d3615d3a6b&communityCode=AD_FREE_ATHAN&requestor=signupRequestor&linkClicked=https%3A%2F%2Fnas.io%2Fcheckout-widget%3FcommunityCode%3DAD_FREE_ATHAN%26communitySlug%3D%252Fad-free-athan%26buttonText%3DJoin%2520as%2520member%26buttonTextColorHex%3D%2523000%26buttonBgColorHex%3D%2523fccb1d%26widgetTheme%3Dlight%26backgroundColorHex%3D%2523fff%2522%2520width%3D%2522100%25%2522%2520height%3D%2522320%2522%2520frameborder%3D%25220%2522%2520referrerpolicy%3D%2522no-referrer&fromWidget=1').catch((err: Error) =>
               console.error('An error occurred while opening the link:', err)
             );
-          } 
+          }
         }
       ]
     );
@@ -3042,7 +3052,7 @@ export default function Home() {
     const interval = setInterval(check, 1500);
     return () => { clearInterval(interval); if (timer) clearTimeout(timer); };
   }, [iapLoading]);
-  
+
   // Region selector component
   const RegionPicker = () => (
     <Modal
@@ -3094,16 +3104,16 @@ export default function Home() {
       // Compare dates by converting to date strings (ignoring time)
       const systemDateStr = format(systemDate, 'yyyy-MM-dd');
       const appDateStr = format(currentDate, 'yyyy-MM-dd');
-      
+
       if (systemDateStr !== appDateStr) {
         console.log('App date does not match system date, updating...');
         setCurrentDate(systemDate);
         // Force refresh prayer times for the new date
         setLastRefreshDate(''); // This will trigger a data refresh
-        
+
         // Reset to today's view
         setCurrentDay(0);
-         
+
         // If notifications are enabled, reschedule them for the new date
         if (notificationsEnabled) {
           setTimeout(() => {
@@ -3117,22 +3127,22 @@ export default function Home() {
   const changeRegion = async (newRegionId: string): Promise<void> => {
     try {
       console.log(`Changing region from ${regionId} to ${newRegionId}`);
-      
+
       // Set loading states
       setRegionChanging(true);
       setLoading(true);
-      
+
       // Save the new region first
       await AsyncStorage.setItem('selected_region', newRegionId);
-      
+
       // Get config for new region
       const config = getRegionConfig(newRegionId);
       if (!config) {
         throw new Error('Invalid region configuration');
       }
-      
+
       console.log(`New location config: ${config.location}`);
-      
+
       // Clear ALL cached data (just in case some exists)
       console.log('Clearing any existing cached data...');
       const keys = await AsyncStorage.getAllKeys();
@@ -3141,32 +3151,32 @@ export default function Home() {
         await AsyncStorage.multiRemove(prayerKeys);
         console.log(`Removed ${prayerKeys.length} cached prayer entries`);
       }
-      
+
       // Reset prayer states
       setPrayerTimes(null);
       setNextPrayer(null);
       setCountdown('');
-      
+
       // Update state with new location config
       setRegionId(newRegionId);
       setLocation(config.location);
       setMethod(config.method);
       setTuningParams(config.tuningParams);
-      
+
       // Close the modal
       toggleModal(setShowRegionPicker);
-      
+
       // Force immediate fresh data fetch for new location
       console.log('Fetching FRESH data for new region (no cache)...');
       await fetchAndCachePrayerTimes();
-      
+
       // Schedule notifications after successful data fetch
       if (notificationsEnabled && currentDay === 0) {
         setTimeout(() => {
           scheduleNotificationsForToday();
         }, 1000);
       }
-      
+
       console.log('Region change completed successfully');
     } catch (error) {
       console.error('Error changing region:', error);
@@ -3184,11 +3194,11 @@ export default function Home() {
       console.log('Performing date check on app start/resume');
       console.log(`System date: ${format(now, 'yyyy-MM-dd')}`);
       console.log(`App date: ${format(currentDate, 'yyyy-MM-dd')}`);
-      
+
       if (currentDay === 0) {
         const systemDateStr = format(now, 'yyyy-MM-dd');
         const appDateStr = format(currentDate, 'yyyy-MM-dd');
-        
+
         if (systemDateStr !== appDateStr) {
           console.log('Date changed while app was running');
           forceCurrentDateRefresh();
@@ -3197,7 +3207,7 @@ export default function Home() {
     };
 
     forceCurrentDateRefresh();
-    
+
     const subscription = AppState.addEventListener('change', (nextAppState) => {
       if (appState.match(/inactive|background/) && nextAppState === 'active') {
         console.log('App resumed from background, checking date');
@@ -3205,20 +3215,20 @@ export default function Home() {
       }
       setAppState(nextAppState);
     });
-    
+
     const minuteTimer = setInterval(() => {
       if (currentDay === 0) {
         const now = new Date();
         const systemDateStr = format(now, 'yyyy-MM-dd');
         const appDateStr = format(currentDate, 'yyyy-MM-dd');
-        
+
         if (systemDateStr !== appDateStr) {
           console.log('Date changed while app was running');
           forceCurrentDateRefresh();
         }
       }
     }, 60000);
-    
+
     return () => {
       subscription.remove();
       clearInterval(minuteTimer);
@@ -3233,23 +3243,23 @@ export default function Home() {
   const debugNotifications = async () => {
     try {
       console.log('🔍 STARTING COMPREHENSIVE NOTIFEE DEBUG...');
-      
+
       // Use the comprehensive debugging function
       const debugResult = await debugNotifeeNotifications();
       const bgStatus = await getBackgroundFetchStatus();
-      
+
       if (debugResult.error) {
         Alert.alert('Debug Error', debugResult.error);
         return;
       }
-      
+
       const { status, debugInfo, recommendations } = debugResult;
-      
+
       // Add background task info
       let fullDebugInfo = debugInfo;
       fullDebugInfo += `\n🔄 Background Task: ${bgStatus.statusText}\n`;
       fullDebugInfo += `📍 Background Status: ${bgStatus.status}\n`;
-      
+
       // Add current time info
       const now = new Date();
       const currentTimeStr = now.toLocaleTimeString();
@@ -3285,11 +3295,13 @@ export default function Home() {
       }
 
       Alert.alert('Notifee Debug', fullDebugInfo, [
-        { text: 'Clear All & Reschedule', onPress: async () => {
-          await cancelAllNotifeePrayerNotifications();
-          setTimeout(() => scheduleNotificationsForToday(), 1000);
-          Alert.alert('Done', 'All Notifee notifications cleared and rescheduled');
-        }},
+        {
+          text: 'Clear All & Reschedule', onPress: async () => {
+            await cancelAllNotifeePrayerNotifications();
+            setTimeout(() => scheduleNotificationsForToday(), 1000);
+            Alert.alert('Done', 'All Notifee notifications cleared and rescheduled');
+          }
+        },
         { text: 'Reschedule Only', onPress: () => scheduleNotificationsForToday() },
         { text: 'Close' }
       ]);
@@ -3316,24 +3328,24 @@ export default function Home() {
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: isDark ? colors.background.primary : SepiaColors.background.primary }]} edges={['top', 'left', 'right']}>
       {Platform.OS === 'android' ? (
-        <View style={{ 
+        <View style={{
           height: StatusBar.currentHeight || 20,
-          backgroundColor: isDark ? colors.background.primary : SepiaColors.background.primary 
+          backgroundColor: isDark ? colors.background.primary : SepiaColors.background.primary
         }} />
       ) : (
-        <StatusBar 
-          barStyle={isDark ? 'light-content' : 'dark-content'} 
-          backgroundColor={isDark ? colors.background.primary : SepiaColors.background.primary} 
+        <StatusBar
+          barStyle={isDark ? 'light-content' : 'dark-content'}
+          backgroundColor={isDark ? colors.background.primary : SepiaColors.background.primary}
         />
       )}
-      
-      <Stack.Screen 
-        options={{ 
+
+      <Stack.Screen
+        options={{
           headerShown: false, // Hide the default header
           title: t('appName') // This sets the title but since we're hiding the header, it won't show
         }}
       />
-       
+
       {/* ✨ MAGICAL GRADIENT BACKGROUND ✨ */}
       <ExpoLinearGradient
         colors={isDark ? [colors.background.primary, colors.background.secondary, colors.background.tertiary] : (getTimeBasedGradient() as any)}
@@ -3342,7 +3354,7 @@ export default function Home() {
         end={{ x: 1, y: 1 }}
         pointerEvents="none"
       />
-      
+
       {/* ✨ FLOATING SPARKLES ✨ */}
       {/* TEMPORARILY DISABLED - Sparkles causing text rendering issues */}
       {/*
@@ -3350,28 +3362,28 @@ export default function Home() {
         <MagicalSparkle key={sparkle.id} sparkle={sparkle} index={index} />
       ))}
       */}
-      
-  <View style={styles.container}>
-        
+
+      <View style={styles.container}>
+
         {/* Region Picker Modal */}
         <RegionPicker />
-        
+
         {/* Language Selector Modal */}
         <LanguageSelector />
 
         {/* Support Paywall Modal */}
         {showPaywall && (
           <Modal animationType="slide" transparent visible={showPaywall} onRequestClose={() => setShowPaywall(false)}>
-            <View style={{ flex:1, backgroundColor:'rgba(0,0,0,0.85)' }}>
+            <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.85)' }}>
               <RevenueCatPaywall onClose={() => setShowPaywall(false)} />
             </View>
           </Modal>
         )}
-        
+
         {/* Reverted: separate header + location + date nav (tightened spacing) */}
-        <View style={[styles.headerSection, { marginBottom: 4 }]}> 
+        <View style={[styles.headerSection, { marginBottom: 4 }]}>
           <MagicalHeader />
-          <MagicalButton 
+          <MagicalButton
             style={[styles.enhancedLocationContainer, { paddingVertical: 10, marginTop: 4 }]}
             onPress={() => {
               console.log('🚀 DEBUG: Location button pressed!');
@@ -3398,8 +3410,8 @@ export default function Home() {
             </View>
           </MagicalButton>
         </View>
-        <View style={[styles.dateNavigationSection, { marginBottom: 8 }]}> 
-          <View style={[styles.enhancedDateNav, { paddingVertical: 10 }]}> 
+        <View style={[styles.dateNavigationSection, { marginBottom: 8 }]}>
+          <View style={[styles.enhancedDateNav, { paddingVertical: 10 }]}>
             <MagicalArrowButton direction="left" onPress={goToPreviousDay} disabled={currentDay === 0} iconName="chevron-left" />
             <View style={styles.dateDisplayContainer}>
               <Text style={styles.primaryDateText}>
@@ -3412,7 +3424,7 @@ export default function Home() {
             <MagicalArrowButton direction="right" onPress={goToNextDay} disabled={currentDay === 9} iconName="chevron-right" />
           </View>
         </View>
-        
+
         {/* ✨ MAIN CONTENT AREA WITH ENHANCED LAYOUT ✨ */}
         <View style={styles.enhancedContentContainer}>
           {loading || regionChanging ? (
@@ -3428,7 +3440,7 @@ export default function Home() {
               </Text>
             </View>
           ) : (
-            <ScrollView 
+            <ScrollView
               style={styles.enhancedScrollView}
               contentContainerStyle={styles.enhancedScrollViewContent}
               showsVerticalScrollIndicator={false}
@@ -3438,14 +3450,14 @@ export default function Home() {
               {/* ✨ ENHANCED NEXT PRAYER COUNTDOWN SECTION ✨ */}
               {nextPrayer && currentDay === 0 && (
                 <View style={styles.countdownSection}>
-                  <EnhancedCircularProgress 
-                    progress={progressPercent} 
-                    size={Math.min(260, screenWidth * 0.75)} 
-                    strokeWidth={14} 
+                  <EnhancedCircularProgress
+                    progress={progressPercent}
+                    size={Math.min(260, screenWidth * 0.75)}
+                    strokeWidth={14}
                   />
                 </View>
               )}
-              
+
               {/* ✨ ENHANCED PRAYER TIMES GRID ✨ */}
               {prayerTimes?.times && (
                 <View style={styles.enhancedTimesContainer}>
@@ -3453,25 +3465,25 @@ export default function Home() {
                     <Animated.View style={{
                       transform: [{ rotate: shimmerAnimation.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }],
                     }}>
-                      <MaterialCommunityIcons 
-                        name="clock-outline" 
-                        size={20} 
-                        color={SepiaColors.accent.gold} 
+                      <MaterialCommunityIcons
+                        name="clock-outline"
+                        size={20}
+                        color={SepiaColors.accent.gold}
                       />
                     </Animated.View>
                     <Text style={styles.timesHeaderText}>{t('prayerTimes')}</Text>
                   </View>
-                  
+
                   <View style={styles.prayerTimesGrid}>
                     {Object.entries(prayerTimes.times).map(([prayer, time], index) => (
-                      <Animated.View 
+                      <Animated.View
                         key={prayer}
                         style={[
-                          styles.enhancedPrayerItem, 
+                          styles.enhancedPrayerItem,
                           nextPrayer && nextPrayer.name === prayer && currentDay === 0
                             ? styles.enhancedNextPrayerItem
                             : null,
-                          { 
+                          {
                             transform: [{
                               scale: shimmerAnimation.interpolate({
                                 inputRange: [0, 0.5, 1],
@@ -3498,7 +3510,7 @@ export default function Home() {
                             pointerEvents="none"
                           />
                         )}
-                        
+
                         <View style={styles.prayerItemHeader}>
                           <View style={[
                             styles.enhancedIconContainer,
@@ -3509,8 +3521,8 @@ export default function Home() {
                               active={!!(nextPrayer && nextPrayer.name === prayer && currentDay === 0)}
                               size={24}
                               color={
-                                nextPrayer && nextPrayer.name === prayer && currentDay === 0 
-                                  ? SepiaColors.accent.darkGold 
+                                nextPrayer && nextPrayer.name === prayer && currentDay === 0
+                                  ? SepiaColors.accent.darkGold
                                   : SepiaColors.accent.gold
                               }
                             />
@@ -3525,7 +3537,7 @@ export default function Home() {
                             {t(prayer)}
                           </Text>
                         </View>
-                        
+
                         <View style={styles.prayerTimeWrapper}>
                           <Text style={[
                             styles.enhancedPrayerTime,
@@ -3536,10 +3548,10 @@ export default function Home() {
                           </Text>
                           {nextPrayer && nextPrayer.name === prayer && currentDay === 0 && (
                             <View style={styles.nextIndicator}>
-                              <MaterialCommunityIcons 
-                                name="clock-fast" 
-                                size={12} 
-                                color={SepiaColors.accent.darkGold} 
+                              <MaterialCommunityIcons
+                                name="clock-fast"
+                                size={12}
+                                color={SepiaColors.accent.darkGold}
                               />
                               <Text style={styles.nextIndicatorText}>{t('next')}</Text>
                             </View>
@@ -3550,7 +3562,7 @@ export default function Home() {
                   </View>
                 </View>
               )}
-              
+
               {/* ✨ MAGICAL FOOTER ✨ */}
               <MagicalFooter />
             </ScrollView>
@@ -3641,16 +3653,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 8, // Reduced vertical padding
     paddingHorizontal: 12, // Reduced horizontal padding
-  // Legacy light-mode style: replaced dynamically in component with themed enhancedDateNav; keep neutral fallback.
-  backgroundColor: 'transparent',
+    // Legacy light-mode style: replaced dynamically in component with themed enhancedDateNav; keep neutral fallback.
+    backgroundColor: 'transparent',
     borderBottomWidth: 1,
     borderBottomColor: `${SepiaColors.border.light}60`, // More transparent border
   },
   navButton: {
     padding: 4, // Reduced from 6 to 4 for more compact buttons
     borderRadius: 20,
-  // Background handled by MagicalArrowButton using theme; leave transparent here.
-  backgroundColor: 'transparent',
+    // Background handled by MagicalArrowButton using theme; leave transparent here.
+    backgroundColor: 'transparent',
     borderWidth: 1,
     borderColor: SepiaColors.border.light,
   },
@@ -3710,8 +3722,8 @@ const styles = StyleSheet.create({
   countdownContainer: {
     padding: 12, // Reduced from 20 to 12
     alignItems: 'center',
-  // Use themed surface via inline style when rendered; keep neutral here.
-  backgroundColor: 'transparent',
+    // Use themed surface via inline style when rendered; keep neutral here.
+    backgroundColor: 'transparent',
     margin: 12, // Reduced from 16 to 12
     borderRadius: 16,
     borderWidth: 1,
@@ -3749,8 +3761,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 14,
     paddingHorizontal: 16,
-  // Now handled by enhancedPrayerItem with proper dark mode colors
-  backgroundColor: 'transparent',
+    // Now handled by enhancedPrayerItem with proper dark mode colors
+    backgroundColor: 'transparent',
     borderRadius: 14,
     borderWidth: 1,
     borderColor: `${SepiaColors.border.light}80`, // More transparent border
@@ -3932,13 +3944,13 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     opacity: 0.8,
   },
-  
+
   // ✨ MAGICAL ENHANCEMENT STYLES ✨
   sparkle: {
     position: 'absolute',
     zIndex: 1,
   },
-  
+
   // ✨ MAGICAL HEADER STYLES ✨
   magicalHeader: {
     position: 'relative',
@@ -3949,11 +3961,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent', // Made transparent to match page
     borderWidth: 0,
     borderColor: 'transparent',
-  // Avoid clipping touches on Android
-  // overflow: 'hidden',
-  zIndex: 5,
-  // Help Android stacking
-  elevation: 2,
+    // Avoid clipping touches on Android
+    // overflow: 'hidden',
+    zIndex: 5,
+    // Help Android stacking
+    elevation: 2,
   },
   headerGlow: {
     position: 'absolute',
@@ -3963,14 +3975,14 @@ const styles = StyleSheet.create({
     bottom: 0,
     backgroundColor: SepiaColors.accent.gold,
     borderRadius: 20,
-  // Ensure this never intercepts touches
-  // pointerEvents set on element usage as well
+    // Ensure this never intercepts touches
+    // pointerEvents set on element usage as well
   },
   headerStar: {
     position: 'absolute',
     zIndex: 2,
   },
-  
+
   // ✨ MAGICAL FOOTER STYLES ✨
   magicalFooter: {
     position: 'relative',
@@ -4016,7 +4028,7 @@ const styles = StyleSheet.create({
   footerStar: {
     marginLeft: 10,
   },
-  
+
   enhancedCircularContainer: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -4083,14 +4095,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 220, 140, 0.15)',
     borderRadius: 8,
   },
-  
+
   // ✨ ENHANCED LAYOUT STYLES ✨
-  
+
   // Header Section Styles
   headerSection: {
     marginBottom: 8, // Reduced from 20 to 8 for more compact layout
   },
-  
+
   // Enhanced Location Container
   enhancedLocationContainer: {
     flexDirection: 'row',
@@ -4129,7 +4141,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  
+
   // Date Navigation Section
   dateNavigationSection: {
     marginBottom: 8, // Reduced from 20 to 8 for more compact layout
@@ -4176,13 +4188,13 @@ const styles = StyleSheet.create({
     marginTop: 1,
     opacity: 0.9,
   },
-  
+
   // Enhanced Content Container
   enhancedContentContainer: {
     flex: 1,
     backgroundColor: 'transparent',
   },
-  
+
   // Enhanced Loading States
   enhancedLoadingContainer: {
     flex: 1,
@@ -4213,7 +4225,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
     letterSpacing: 0.2,
   },
-  
+
   // Enhanced Scroll View
   enhancedScrollView: {
     flex: 1,
@@ -4221,7 +4233,7 @@ const styles = StyleSheet.create({
   enhancedScrollViewContent: {
     paddingBottom: 40,
   },
-  
+
   // Enhanced Date Container
   enhancedDateContainer: {
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
@@ -4258,13 +4270,13 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
     opacity: 0.9,
   },
-  
+
   // Countdown Section
   countdownSection: {
     alignItems: 'center',
     marginBottom: 15, // Reduced from 25 to 15
   },
-  
+
   // Enhanced Prayer Times Container
   enhancedTimesContainer: {
     backgroundColor: 'rgba(255, 255, 255, 0.06)',
@@ -4292,7 +4304,7 @@ const styles = StyleSheet.create({
   prayerTimesGrid: {
     gap: 8, // Reduced from 12 to 8
   },
-  
+
   // Enhanced Prayer Item
   enhancedPrayerItem: {
     backgroundColor: 'rgba(255, 255, 255, 0.04)',
@@ -4328,23 +4340,23 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(218, 165, 32, 0.3)',
   },
   enhancedPrayerName: {
-  // Base (light theme) color; dark theme overrides applied inline for accessibility
-  color: SepiaColors.text.primary,
+    // Base (light theme) color; dark theme overrides applied inline for accessibility
+    color: SepiaColors.text.primary,
     fontSize: 16,
     fontWeight: '600',
     letterSpacing: 0.3,
     flex: 1,
   },
   activeEnhancedPrayerName: {
-  color: SepiaColors.accent.darkGold,
+    color: SepiaColors.accent.darkGold,
     fontWeight: '700',
   },
   prayerTimeWrapper: {
     alignItems: 'flex-end',
   },
   enhancedPrayerTime: {
-  // Base (light theme) color; dark theme overrides applied inline for accessibility
-  color: SepiaColors.text.primary,
+    // Base (light theme) color; dark theme overrides applied inline for accessibility
+    color: SepiaColors.text.primary,
     fontSize: 18,
     fontWeight: '600',
     letterSpacing: 0.5,

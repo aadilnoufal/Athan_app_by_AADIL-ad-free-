@@ -2,6 +2,8 @@ export default {
   // General
   appName: 'مواقيت الصلاة',
   loading: 'جاري تحميل أوقات الصلاة...',
+  loadingQuran: 'جاري تحميل القرآن...',
+  retry: 'إعادة المحاولة',
   today: 'اليوم',
   tomorrow: 'غداً',
   days: 'أيام',
@@ -220,6 +222,20 @@ export default {
   // Quran settings hint
   quranSettingsHint: 'خصص حجم الخط والترجمة والقارئ في الإعدادات ← القرآن',
   quranSettingsHintShort: 'المزيد في الإعدادات ← القرآن',
+
+  // Continue reading
+  continueReading: 'متابعة القراءة',
+
+  // Download all audio
+  downloadAllAudio: 'تحميل جميع الصوتيات',
+  downloadAllAudioConfirm: 'تحميل صوتيات جميع السور ١١٤ بصوت {reciter}؟ قد يستخدم مساحة تخزين كبيرة.',
+  allAudioDownloaded: 'تم تحميل جميع الصوتيات بنجاح.',
+
+  // Ayah label
+  ayah: 'آية',
+
+  // Quran list settings hint
+  quranListSettingsHint: 'الترجمة، الصوت، حجم الخط والتنزيلات متاحة في الإعدادات',
 
   // Search improvements
   searchResultsFor: 'نتائج البحث عن',

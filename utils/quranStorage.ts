@@ -49,6 +49,7 @@ const RECITERS_CACHE_KEY = '@quran_reciters_list';  // cached audio editions JSO
 const SETTINGS_HINT_KEY = '@quran_settings_hint_dismissed'; // '1' when dismissed
 const AUDIO_INDEX_KEY = '@quran_audio_download_index'; // JSON of { [surahNum_reciter]: true }
 const BISMILLAH_CACHE_KEY = '@quran_bismillah_cache'; // JSON of { [edition]: bismillahText }
+const LAST_READ_KEY = '@quran_last_read';             // JSON of LastReadEntry
 
 /* ---------- Types ---------- */
 
@@ -279,7 +280,7 @@ export async function getDownloadedCount(): Promise<number> {
 
 /* ---------- Public: Font scale preference ---------- */
 
-/** Get the Quran font scale multiplier (default 1.0, range 0.75–1.5). */
+/** Get the Quran font scale multiplier (default 1.15, range 0.75–1.5). */
 export async function getQuranFontScale(): Promise<number> {
     try {
         const val = await AsyncStorage.getItem(FONT_SCALE_KEY);
@@ -288,7 +289,7 @@ export async function getQuranFontScale(): Promise<number> {
             if (!isNaN(n) && n >= 0.75 && n <= 1.5) return n;
         }
     } catch { /* ignore */ }
-    return 1.0;
+    return 1.15;
 }
 
 export async function setQuranFontScale(scale: number): Promise<void> {
@@ -307,6 +308,32 @@ export async function getQuranAutoScrollWithAudio(): Promise<boolean> {
 
 export async function setQuranAutoScrollWithAudio(enabled: boolean): Promise<void> {
     await AsyncStorage.setItem(AUTO_SCROLL_WITH_AUDIO_KEY, enabled ? 'true' : 'false');
+}
+
+/* ---------- Public: Last-read position ---------- */
+
+export interface LastReadEntry {
+    surahNumber: number;
+    surahName: string;        // English name for display
+    surahNameArabic: string;  // Arabic name for display
+    ayahIndex: number;        // 0-based index within surah
+    timestamp: number;        // epoch ms
+}
+
+/** Get the user's last read position, or null if none saved. */
+export async function getLastRead(): Promise<LastReadEntry | null> {
+    try {
+        const raw = await AsyncStorage.getItem(LAST_READ_KEY);
+        if (!raw) return null;
+        return JSON.parse(raw) as LastReadEntry;
+    } catch {
+        return null;
+    }
+}
+
+/** Save last read position. */
+export async function setLastRead(entry: LastReadEntry): Promise<void> {
+    await AsyncStorage.setItem(LAST_READ_KEY, JSON.stringify(entry));
 }
 
 /* ---------- Public: Bismillah text cache per edition ---------- */
@@ -508,4 +535,30 @@ export async function deleteSurahAudio(surahNumber: number, reciterEdition: stri
     const index = await readAudioIndex();
     delete index[audioIndexKey(surahNumber, reciterEdition)];
     await writeAudioIndex(index);
+}
+
+/**
+ * Download audio for ALL 114 surahs for a given reciter.
+ * @param reciterEdition  e.g. 'ar.alafasy'
+ * @param onProgress      called after each surah completes: (surahsDone, totalSurahs)
+ * @returns total bytes downloaded
+ */
+export async function downloadAllAudio(
+    reciterEdition: string,
+    onProgress?: (surahsDone: number, totalSurahs: number) => void,
+): Promise<number> {
+    let totalBytes = 0;
+    const totalSurahs = 114;
+
+    for (let surahNum = 1; surahNum <= totalSurahs; surahNum++) {
+        // Skip if already downloaded
+        const already = await isSurahAudioDownloaded(surahNum, reciterEdition);
+        if (!already) {
+            const bytes = await downloadSurahAudio(surahNum, reciterEdition);
+            totalBytes += bytes;
+        }
+        onProgress?.(surahNum, totalSurahs);
+    }
+
+    return totalBytes;
 }

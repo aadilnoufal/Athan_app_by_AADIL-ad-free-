@@ -12,6 +12,7 @@ import {
     StatusBar,
     ScrollView,
     Keyboard,
+    AppState,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -25,10 +26,8 @@ import {
     SurahMeta,
     SurahData,
     Ayah,
-    EditionInfo,
     fetchSurah,
     fetchSurahWithTranslation,
-    searchQuran,
     fetchSurahAudio,
     EDITIONS,
     SearchMatch,
@@ -51,6 +50,9 @@ import {
     downloadSurahAudio,
     getLocalAudioUri,
     getBismillahText,
+    getLastRead,
+    setLastRead,
+    LastReadEntry,
 } from '../../utils/quranStorage';
 
 /* ================================================================
@@ -62,6 +64,124 @@ import {
 
 type ViewMode = 'list' | 'read' | 'search';
 
+/* ── Common surah name aliases / misspellings → surah number ── */
+const SURAH_ALIASES: Record<string, number[]> = {
+    'fatiha': [1], 'fateha': [1], 'fatihah': [1], 'opening': [1],
+    'baqara': [2], 'baqarah': [2], 'cow': [2],
+    'imran': [3], 'imraan': [3],
+    'nisa': [4], 'nisaa': [4], 'women': [4],
+    'maida': [5], 'maidah': [5], 'table': [5],
+    'anam': [6], 'anaam': [6], 'cattle': [6],
+    'araf': [7], 'araaf': [7],
+    'anfal': [8], 'anfaal': [8],
+    'tauba': [9], 'taubah': [9], 'tawba': [9], 'tawbah': [9], 'repentance': [9],
+    'yunus': [10], 'younus': [10], 'jonah': [10],
+    'hud': [11], 'hood': [11],
+    'yusuf': [12], 'yousuf': [12], 'joseph': [12],
+    'raad': [13], 'rad': [13], 'thunder': [13],
+    'ibrahim': [14], 'ibraheem': [14], 'abraham': [14],
+    'hijr': [15],
+    'nahl': [16], 'bee': [16],
+    'isra': [17], 'israa': [17],
+    'kahf': [18], 'cave': [18],
+    'maryam': [19], 'mary': [19],
+    'taha': [20],
+    'anbiya': [21], 'anbiyaa': [21], 'prophets': [21],
+    'hajj': [22], 'pilgrimage': [22],
+    'muminun': [23], 'muminoon': [23], 'believers': [23],
+    'nur': [24], 'noor': [24], 'light': [24],
+    'furqan': [25], 'furqaan': [25], 'criterion': [25],
+    'shuara': [26], 'poets': [26],
+    'naml': [27], 'ants': [27],
+    'qasas': [28], 'stories': [28],
+    'ankabut': [29], 'ankaboot': [29], 'spider': [29],
+    'rum': [30], 'romans': [30],
+    'luqman': [31], 'luqmaan': [31],
+    'sajda': [32], 'sajdah': [32], 'prostration': [32],
+    'ahzab': [33], 'ahzaab': [33],
+    'saba': [34], 'sabaa': [34], 'sheba': [34],
+    'fatir': [35], 'faatir': [35], 'originator': [35],
+    'yaseen': [36], 'yasin': [36], 'ya sin': [36],
+    'saffat': [37], 'saaffaat': [37],
+    'saad': [38],
+    'zumar': [39], 'groups': [39],
+    'ghafir': [40], 'ghaafir': [40], 'forgiver': [40],
+    'fussilat': [41], 'detailed': [41],
+    'shura': [42], 'consultation': [42],
+    'zukhruf': [43],
+    'dukhan': [44], 'smoke': [44],
+    'jathiya': [45], 'jathiyah': [45],
+    'ahqaf': [46], 'ahqaaf': [46],
+    'muhammad': [47],
+    'fath': [48], 'victory': [48],
+    'hujurat': [49], 'hujuraat': [49], 'rooms': [49],
+    'qaaf': [50],
+    'dhariyat': [51], 'dhaariyat': [51],
+    'tur': [52], 'toor': [52], 'mount': [52],
+    'najm': [53], 'star': [53],
+    'qamar': [54], 'moon': [54],
+    'rahman': [55], 'rehman': [55], 'merciful': [55],
+    'waqia': [56], 'waqiah': [56], 'waaqia': [56],
+    'hadid': [57], 'hadeed': [57], 'iron': [57],
+    'mujadila': [58], 'mujadilah': [58],
+    'hashr': [59],
+    'mumtahina': [60], 'mumtahinah': [60],
+    'saff': [61],
+    'jumua': [62], 'jumuah': [62], 'friday': [62],
+    'munafiqun': [63], 'munafiqoon': [63], 'hypocrites': [63],
+    'taghabun': [64], 'taghaabun': [64],
+    'talaq': [65], 'talaaq': [65], 'divorce': [65],
+    'tahrim': [66], 'tahreem': [66],
+    'mulk': [67], 'dominion': [67], 'sovereignty': [67],
+    'qalam': [68], 'pen': [68],
+    'haaqqa': [69], 'haqqa': [69], 'haqqah': [69],
+    'maarij': [70],
+    'nuh': [71], 'nooh': [71], 'noah': [71],
+    'jinn': [72], 'djinn': [72],
+    'muzzammil': [73], 'muzammil': [73],
+    'muddathir': [74], 'mudathir': [74], 'muddaththir': [74],
+    'qiyama': [75], 'qiyamah': [75], 'resurrection': [75],
+    'insan': [76], 'insaan': [76], 'dahr': [76],
+    'mursalat': [77], 'mursalaat': [77],
+    'naba': [78], 'nabaa': [78], 'tidings': [78],
+    'naziat': [79], 'naziaat': [79],
+    'abasa': [80],
+    'takwir': [81], 'takweer': [81],
+    'infitar': [82], 'infitaar': [82],
+    'mutaffifin': [83], 'mutaffifeen': [83],
+    'inshiqaq': [84], 'inshiqaaq': [84],
+    'buruj': [85], 'burooj': [85],
+    'tariq': [86], 'taariq': [86],
+    'ala': [87],
+    'ghashiya': [88], 'ghaashiya': [88],
+    'fajr': [89],
+    'balad': [90],
+    'shams': [91], 'sun': [91],
+    'lail': [92], 'layl': [92], 'night': [92],
+    'duha': [93], 'dhuha': [93], 'morning': [93],
+    'sharh': [94], 'inshirah': [94],
+    'teen': [95], 'fig': [95],
+    'alaq': [96], 'clot': [96],
+    'qadr': [97], 'power': [97], 'decree': [97],
+    'bayyina': [98], 'bayyinah': [98], 'evidence': [98],
+    'zalzala': [99], 'zilzal': [99], 'earthquake': [99],
+    'adiyat': [100], 'aadiyaat': [100],
+    'qaria': [101], 'qariah': [101], 'calamity': [101],
+    'takathur': [102], 'takaathur': [102],
+    'asr': [103],
+    'humaza': [104], 'humazah': [104],
+    'fil': [105], 'feel': [105], 'elephant': [105],
+    'quraish': [106], 'quraysh': [106],
+    'maun': [107], 'maaun': [107],
+    'kauthar': [108], 'kawthar': [108], 'kawsar': [108],
+    'kafirun': [109], 'kafiroon': [109], 'kaafiroon': [109], 'disbelievers': [109],
+    'nasr': [110],
+    'masad': [111], 'lahab': [111],
+    'ikhlas': [112], 'ikhlaas': [112], 'sincerity': [112], 'purity': [112],
+    'falaq': [113], 'daybreak': [113], 'dawn': [113],
+    'nas': [114], 'naas': [114], 'mankind': [114], 'people': [114],
+};
+
 /* ── Bismillah text constants for stripping from first ayah ──── */
 const BISMILLAH_AR = 'بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ';
 const BISMILLAH_AR_ALT = 'بِسۡمِ ٱللَّهِ ٱلرَّحۡمَـٰنِ ٱلرَّحِيمِ';
@@ -71,44 +191,38 @@ const BISMILLAH_EN_PREFIX = 'In the name of Allah';
  * Strip leading Bismillah from ayah 1 text for surahs 2-113 (except 9).
  * The API includes it in the text but we render a separate styled banner.
  *
- * @param lang 'ar' for Arabic, 'tr' for any translation
- * @param knownBismillah Cached bismillah text for the translation edition (surah 1 ayah 1)
+ * @param knownBismillah The exact bismillah text from the same API edition
+ *   (surah 1, ayah 1). This is the most reliable way to strip it.
  */
-function stripBismillah(text: string, lang: 'ar' | 'tr', knownBismillah?: string): string {
-    if (lang === 'ar') {
-        for (const prefix of [BISMILLAH_AR, BISMILLAH_AR_ALT]) {
-            if (text.startsWith(prefix)) {
-                return text.slice(prefix.length).trim();
-            }
-        }
-        // Fuzzy fallback: strip up to and including ٱلرَّحِيمِ
-        const rhm = text.indexOf('ٱلرَّحِيمِ');
-        if (rhm !== -1 && rhm < 60) {
-            return text.slice(rhm + 'ٱلرَّحِيمِ'.length).trim();
-        }
-        return text;
-    }
-
-    // --- Translation stripping ---
-
-    // 1. Universal: use cached bismillah text from the translation edition
+function stripBismillah(text: string, knownBismillah?: string): string {
+    // ── 1. Best: use the API's own bismillah text (guaranteed match) ──
     if (knownBismillah) {
         const trimmed = knownBismillah.trim();
         if (text.startsWith(trimmed)) {
-            const stripped = text.slice(trimmed.length).trim();
-            if (stripped.length > 0) return stripped;
+            const rest = text.slice(trimmed.length).trim();
+            if (rest.length > 0) return rest;
         }
         // Tolerate trailing punctuation / whitespace differences
         const escaped = trimmed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const prefixRe = new RegExp('^' + escaped + '[.\\s,;:\\-!]*\\s*');
         const km = text.match(prefixRe);
         if (km) {
-            const stripped = text.slice(km[0].length).trim();
-            if (stripped.length > 0) return stripped;
+            const rest = text.slice(km[0].length).trim();
+            if (rest.length > 0) return rest;
         }
     }
 
-    // 2. Fallback: English patterns
+    // ── 2. Fallback: hardcoded Arabic patterns (tatweel-tolerant) ──
+    const noTatweel = (s: string) => s.replace(/\u0640/g, '');
+    const normText = noTatweel(text);
+    for (const prefix of [BISMILLAH_AR, BISMILLAH_AR_ALT]) {
+        const normPrefix = noTatweel(prefix);
+        if (normText.startsWith(normPrefix)) {
+            return normText.slice(normPrefix.length).trim();
+        }
+    }
+
+    // ── 3. Fallback: English patterns ──
     if (text.toLowerCase().startsWith(BISMILLAH_EN_PREFIX.toLowerCase())) {
         const patterns = [
             /^In the name of Allah[,.]?\s*the\s*(Most\s*)?Gracious[,.]?\s*the\s*(Most\s*)?Merciful[.\s-]*/i,
@@ -122,6 +236,14 @@ function stripBismillah(text: string, lang: 'ar' | 'tr', knownBismillah?: string
             if (m) return text.slice(m[0].length).trim();
         }
     }
+
+    // ── 4. Last resort: fuzzy Arabic strip up to ٱلرَّحِيمِ ──
+    const rhmNorm = noTatweel('ٱلرَّحِيمِ');
+    const rhmIdx = normText.indexOf(rhmNorm);
+    if (rhmIdx !== -1 && rhmIdx < 60) {
+        return normText.slice(rhmIdx + rhmNorm.length).trim();
+    }
+
     return text;
 }
 
@@ -146,11 +268,14 @@ export default function QuranScreen() {
 
     // Translation edition & font scale
     const [translationEdition, setTranslationEditionState] = useState<string>(EDITIONS.ENGLISH);
-    const [fontScale, setFontScaleState] = useState(1.0);
+    const [fontScale, setFontScaleState] = useState(1.15);
 
     // Offline index (surah numbers that are downloaded)
     const [downloadedSet, setDownloadedSet] = useState<Set<number>>(new Set());
     const [downloadingSurah, setDownloadingSurah] = useState<number | null>(null);
+
+    // Continue from last read
+    const [lastRead, setLastReadState] = useState<LastReadEntry | null>(null);
 
     // Search
     const [searchQuery, setSearchQuery] = useState('');
@@ -190,11 +315,34 @@ export default function QuranScreen() {
     useEffect(() => { audioDownloadedRef.current = audioDownloaded; }, [audioDownloaded]);
     useEffect(() => { reciterEditionRef.current = reciterEdition; }, [reciterEdition]);
 
+    // When reciter changes, invalidate cached audio data so we stream/fetch fresh URLs
+    const prevReciterRef = useRef(reciterEdition);
+    useEffect(() => {
+        if (prevReciterRef.current !== reciterEdition) {
+            prevReciterRef.current = reciterEdition;
+            // Clear cached audio URLs (they belong to old reciter)
+            setAudioSurahData(null);
+            audioSurahDataRef.current = null;
+            // Re-check download status for new reciter
+            const surahNum = currentSurahArRef.current?.number;
+            if (surahNum) {
+                isSurahAudioDownloaded(surahNum, reciterEdition)
+                    .then(d => setAudioDownloaded(d))
+                    .catch(() => setAudioDownloaded(false));
+            }
+        }
+    }, [reciterEdition]);
+
     // ── Ayah position tracking for auto-scroll ───────────────────
     const ayahLayoutsRef = useRef<Record<number, number>>({});
     const autoScrollEnabled = useRef(true);
     const autoScrollResumeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const trBismillahRef = useRef<string | null>(null);
+    const arBismillahRef = useRef<string | null>(null);
+
+    // ── Smart continue reading: visible ayah & scroll-to target ──
+    const topVisibleAyahRef = useRef(0);
+    const scrollToAyahRef = useRef<number | null>(null);
 
     // ── Time-based gradient (consistent with other tabs) ───────────
     const getTimeBasedGradient = (): [string, string, string] => {
@@ -232,12 +380,39 @@ export default function QuranScreen() {
         surahHeaderEnglish: Math.round(16 * fontScale),
     }), [fontScale]);
 
+    // ── Filtered surah list (real-time local search with fuzzy matching) ──
+    const filteredSurahList = useMemo(() => {
+        const q = searchQuery.trim().toLowerCase().replace(/[-']/g, '');
+        if (!q) return surahList;
+
+        // Search by surah number
+        const num = parseInt(q, 10);
+        if (!isNaN(num) && num >= 1 && num <= 114) {
+            return surahList.filter(s => s.number === num);
+        }
+
+        // Collect alias matches
+        const aliasHits = new Set<number>();
+        for (const [alias, numbers] of Object.entries(SURAH_ALIASES)) {
+            if (alias.includes(q) || q.includes(alias)) {
+                numbers.forEach(n => aliasHits.add(n));
+            }
+        }
+
+        // Filter by name, translation, or alias
+        return surahList.filter(s => {
+            const engNorm = s.englishName.toLowerCase().replace(/[-']/g, '');
+            const trNorm = s.englishNameTranslation.toLowerCase().replace(/[-']/g, '');
+            return engNorm.includes(q) || trNorm.includes(q) || aliasHits.has(s.number);
+        });
+    }, [surahList, searchQuery]);
+
     // ── Init: load surah list + download index + all prefs ─────────
     useEffect(() => {
         (async () => {
             try {
                 setLoading(true);
-                const [list, pref, idx, scale, trEd, recPref, autoScrollPref, hintDismissed] = await Promise.all([
+                const [list, pref, idx, scale, trEd, recPref, autoScrollPref, hintDismissed, lastReadEntry] = await Promise.all([
                     getSurahListCached(),
                     getEditionPref(),
                     getDownloadIndex(),
@@ -246,6 +421,7 @@ export default function QuranScreen() {
                     getReciterPref(),
                     getQuranAutoScrollWithAudio(),
                     isSettingsHintDismissed(),
+                    getLastRead(),
                 ]);
                 setSurahList(list);
                 setEditionPref(pref);
@@ -256,6 +432,7 @@ export default function QuranScreen() {
                 setAutoScrollWithAudio(autoScrollPref);
                 autoScrollEnabled.current = autoScrollPref;
                 setShowSettingsHint(!hintDismissed);
+                setLastReadState(lastReadEntry);
             } catch (e: any) {
                 setError(e.message ?? 'Failed to load surah list');
             } finally {
@@ -264,17 +441,18 @@ export default function QuranScreen() {
         })();
     }, []);
 
-    // ── Refresh font scale + prefs when screen comes into focus ──
+    // ── Refresh prefs + download index when screen comes into focus ──
     useFocusEffect(
         useCallback(() => {
             (async () => {
                 try {
-                    const [scale, pref, trEd, recPref, autoScrollPref] = await Promise.all([
+                    const [scale, pref, trEd, recPref, autoScrollPref, idx] = await Promise.all([
                         getQuranFontScale(),
                         getEditionPref(),
                         getTranslationEdition(),
                         getReciterPref(),
                         getQuranAutoScrollWithAudio(),
+                        getDownloadIndex(),
                     ]);
                     setFontScaleState(scale);
                     setEditionPref(pref);
@@ -282,10 +460,46 @@ export default function QuranScreen() {
                     setReciterEdition(recPref);
                     setAutoScrollWithAudio(autoScrollPref);
                     autoScrollEnabled.current = autoScrollPref;
+                    setDownloadedSet(new Set(Object.keys(idx.surahs).map(Number)));
                 } catch { }
             })();
+
+            // Save reading position when tab loses focus
+            return () => {
+                const arData = currentSurahArRef.current;
+                if (arData) {
+                    const entry: LastReadEntry = {
+                        surahNumber: arData.number,
+                        surahName: arData.englishName,
+                        surahNameArabic: arData.name,
+                        ayahIndex: topVisibleAyahRef.current,
+                        timestamp: Date.now(),
+                    };
+                    setLastRead(entry).catch(() => { });
+                }
+            };
         }, [])
     );
+
+    // ── Save reading position when app goes to background ─────────
+    useEffect(() => {
+        const subscription = AppState.addEventListener('change', (nextState) => {
+            if (nextState === 'background' || nextState === 'inactive') {
+                const arData = currentSurahArRef.current;
+                if (arData) {
+                    const entry: LastReadEntry = {
+                        surahNumber: arData.number,
+                        surahName: arData.englishName,
+                        surahNameArabic: arData.name,
+                        ayahIndex: topVisibleAyahRef.current,
+                        timestamp: Date.now(),
+                    };
+                    setLastRead(entry).catch(() => { });
+                }
+            }
+        });
+        return () => subscription.remove();
+    }, []);
 
     // ── Audio mode setup ──────────────────────────────────────────
     useEffect(() => {
@@ -306,6 +520,26 @@ export default function QuranScreen() {
         setDownloadedSet(new Set(Object.keys(idx.surahs).map(Number)));
     }, []);
 
+    // ── Retry loading surah list (after network error) ────────────
+    const retryLoadSurahList = useCallback(async () => {
+        try {
+            setLoading(true);
+            setError(null);
+            const [list, idx, lastReadEntry] = await Promise.all([
+                getSurahListCached(),
+                getDownloadIndex(),
+                getLastRead(),
+            ]);
+            setSurahList(list);
+            setDownloadedSet(new Set(Object.keys(idx.surahs).map(Number)));
+            setLastReadState(lastReadEntry);
+        } catch (e: any) {
+            setError(e.message ?? 'Failed to load surah list');
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
     // ── Open a surah for reading ──────────────────────────────────
     const openSurah = useCallback(
         async (surahNumber: number) => {
@@ -314,13 +548,18 @@ export default function QuranScreen() {
             setCurrentSurahAr(null);
             setCurrentSurahTr(null);
             trBismillahRef.current = null;
+            arBismillahRef.current = null;
             // Stop any playing audio
             stopAudio();
 
             try {
                 // Pre-fetch bismillah text for stripping (runs in parallel)
-                const bismillahPromise = (surahNumber !== 1 && surahNumber !== 9)
+                const needsBismillah = surahNumber !== 1 && surahNumber !== 9;
+                const trBismillahPromise = needsBismillah
                     ? getBismillahText(translationEdition).catch(() => null)
+                    : Promise.resolve(null);
+                const arBismillahPromise = needsBismillah
+                    ? getBismillahText(EDITIONS.ARABIC).catch(() => null)
                     : Promise.resolve(null);
 
                 // Try offline Arabic first
@@ -344,21 +583,53 @@ export default function QuranScreen() {
                         }
                     }
                     setCurrentSurahTr(trData);
-                    trBismillahRef.current = await bismillahPromise;
+                    const [trBis, arBis] = await Promise.all([trBismillahPromise, arBismillahPromise]);
+                    trBismillahRef.current = trBis;
+                    arBismillahRef.current = arBis;
                     setSurahLoading(false);
                     checkAudioStatus(surahNumber);
+
+                    // Save last read position (preserve ayahIndex when continuing)
+                    const meta = surahList.find(s => s.number === surahNumber);
+                    if (meta) {
+                        const entry: LastReadEntry = {
+                            surahNumber,
+                            surahName: meta.englishName,
+                            surahNameArabic: meta.name,
+                            ayahIndex: scrollToAyahRef.current ?? 0,
+                            timestamp: Date.now(),
+                        };
+                        setLastRead(entry).catch(() => { });
+                        setLastReadState(entry);
+                    }
                     return;
                 }
 
                 // Fetch online with user's chosen translation edition
-                const [[ar, tr], bismillah] = await Promise.all([
+                const [[ar, tr], trBis, arBis] = await Promise.all([
                     fetchSurahWithTranslation(surahNumber, translationEdition),
-                    bismillahPromise,
+                    trBismillahPromise,
+                    arBismillahPromise,
                 ]);
-                trBismillahRef.current = bismillah;
+                trBismillahRef.current = trBis;
+                arBismillahRef.current = arBis;
                 setCurrentSurahAr(ar);
                 setCurrentSurahTr(tr);
                 checkAudioStatus(surahNumber);
+
+                // Save last read position (preserve ayahIndex when continuing)
+                const meta = surahList.find(s => s.number === surahNumber);
+                if (meta) {
+                    const entry: LastReadEntry = {
+                        surahNumber,
+                        surahName: meta.englishName,
+                        surahNameArabic: meta.name,
+                        ayahIndex: scrollToAyahRef.current ?? 0,
+                        timestamp: Date.now(),
+                    };
+                    setLastRead(entry).catch(() => { });
+                    setLastReadState(entry);
+                }
             } catch (e: any) {
                 Alert.alert(t('error'), e.message ?? t('connectionErrorMessage'));
                 setMode('list');
@@ -413,26 +684,43 @@ export default function QuranScreen() {
         [t, refreshDownloadIndex],
     );
 
-    // ── Search (fixed: don't switch mode until results arrive) ────
-    const runSearch = useCallback(async () => {
-        const q = searchQuery.trim();
-        if (q.length < 3) return;
+    // ── Search: just dismiss keyboard (filtering is real-time via filteredSurahList) ──
+    const runSearch = useCallback(() => {
         Keyboard.dismiss();
-        setSearching(true);
-        setLastSearchQuery(q);
-        try {
-            const result = await searchQuran(q, EDITIONS.ENGLISH);
-            setSearchResults(result.matches ?? []);
-        } catch {
-            setSearchResults([]);
-        } finally {
-            setSearching(false);
-            setMode('search');
+    }, []);
+
+    // ── Track which ayah is at the top of the visible area ────────
+    const handleReadingScroll = useCallback((event: any) => {
+        const scrollY: number = event.nativeEvent.contentOffset.y;
+        const layouts = ayahLayoutsRef.current;
+        const indices = Object.keys(layouts).map(Number).sort((a, b) => a - b);
+        let topAyah = 0;
+        for (const idx of indices) {
+            if (layouts[idx] <= scrollY + 100) {
+                topAyah = idx;
+            } else {
+                break;
+            }
         }
-    }, [searchQuery]);
+        topVisibleAyahRef.current = topAyah;
+    }, []);
 
     // ── Go back to list ───────────────────────────────────────────
     const goBack = useCallback(() => {
+        // Save last-read position (ayah-level) before clearing
+        const arData = currentSurahArRef.current;
+        if (arData) {
+            const entry: LastReadEntry = {
+                surahNumber: arData.number,
+                surahName: arData.englishName,
+                surahNameArabic: arData.name,
+                ayahIndex: topVisibleAyahRef.current,
+                timestamp: Date.now(),
+            };
+            setLastRead(entry).catch(() => { });
+            setLastReadState(entry);
+        }
+
         stopAudio();
         setMode('list');
         setCurrentSurahAr(null);
@@ -446,6 +734,8 @@ export default function QuranScreen() {
         audioSurahDataRef.current = null;
         currentSurahArRef.current = null;
         ayahLayoutsRef.current = {};
+        topVisibleAyahRef.current = 0;
+        scrollToAyahRef.current = null;
     }, []);
 
     // ── Dismiss settings hint ─────────────────────────────────────
@@ -679,6 +969,28 @@ export default function QuranScreen() {
         return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
     };
 
+    // ── Scroll to saved ayah after surah data loads ───────────────
+    useEffect(() => {
+        if (!surahLoading && mode === 'read' && scrollToAyahRef.current !== null && scrollToAyahRef.current > 0) {
+            const targetAyah = scrollToAyahRef.current;
+            scrollToAyahRef.current = null;
+            // Poll until the target ayah's layout is available (handles large surahs)
+            let attempts = 0;
+            const interval = setInterval(() => {
+                attempts++;
+                const y = ayahLayoutsRef.current[targetAyah];
+                if (y !== undefined && scrollRef.current) {
+                    (scrollRef.current as any).scrollTo({ y, animated: false });
+                    clearInterval(interval);
+                } else if (attempts >= 20) {
+                    // Give up after ~4 seconds
+                    clearInterval(interval);
+                }
+            }, 200);
+            return () => clearInterval(interval);
+        }
+    }, [surahLoading, mode]);
+
     // ================================================================
     //  SUB-COMPONENTS
     // ================================================================
@@ -730,21 +1042,15 @@ export default function QuranScreen() {
         </View>
     );
 
-    /* ── Settings Hint Banner ──────────────────────────────────── */
-    const renderSettingsHintBanner = () => {
-        if (!showSettingsHint) return null;
-        return (
-            <View style={[s.hintBanner, { backgroundColor: goldTint(isDark ? 0.10 : 0.08), borderColor: goldTint(0.25) }]}>
-                <MaterialCommunityIcons name="cog-outline" size={16} color={colors.accent.gold} style={{ marginRight: 8 }} />
-                <Text style={[s.hintText, { color: colors.text.secondary }]} numberOfLines={2}>
-                    {t('quranSettingsHintShort')}
-                </Text>
-                <TouchableOpacity onPress={handleDismissHint} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                    <MaterialCommunityIcons name="close" size={16} color={colors.text.tertiary} />
-                </TouchableOpacity>
-            </View>
-        );
-    };
+    /* ── Settings Hint Banner (always visible) ──────────────────── */
+    const renderSettingsHintBanner = () => (
+        <View style={[s.hintBanner, { backgroundColor: goldTint(isDark ? 0.06 : 0.04), borderColor: goldTint(0.15) }]}>
+            <MaterialCommunityIcons name="cog-outline" size={14} color={colors.accent.gold} style={{ marginRight: 6, flexShrink: 0 }} />
+            <Text style={[s.hintText, { color: colors.text.tertiary, fontSize: 11.5 }]}>
+                {t('quranListSettingsHint')}
+            </Text>
+        </View>
+    );
 
     /* ── Surah List Item ────────────────────────────────────────── */
     const SurahListItem = ({ item }: { item: SurahMeta }) => {
@@ -909,6 +1215,8 @@ export default function QuranScreen() {
                     style={s.readingScroll}
                     contentContainerStyle={[s.readingContent, { paddingBottom: 160 }]}
                     showsVerticalScrollIndicator={false}
+                    onScroll={handleReadingScroll}
+                    scrollEventThrottle={200}
                     onScrollBeginDrag={() => {
                         autoScrollEnabled.current = false;
                         if (autoScrollResumeTimeoutRef.current) {
@@ -973,10 +1281,10 @@ export default function QuranScreen() {
                     {/* Ayahs */}
                     {arAyahs.map((ayah, idx) => {
                         const arText = (idx === 0 && shouldStripBismillah)
-                            ? stripBismillah(ayah.text, 'ar')
+                            ? stripBismillah(ayah.text, arBismillahRef.current ?? undefined)
                             : ayah.text;
                         const trText = (idx === 0 && shouldStripBismillah && trAyahs?.[idx])
-                            ? stripBismillah(trAyahs[idx].text, 'tr', trBismillahRef.current ?? undefined)
+                            ? stripBismillah(trAyahs[idx].text, trBismillahRef.current ?? undefined)
                             : trAyahs?.[idx]?.text;
                         const isCurrentAyah = currentAyahIndex === idx;
 
@@ -1106,22 +1414,62 @@ export default function QuranScreen() {
                 {loading ? (
                     <View style={s.center}>
                         <ActivityIndicator size="large" color={colors.accent.gold} />
-                        <Text style={[s.loadingText, { color: colors.text.secondary }]}>{t('loading')}</Text>
+                        <Text style={[s.loadingText, { color: colors.text.secondary }]}>{t('loadingQuran')}</Text>
                     </View>
                 ) : error ? (
                     <View style={s.center}>
                         <MaterialCommunityIcons name="alert-circle-outline" size={48} color={colors.text.tertiary} />
-                        <Text style={[s.emptyText, { color: colors.text.secondary }]}>{error}</Text>
+                        <Text style={[s.emptyText, { color: colors.text.secondary, marginBottom: 16 }]}>{error}</Text>
+                        <TouchableOpacity
+                            activeOpacity={0.7}
+                            onPress={retryLoadSurahList}
+                            style={[s.retryBtn, { backgroundColor: goldTint(isDark ? 0.12 : 0.10), borderColor: goldTint(0.30) }]}
+                        >
+                            <MaterialCommunityIcons name="refresh" size={18} color={colors.accent.gold} style={{ marginRight: 6 }} />
+                            <Text style={{ color: colors.accent.gold, fontWeight: '600', fontSize: 14 }}>{t('retry')}</Text>
+                        </TouchableOpacity>
                     </View>
                 ) : mode === 'list' ? (
-                    <FlatList
-                        data={surahList}
-                        keyExtractor={(item) => `${item.number}`}
-                        renderItem={({ item }) => <SurahListItem item={item} />}
-                        contentContainerStyle={{ paddingBottom: 100 }}
-                        showsVerticalScrollIndicator={false}
-                        keyboardShouldPersistTaps="handled"
-                    />
+                    filteredSurahList.length === 0 && searchQuery.trim().length > 0 ? (
+                        <View style={s.center}>
+                            <MaterialCommunityIcons name="book-search-outline" size={48} color={colors.text.tertiary} />
+                            <Text style={[s.emptyText, { color: colors.text.secondary }]}>
+                                {`${t('noResultsFor')} "${searchQuery.trim()}"`}
+                            </Text>
+                        </View>
+                    ) : (
+                        <FlatList
+                            data={filteredSurahList}
+                            keyExtractor={(item) => `${item.number}`}
+                            renderItem={({ item }) => <SurahListItem item={item} />}
+                            ListHeaderComponent={lastRead && !searchQuery.trim() ? (
+                                <TouchableOpacity
+                                    activeOpacity={0.7}
+                                    onPress={() => {
+                                        scrollToAyahRef.current = lastRead.ayahIndex;
+                                        openSurah(lastRead.surahNumber);
+                                    }}
+                                    style={[s.continueCard, { backgroundColor: goldTint(isDark ? 0.10 : 0.06), borderColor: goldTint(0.30) }]}
+                                >
+                                    <View style={s.continueIconWrap}>
+                                        <MaterialCommunityIcons name="book-open-page-variant" size={24} color={colors.accent.gold} />
+                                    </View>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={[s.continueLabel, { color: colors.text.secondary }]}>{t('continueReading')}</Text>
+                                        <Text style={[s.continueSurah, { color: colors.text.primary }]}>
+                                            {lastRead.surahName}
+                                            {lastRead.ayahIndex > 0 ? ` · ${t('ayah')} ${lastRead.ayahIndex + 1}` : ''}
+                                        </Text>
+                                        <Text style={[s.continueArabic, { color: colors.text.secondary }]}>{lastRead.surahNameArabic}</Text>
+                                    </View>
+                                    <MaterialCommunityIcons name="chevron-right" size={22} color={colors.accent.gold} />
+                                </TouchableOpacity>
+                            ) : null}
+                            contentContainerStyle={{ paddingBottom: 100 }}
+                            showsVerticalScrollIndicator={false}
+                            keyboardShouldPersistTaps="handled"
+                        />
+                    )
                 ) : mode === 'read' ? (
                     renderReadingView()
                 ) : (
@@ -1175,7 +1523,7 @@ const s = StyleSheet.create({
         marginBottom: 10,
         borderWidth: 0.5,
     },
-    hintText: { flex: 1, fontSize: 12, letterSpacing: 0.2 },
+    hintText: { flex: 1, flexWrap: 'wrap', fontSize: 12, letterSpacing: 0.2 },
 
     /* Surah list card */
     surahCard: {
@@ -1276,6 +1624,27 @@ const s = StyleSheet.create({
         paddingVertical: 3,
     },
 
+    /* Continue reading card */
+    continueCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderRadius: 14,
+        padding: 14,
+        marginBottom: 12,
+        borderWidth: 1,
+    },
+    continueIconWrap: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 12,
+    },
+    continueLabel: { fontSize: 11, fontWeight: '600', letterSpacing: 0.3, textTransform: 'uppercase' },
+    continueSurah: { fontSize: 15, fontWeight: '700', letterSpacing: 0.3, marginTop: 1 },
+    continueArabic: { fontSize: 14, marginTop: 1 },
+
     /* Search results */
     searchResultCard: { borderRadius: 12, padding: 14, marginBottom: 8, borderWidth: 0.5 },
     searchResultHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
@@ -1286,4 +1655,8 @@ const s = StyleSheet.create({
     center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
     loadingText: { marginTop: 12, fontSize: 14 },
     emptyText: { marginTop: 12, fontSize: 14, textAlign: 'center', paddingHorizontal: 32 },
+    retryBtn: {
+        flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 10,
+        borderRadius: 12, borderWidth: 0.5,
+    },
 });

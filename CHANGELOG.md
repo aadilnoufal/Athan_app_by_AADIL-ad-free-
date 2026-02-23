@@ -2,6 +2,47 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.14.0] - 2025-07-19
+
+### Fixed
+- **Online Surah Last-Read Position** – Reading position now saves when switching tabs or backgrounding the app, not only when pressing back. Fixes the hit-or-miss tracking for online (non-downloaded) surahs.
+- **Download Sync (Settings → Quran)** – Surahs downloaded from Settings now show the tick mark immediately when returning to the Quran page, without needing an app restart.
+- **Network Error Recovery** – Added a Retry button on the Quran page's network error screen so users can reload without restarting the app.
+- **Loading Text** – Quran loading screen now says "Loading Quran…" instead of "Loading prayer times…".
+
+### Improved
+- **Light Mode Polish** – Complete overhaul of the light (sepia) colour palette: richer warm backgrounds with visible depth between card levels, deeper coffee-brown text hierarchy (WCAG AAA contrast), darker gold accents for better visibility, stronger warm borders, and warmer shadows. Replaced hardcoded cold-grey `rgba(0,0,0,…)` backgrounds on the home page with themed surface colours. Fixed an invalid rgba+hex concatenation bug in the next-prayer highlight.
+
+## [3.13.0] - 2025-07-19
+
+### Fixed
+- **Settings Font Scale Display** – Settings slider now initialises at 115% (the actual default) instead of 100%, preventing the confusing mismatch on first render before AsyncStorage loads.
+
+### Improved
+- **Smart Continue Reading** – Continue reading now tracks the exact ayah the user was viewing (top of screen) when they leave a surah, not just the surah number. Tapping "Continue Reading" scrolls directly to that ayah. The card also displays the ayah number (e.g. "Al-Baqarah · Ayah 45").
+
+### Added
+- **Always-Visible Settings Hint** – The Quran list page now shows a permanent subtle hint ("Translation, audio, text size & downloads available in Settings") so users always know about customisation options.
+
+### Verified
+- **Bismillah Stripping Safety** – Confirmed that `stripBismillah()` only ever processes the first ayah (idx === 0) of surahs 2–113 (excluding 9). Any bismillah text appearing mid-surah is completely untouched.
+
+## [3.12.0] - 2025-07-19
+
+### Fixed
+- **Bismillah Stripping (Arabic)** – Root cause identified: API returns `ٱلرَّحْمَٰنِ` without tatweel (U+0640) but constants had `ٱلرَّحْمَـٰنِ` with tatweel. Rewrote `stripBismillah()` as a unified function that fetches the exact bismillah text from the API (surah 1, ayah 1) for both Arabic and translations, with tatweel-normalized fallbacks.
+- **Audio Reciter Switching** – When reciter is changed in settings, cached audio data (URLs for old reciter) is now properly invalidated. New reciter audio is streamed immediately even if old reciter's audio was downloaded.
+
+### Added
+- **Local Surah Search** – Replaced remote API search with instant as-you-type local search. Matches against English name, translation name, surah number, and 200+ common misspellings/aliases (e.g. "yaseen", "fatiha", "rehman").
+- **Continue From Last Read** – Shows a "Continue Reading" card at the top of the surah list with the last opened surah. Position persisted via AsyncStorage.
+- **Download All Audio** – New button in Settings → Quran to download audio for all 114 surahs with the selected reciter. Includes progress indicator.
+- **Default Font Size 115%** – Changed Quran text default font scale from 100% to 115% for better readability.
+
+### Changed
+- Search bar now filters the surah list in real-time (no submit required).
+- `stripBismillah()` signature simplified from `(text, lang, knownBismillah?)` to `(text, knownBismillah?)`.
+
 ## [3.11.1] - 2026-02-21
 
 ### Fixed

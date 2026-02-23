@@ -2,6 +2,8 @@ export default {
   // General
   appName: 'Prayer Times',
   loading: 'Loading prayer times...',
+  loadingQuran: 'Loading Quran...',
+  retry: 'Retry',
   today: 'Today',
   tomorrow: 'Tomorrow',
   days: 'days',
@@ -218,6 +220,20 @@ export default {
   // Quran settings hint
   quranSettingsHint: 'Customize font size, translation & reciter in Settings → Quran',
   quranSettingsHintShort: 'More options in Settings → Quran',
+
+  // Continue reading
+  continueReading: 'Continue Reading',
+
+  // Download all audio
+  downloadAllAudio: 'Download All Audio',
+  downloadAllAudioConfirm: 'Download audio for all 114 surahs with {reciter}? This may use significant storage.',
+  allAudioDownloaded: 'All audio has been downloaded successfully.',
+
+  // Ayah label
+  ayah: 'Ayah',
+
+  // Quran list settings hint
+  quranListSettingsHint: 'Translation, audio, text size & downloads available in Settings',
 
   // Search improvements
   searchResultsFor: 'Results for',

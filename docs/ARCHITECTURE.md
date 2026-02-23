@@ -69,7 +69,10 @@ User taps a surah
   → quran.tsx calls readOfflineSurah() first
     → if downloaded → renders from disk instantly (no network)
     → if not → fetches Arabic + user's chosen translation edition via fetchSurahWithTranslation()
+  → fetches Arabic bismillah text (getBismillahText(EDITIONS.ARABIC)) for stripping
+  → fetches translation bismillah text (getBismillahText(translationEdition)) for stripping
   → checks if surah audio is downloaded for current reciter (isSurahAudioDownloaded)
+  → saves last-read position (setLastRead) for "Continue Reading" card
 
 User taps an ayah or the play button
   → quran.tsx playAyah(index)
@@ -87,7 +90,8 @@ User taps download audio button
 User changes font size / translation edition / reciter in Settings
   → quranStorage.setQuranFontScale / setTranslationEdition / setReciterPref
     → persists to AsyncStorage
-    → quran.tsx reads on next mount
+    → quran.tsx reads on next focus
+    → if reciter changed: cached audioSurahData invalidated, audioDownloaded re-checked
 
 User changes "Auto-scroll with audio" in Settings
   → quranStorage.setQuranAutoScrollWithAudio(enabled)
@@ -105,6 +109,12 @@ User triggers "Download Full Quran" from Settings
     → writes 228 JSON files (114 × 2 editions)
     → progress callback updates UI
 
+User triggers "Download All Audio" from Settings
+  → quranStorage.downloadAllAudio(reciterEdition, onProgress)
+    → iterates surahs 1-114, skips already downloaded
+    → downloads all ayah MP3s per surah via downloadSurahAudio()
+    → progress callback updates UI
+
 User clears downloads from Settings
   → quranStorage.deleteAllQuranData()
     → deletes quran/ directory + removes AsyncStorage index
@@ -117,5 +127,8 @@ User clears downloads from Settings
 3. **Audio streaming + optional download** – Audio streams by default; user can download per-surah per-reciter.
 4. **expo-file-system for content** – AsyncStorage has size limits; file system handles multi-MB JSON/MP3 without issue.
 5. **Edition preference in Settings** – Persisted via AsyncStorage; Quran tab reads it on mount.
-6. **Bismillah stripping** – API includes Bismillah in ayah 1 text; `stripBismillah()` strips it since a separate styled banner is shown.
+6. **Bismillah stripping** – API includes Bismillah in ayah 1 text; `stripBismillah()` fetches the exact bismillah from the API's own surah 1 ayah 1 for reliable comparison, with tatweel-normalized constant fallbacks.
 7. **Cached edition lists** – Translation and audio edition lists cached with 7-day TTL to avoid repeated API calls.
+8. **Local surah search** – Real-time as-you-type filtering with 200+ aliases for common misspellings, replacing the unreliable remote API search.
+9. **Continue from last read** – Saves surah number + name to AsyncStorage on open; displayed as a card atop the surah list.
+10. **Reciter invalidation** – When reciter preference changes, cached audio URLs and download status are re-evaluated to avoid playing stale audio.

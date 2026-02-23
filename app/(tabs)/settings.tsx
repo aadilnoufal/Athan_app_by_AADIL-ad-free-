@@ -71,6 +71,7 @@ import {
   setReciterPref,
   getTranslationEditionsCached,
   getAudioEditionsCached,
+  downloadAllAudio,
 } from '../../utils/quranStorage';
 import { EditionInfo, EDITIONS } from '../../lib/quranApi';
 
@@ -143,7 +144,7 @@ export default function SettingsScreen() {
   const [quranStorageSize, setQuranStorageSize] = useState(0);
   const [quranFullDownloading, setQuranFullDownloading] = useState(false);
   const [quranDownloadProgress, setQuranDownloadProgress] = useState<DownloadProgress | null>(null);
-  const [quranFontScale, setQuranFontScaleState] = useState(1.0);
+  const [quranFontScale, setQuranFontScaleState] = useState(1.15);
   const [quranAutoScrollWithAudio, setQuranAutoScrollWithAudioState] = useState(true);
   const [quranTranslationEdition, setQuranTranslationEditionState] = useState<string>(EDITIONS.ENGLISH);
   const [quranReciter, setQuranReciterState] = useState<string>(EDITIONS.DEFAULT_RECITER);
@@ -152,6 +153,8 @@ export default function SettingsScreen() {
   const [showTranslationPicker, setShowTranslationPicker] = useState(false);
   const [showReciterPicker, setShowReciterPicker] = useState(false);
   const [editionSearchQuery, setEditionSearchQuery] = useState('');
+  const [audioFullDownloading, setAudioFullDownloading] = useState(false);
+  const [audioDownloadProgress, setAudioDownloadProgress] = useState<{ done: number; total: number } | null>(null);
 
   // Time-based gradient colors for dynamic backgrounds (light mode only)
   const getTimeBasedGradient = () => {
@@ -305,6 +308,35 @@ export default function SettingsScreen() {
             } finally {
               setQuranFullDownloading(false);
               setQuranDownloadProgress(null);
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const handleDownloadAllAudio = async () => {
+    const reciterName = audioEditions.find(e => e.identifier === quranReciter)?.name ?? quranReciter;
+    Alert.alert(
+      t('downloadAllAudio'),
+      t('downloadAllAudioConfirm').replace('{reciter}', reciterName),
+      [
+        { text: t('cancel'), style: 'cancel' },
+        {
+          text: t('confirm'),
+          onPress: async () => {
+            setAudioFullDownloading(true);
+            setAudioDownloadProgress({ done: 0, total: 114 });
+            try {
+              await downloadAllAudio(quranReciter, (done, total) => {
+                setAudioDownloadProgress({ done, total });
+              });
+              Alert.alert(t('downloadComplete'), t('allAudioDownloaded'));
+            } catch (e: any) {
+              Alert.alert(t('downloadFailed'), t('downloadFailedMsg'));
+            } finally {
+              setAudioFullDownloading(false);
+              setAudioDownloadProgress(null);
             }
           },
         },
@@ -1510,6 +1542,30 @@ export default function SettingsScreen() {
                 )}
               </View>
             )}
+
+            {/* Download all audio button */}
+            <View style={[styles.enhancedTestButtonsContainer, { marginTop: 8 }]}>
+              {audioFullDownloading && audioDownloadProgress ? (
+                <View style={{ alignItems: 'center', paddingVertical: 8 }}>
+                  <ActivityIndicator size="small" color={C.accent.gold} />
+                  <Text style={[styles.enhancedSettingDescription, { marginTop: 8, textAlign: 'center' }]}>
+                    {t('downloadProgress')
+                      .replace('{downloaded}', String(audioDownloadProgress.done))
+                      .replace('{total}', String(audioDownloadProgress.total))}
+                  </Text>
+                </View>
+              ) : (
+                <MagicalButton
+                  style={styles.enhancedTestButton}
+                  onPress={handleDownloadAllAudio}
+                  disabled={audioFullDownloading || quranFullDownloading}
+                  glowColor={C.accent.amber}
+                >
+                  <MaterialCommunityIcons name="music-box-multiple" size={18} color={C.text.inverse} />
+                  <Text style={styles.enhancedTestButtonText}>{t('downloadAllAudio')}</Text>
+                </MagicalButton>
+              )}
+            </View>
 
             {/* Clear downloads button */}
             {quranDownloadedCount > 0 && (
