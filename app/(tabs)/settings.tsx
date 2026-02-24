@@ -56,11 +56,7 @@ import {
   getEditionPref,
   setEditionPref as saveEditionPref,
   EditionPref,
-  getDownloadedCount,
-  getTotalDownloadSize,
   deleteAllQuranData,
-  downloadFullQuran,
-  DownloadProgress,
   getQuranFontScale,
   setQuranFontScale,
   getQuranAutoScrollWithAudio,
@@ -143,10 +139,6 @@ export default function SettingsScreen() {
 
   // Quran settings state
   const [quranEditionPref, setQuranEditionPref] = useState<EditionPref>('both');
-  const [quranDownloadedCount, setQuranDownloadedCount] = useState(0);
-  const [quranStorageSize, setQuranStorageSize] = useState(0);
-  const [quranFullDownloading, setQuranFullDownloading] = useState(false);
-  const [quranDownloadProgress, setQuranDownloadProgress] = useState<DownloadProgress | null>(null);
   const [quranFontScale, setQuranFontScaleState] = useState(1.2);
   const [quranAutoScrollWithAudio, setQuranAutoScrollWithAudioState] = useState(true);
   const [quranTranslationEdition, setQuranTranslationEditionState] = useState<string>(EDITIONS.ENGLISH);
@@ -232,10 +224,9 @@ export default function SettingsScreen() {
   useEffect(() => {
     const initializeApp = async () => {
       await loadSettings();
-      // Initialize Notifee notification system (better reliability)
+      // Initialize Notifee notification system (handles all permissions internally)
       try {
         await initializeNotifeePrayerNotifications();
-        await requestExactAlarmPermission(); // For Android 12+
       } catch (error) {
         console.log('Error initializing Notifee notifications:', error);
       }
@@ -249,10 +240,8 @@ export default function SettingsScreen() {
   useEffect(() => {
     (async () => {
       try {
-        const [pref, count, size, fontSc, autoScrollPref, trEd, recPref, fontFamPref] = await Promise.all([
+        const [pref, fontSc, autoScrollPref, trEd, recPref, fontFamPref] = await Promise.all([
           getEditionPref(),
-          getDownloadedCount(),
-          getTotalDownloadSize(),
           getQuranFontScale(),
           getQuranAutoScrollWithAudio(),
           getTranslationEdition(),
@@ -260,8 +249,6 @@ export default function SettingsScreen() {
           getQuranFontFamily(),
         ]);
         setQuranEditionPref(pref);
-        setQuranDownloadedCount(count);
-        setQuranStorageSize(size);
         setQuranFontScaleState(fontSc);
         setQuranAutoScrollWithAudioState(autoScrollPref);
         setQuranTranslationEditionState(trEd);
@@ -288,37 +275,6 @@ export default function SettingsScreen() {
   const handleEditionPrefChange = async (pref: EditionPref) => {
     setQuranEditionPref(pref);
     await saveEditionPref(pref);
-  };
-
-  const handleDownloadFullQuran = async () => {
-    Alert.alert(
-      t('downloadAll'),
-      t('deleteAllConfirm').replace('remove all downloaded Quran data and free up storage', 'download all 114 surahs'),
-      [
-        { text: t('cancel'), style: 'cancel' },
-        {
-          text: t('confirm'),
-          onPress: async () => {
-            setQuranFullDownloading(true);
-            setQuranDownloadProgress({ downloaded: 0, total: 114 });
-            try {
-              await downloadFullQuran((progress) => {
-                setQuranDownloadProgress(progress);
-              });
-              const [count, size] = await Promise.all([getDownloadedCount(), getTotalDownloadSize()]);
-              setQuranDownloadedCount(count);
-              setQuranStorageSize(size);
-              Alert.alert(t('downloadComplete'), '114/114 ' + t('surahs'));
-            } catch (e: any) {
-              Alert.alert(t('downloadFailed'), t('downloadFailedMsg'));
-            } finally {
-              setQuranFullDownloading(false);
-              setQuranDownloadProgress(null);
-            }
-          },
-        },
-      ],
-    );
   };
 
   const handleDownloadAllAudio = async () => {
@@ -353,7 +309,7 @@ export default function SettingsScreen() {
   const handleClearAllQuranDownloads = async () => {
     Alert.alert(
       t('deleteAllDownloads'),
-      t('deleteAllConfirm'),
+      t('clearCachedDataConfirm') ?? 'This will remove cached audio files and extra translations. Bundled Arabic + English text will remain available.',
       [
         { text: t('cancel'), style: 'cancel' },
         {
@@ -361,8 +317,6 @@ export default function SettingsScreen() {
           style: 'destructive',
           onPress: async () => {
             await deleteAllQuranData();
-            setQuranDownloadedCount(0);
-            setQuranStorageSize(0);
             Alert.alert(t('deleteAllSuccess'));
           },
         },
@@ -1544,48 +1498,13 @@ export default function SettingsScreen() {
               <MaterialCommunityIcons name="chevron-right" size={20} color={C.text.tertiary} />
             </TouchableOpacity>
 
-            {/* Download stats */}
-            <View style={styles.enhancedSettingContainer}>
-              <Text style={styles.enhancedSettingLabel}>{t('downloadedSurahs')}</Text>
-              <Text style={[styles.enhancedSettingLabel, { color: C.accent.gold }]}>
-                {quranDownloadedCount} / 114
+            {/* Quran text is bundled offline — info note */}
+            <View style={[styles.enhancedSettingContainer, { marginBottom: 8 }]}>
+              <MaterialCommunityIcons name="check-circle" size={18} color={C.accent.gold} style={{ marginRight: 8 }} />
+              <Text style={[styles.enhancedSettingDescription, { flex: 1 }]}>
+                {t('quranBundledOffline') ?? 'Full Quran text (Arabic + English) is bundled offline — no download needed.'}
               </Text>
             </View>
-
-            {quranStorageSize > 0 && (
-              <View style={[styles.enhancedSettingContainer, { marginTop: 4 }]}>
-                <Text style={styles.enhancedSettingLabel}>{t('storageUsed')}</Text>
-                <Text style={[styles.enhancedSettingLabel, { color: C.accent.gold }]}>
-                  {formatBytes(quranStorageSize)}
-                </Text>
-              </View>
-            )}
-
-            {/* Download full Quran button */}
-            {quranDownloadedCount < 114 && (
-              <View style={styles.enhancedTestButtonsContainer}>
-                {quranFullDownloading && quranDownloadProgress ? (
-                  <View style={{ alignItems: 'center', paddingVertical: 8 }}>
-                    <ActivityIndicator size="small" color={C.accent.gold} />
-                    <Text style={[styles.enhancedSettingDescription, { marginTop: 8, textAlign: 'center' }]}>
-                      {t('downloadProgress')
-                        .replace('{downloaded}', String(quranDownloadProgress.downloaded))
-                        .replace('{total}', String(quranDownloadProgress.total))}
-                    </Text>
-                  </View>
-                ) : (
-                  <MagicalButton
-                    style={styles.enhancedTestButton}
-                    onPress={handleDownloadFullQuran}
-                    disabled={quranFullDownloading}
-                    glowColor={C.accent.amber}
-                  >
-                    <MaterialCommunityIcons name="download" size={18} color={C.text.inverse} />
-                    <Text style={styles.enhancedTestButtonText}>{t('downloadAll')}</Text>
-                  </MagicalButton>
-                )}
-              </View>
-            )}
 
             {/* Download all audio button */}
             <View style={[styles.enhancedTestButtonsContainer, { marginTop: 8 }]}>
@@ -1602,7 +1521,7 @@ export default function SettingsScreen() {
                 <MagicalButton
                   style={styles.enhancedTestButton}
                   onPress={handleDownloadAllAudio}
-                  disabled={audioFullDownloading || quranFullDownloading}
+                  disabled={audioFullDownloading}
                   glowColor={C.accent.amber}
                 >
                   <MaterialCommunityIcons name="music-box-multiple" size={18} color={C.text.inverse} />
@@ -1611,19 +1530,17 @@ export default function SettingsScreen() {
               )}
             </View>
 
-            {/* Clear downloads button */}
-            {quranDownloadedCount > 0 && (
-              <View style={[styles.enhancedTestButtonsContainer, { marginTop: 8 }]}>
-                <MagicalButton
-                  style={[styles.enhancedTestButton, { backgroundColor: C.accent.copper || '#B87333' }]}
-                  onPress={handleClearAllQuranDownloads}
-                  glowColor={C.accent.copper || '#B87333'}
-                >
-                  <MaterialCommunityIcons name="delete-outline" size={18} color={C.text.inverse} />
-                  <Text style={styles.enhancedTestButtonText}>{t('deleteAllDownloads')}</Text>
-                </MagicalButton>
-              </View>
-            )}
+            {/* Clear cached data button (audio / extra translations) */}
+            <View style={[styles.enhancedTestButtonsContainer, { marginTop: 8 }]}>
+              <MagicalButton
+                style={[styles.enhancedTestButton, { backgroundColor: C.accent.copper || '#B87333' }]}
+                onPress={handleClearAllQuranDownloads}
+                glowColor={C.accent.copper || '#B87333'}
+              >
+                <MaterialCommunityIcons name="delete-outline" size={18} color={C.text.inverse} />
+                <Text style={styles.enhancedTestButtonText}>{t('deleteAllDownloads')}</Text>
+              </MagicalButton>
+            </View>
           </View>
 
           {/* ✨ ENHANCED ABOUT SECTION ✨ */}

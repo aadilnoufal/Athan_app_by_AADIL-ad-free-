@@ -5,7 +5,6 @@ import {
   View,
   StatusBar,
   TouchableOpacity,
-  Pressable,
   ScrollView,
   ActivityIndicator,
   Alert,
@@ -16,25 +15,21 @@ import {
   FlatList,
   AppState,
   Dimensions,
-  Platform,
-  GestureResponderEvent
+  Platform
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import { MaterialCommunityIcons } from '@expo/vector-icons'; // Note: Using Expo's vector icons
 import { format, addDays, differenceInSeconds } from 'date-fns';
 import { Stack, useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { getAvailableRegions, getRegionConfig, DEFAULT_REGION } from '../config/prayerTimeConfig';
-import notifee from '@notifee/react-native';
-import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { useLanguage } from '../../contexts/LanguageContext';
 // Import prayer time utilities
-import { applyTuningParameters, applyLocalDataCityAdjustments, extractCityIdFromRegionId } from '../../utils/prayerTimeTuner';
-import { getPrayerTimesFromLocalData, hasLocalDataForDate } from '../../utils/localPrayerData';
+import { applyLocalDataCityAdjustments, extractCityIdFromRegionId } from '../../utils/prayerTimeTuner';
+import { getPrayerTimesFromLocalData } from '../../utils/localPrayerData';
 import { SepiaColors } from '../../constants/sepiaColors';
 import { useTheme } from '../../contexts/ThemeContext';
 import RevenueCatPaywall from '../components/RevenueCatPaywall';
@@ -46,26 +41,18 @@ const { width: screenWidth } = Dimensions.get('window');
 // Import time utilities for improved timezone and countdown handling
 import {
   findNextPrayer,
-  calculateTimeRemaining,
-  convertTo12HourFormat,
   isSamePrayerTime
 } from '../../utils/timeUtils';
 // Import Notifee prayer notification services (enterprise-grade reliability)
 import {
   initializeNotifeePrayerNotifications,
-  cancelAllNotifeePrayerNotifications,
   cancelAllNotificationsCompletely,
   getScheduledNotifeePrayerNotifications,
-  // scheduleImmediateNotifeeNotification, // ❌ REMOVED: Not needed, AlarmManager handles notifications
-  scheduleNotifeeTestNotification,
   getNotifeeServiceStatus,
-  requestExactAlarmPermission,
-  debugNotifeeNotifications,
-  checkAndHandleBatteryOptimization,
-  checkAndHandlePowerManager
 } from '../../utils/notifeePrayerService';
 import { ensurePrayerNotificationWindow, forceRescheduleAllNotifications } from '../../utils/prayerNotificationScheduler';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useHomeAppStateSync } from '../../hooks/useHomeAppStateSync';
 // Import background task utilities
 import {
   setupBackgroundTask,
@@ -73,17 +60,7 @@ import {
   getBackgroundFetchStatus
 } from '../../utils/backgroundTask';
 
-// Get status bar height to ensure proper padding
-const STATUS_BAR_HEIGHT = Platform.OS === 'android' ? StatusBar.currentHeight || 0 : 0;
-
 // Define interfaces for prayer data
-interface PrayerTime {
-  name: string;
-  time: string;
-  timeRaw: string;
-  date: Date;
-}
-
 interface PrayerData {
   date: string;
   hijriDate: string;
@@ -116,13 +93,7 @@ interface NextPrayer {
   date: Date;
 }
 
-// Define interfaces for language and region items
-interface LanguageItem {
-  id: string;
-  name: string;
-  [key: string]: any;
-}
-
+// Define interfaces for region items
 interface RegionItem {
   id: string;
   name: string;
@@ -203,7 +174,7 @@ const AnimatedPrayerIcon = ({ prayer, active, size = 24, color, subtle = false }
 
 export default function Home() {
   // Theme integration (phase 1)
-  const { colors, isDark, toggleTheme } = useTheme();
+  const { colors, isDark } = useTheme();
   // Shorthand alias used during gradual migration from static SepiaColors styles
   const C = colors;
   // Dynamic themed styles (migrated from static StyleSheet at file end) so dark mode uses proper contrast
@@ -509,7 +480,7 @@ export default function Home() {
       alignItems: 'center',
       backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : C.surface.secondary,
       borderRadius: 16,
-      paddingVertical: 14,
+      paddingVertical: 10,
       paddingHorizontal: 18,
       marginTop: 0,
       borderWidth: 0.5,
@@ -530,7 +501,7 @@ export default function Home() {
       // Use themed surface color instead for a solid dark surface.
       backgroundColor: isDark ? C.surface.primary : C.surface.primary,
       borderRadius: 20,
-      paddingVertical: 12,
+      paddingVertical: 8,
       paddingHorizontal: 16,
       borderWidth: 0.5,
       borderColor: isDark ? 'rgba(218,165,32,0.15)' : C.border.light,
@@ -578,7 +549,7 @@ export default function Home() {
       // Solid surface color for dark mode to avoid light sepia bleed-through.
       backgroundColor: isDark ? C.surface.primary : C.surface.secondary,
       borderRadius: 16,
-      padding: 12,
+      padding: 10,
       borderWidth: 0.5,
       borderColor: isDark ? 'rgba(218,165,32,0.1)' : C.border.light,
       position: 'relative',
@@ -588,7 +559,7 @@ export default function Home() {
       backgroundColor: isDark ? 'rgba(218,165,32,0.06)' : `${C.special.highlight}CC`,
       borderColor: isDark ? 'rgba(218,165,32,0.25)' : C.border.accent,
     },
-    prayerItemHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+    prayerItemHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
     enhancedIconContainer: {
       width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(218,165,32,0.08)', alignItems: 'center', justifyContent: 'center',
       marginRight: 12, borderWidth: 0.5, borderColor: 'rgba(218,165,32,0.15)'
@@ -600,10 +571,26 @@ export default function Home() {
     enhancedPrayerTime: { color: C.text.primary, fontSize: 18, fontWeight: '600', letterSpacing: 0.5, textAlign: 'right' },
     activeEnhancedPrayerTime: { color: C.accent.amber, fontWeight: '700', fontSize: 20 },
     nextIndicator: {
-      flexDirection: 'row', alignItems: 'center', marginTop: 4, backgroundColor: 'rgba(218,165,32,0.12)',
-      paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10,
+      flexDirection: 'row', alignItems: 'center', marginTop: 2, backgroundColor: 'rgba(218,165,32,0.12)',
+      paddingHorizontal: 8, paddingVertical: 1, borderRadius: 10,
     },
     nextIndicatorText: { color: C.accent.darkGold, fontSize: 10, fontWeight: '600', marginLeft: 4, letterSpacing: 0.5, textTransform: 'uppercase' },
+    returnToTodayButton: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+      paddingVertical: 6, paddingHorizontal: 14, marginTop: 6,
+      borderRadius: 16, backgroundColor: 'rgba(218,165,32,0.10)',
+      alignSelf: 'center',
+    },
+    returnToTodayText: {
+      color: SepiaColors.accent.gold, fontSize: 12, fontWeight: '600', marginLeft: 5, letterSpacing: 0.3,
+    },
+    iqamaFooterContainer: {
+      flexDirection: 'row', alignItems: 'flex-start', marginTop: 10, marginBottom: 4,
+      paddingHorizontal: 4, gap: 5,
+    },
+    iqamaFooterText: {
+      color: C.text.secondary, fontSize: 11, fontWeight: '400', opacity: 0.65, flex: 1, lineHeight: 15,
+    },
     // Compact header additions
     compactHeaderWrapper: {
       marginBottom: 8,
@@ -656,7 +643,7 @@ export default function Home() {
     },
   }), [C, isDark]);
   const router = useRouter();
-  const { t, currentLang, changeLanguage, availableLanguages } = useLanguage();
+  const { t } = useLanguage();
 
   // Add isFirstLoad state to track first launch
   const [isFirstLoad, setIsFirstLoad] = useState(true);
@@ -682,15 +669,12 @@ export default function Home() {
   // UI state
   const [refreshing, setRefreshing] = useState(false);
   const [showRegionPicker, setShowRegionPicker] = useState(false);
-  const [showLanguageSelector, setShowLanguageSelector] = useState(false);
   const [appState, setAppState] = useState(AppState.currentState);
   const [regionChanging, setRegionChanging] = useState(false);
 
   // Progress tracking
   const [progressAnimation] = useState(new Animated.Value(0));
   const [progressPercent, setProgressPercent] = useState(0);
-  const [totalSeconds, setTotalSeconds] = useState(0);
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
   // Date management
   const [lastRefreshDate, setLastRefreshDate] = useState('');
@@ -708,8 +692,6 @@ export default function Home() {
   });
 
   // Modal management
-  const lastModalToggleTime = useRef(Date.now());
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const modalLock = useRef(false);
   const toggleModal = (setter: Dispatch<SetStateAction<boolean>>): void => {
     if (modalLock.current) return;
@@ -722,9 +704,16 @@ export default function Home() {
 
   // Enhanced notification setup and management
 
+  useHomeAppStateSync({
+    currentDay,
+    currentDate,
+    setCurrentDate,
+    setCurrentDay,
+    setLastRefreshDate,
+    setAppState,
+  });
+
   // ✨ MAGICAL ANIMATIONS & VISUAL ENHANCEMENTS ✨
-  const [sparkleAnimation] = useState(new Animated.Value(0));
-  const [floatingAnimation] = useState(new Animated.Value(0));
   const [glowAnimation] = useState(new Animated.Value(0));
   const [breathingAnimation] = useState(new Animated.Value(1));
   const [shimmerAnimation] = useState(new Animated.Value(0));
@@ -734,52 +723,12 @@ export default function Home() {
   const [footerBreathingAnimation] = useState(new Animated.Value(1)); // Separate for footer opacity
 
   // ✨ MAGICAL BUTTON ANIMATIONS ✨
-  const [buttonGlowAnimation] = useState(new Animated.Value(0));
-  const [buttonPulseAnimation] = useState(new Animated.Value(1));
   const [arrowBounceAnimation] = useState(new Animated.Value(0)); // For translateX (non-native)
-  const [locationShimmerAnimation] = useState(new Animated.Value(0));
   const [refreshSpinAnimation] = useState(new Animated.Value(0));
 
   // Separate shimmer animations that require layout properties (non-native driver)
   const [footerShimmerAnimation] = useState(new Animated.Value(0));
   const [buttonShimmerAnimation] = useState(new Animated.Value(0));
-
-  // Sparkle positions for floating sparkles (non-native driver for layout properties)
-  const [sparkles] = useState(() =>
-    Array.from({ length: 6 }, (_, i) => ({
-      id: i,
-      x: new Animated.Value(Math.random() * screenWidth),
-      y: new Animated.Value(Math.random() * 300),
-      scale: new Animated.Value(0.5 + Math.random() * 0.5),
-      opacity: new Animated.Value(0.3 + Math.random() * 0.4),
-      rotation: new Animated.Value(0),
-    }))
-  );
-
-  // Header magical elements (non-native driver for layout properties)
-  const [headerStars] = useState(() =>
-    Array.from({ length: 4 }, (_, i) => ({
-      id: i,
-      x: new Animated.Value(30 + Math.random() * 200),
-      y: new Animated.Value(5 + Math.random() * 15),
-      scale: new Animated.Value(0.3 + Math.random() * 0.4),
-      opacity: new Animated.Value(0.4 + Math.random() * 0.3),
-      rotation: new Animated.Value(0),
-    }))
-  );
-
-  // Footer magical elements (non-native driver for layout properties)
-  const [footerElements] = useState(() =>
-    Array.from({ length: 5 }, (_, i) => ({
-      id: i,
-      x: new Animated.Value(20 + Math.random() * 280),
-      y: new Animated.Value(Math.random() * 25),
-      scale: new Animated.Value(0.4 + Math.random() * 0.3),
-      opacity: new Animated.Value(0.3 + Math.random() * 0.4),
-      rotation: new Animated.Value(0),
-      type: ['star', 'moon', 'sparkle'][Math.floor(Math.random() * 3)],
-    }))
-  );
 
   // Time-based gradient colors for dynamic backgrounds
   const getTimeBasedGradient = () => {
@@ -802,46 +751,11 @@ export default function Home() {
     } else if (hour >= 15 && hour < 18) { // Afternoon - light golden sepia
       return [C.background.secondary, C.background.tertiary, C.surface.secondary];
     } else if (hour >= 18 && hour < 20) { // Maghrib - light sunset sepia
-      return [C.background.tertiary, C.surface.secondary, '#F5F1E6'];
+      return [C.background.tertiary, C.surface.secondary, C.background.tertiary];
     } else { // Night/Isha - slightly deeper but still light sepia
-      return [C.surface.secondary, C.surface.secondary, '#F2EEE1'];
+      return [C.surface.secondary, C.background.tertiary, C.surface.secondary];
     }
   };
-
-  // Magical sparkle component
-  const MagicalSparkle = ({ sparkle, index }: { sparkle: any, index: number }) => (
-    <Animated.View
-      style={[
-        styles.sparkle,
-        {
-          left: sparkle.x,
-          top: sparkle.y,
-        }
-      ]}
-    >
-      <Animated.View
-        style={{
-          transform: [
-            { scale: sparkle.scale },
-            {
-              rotate: sparkle.rotation.interpolate({
-                inputRange: [0, 1],
-                outputRange: ['0deg', '360deg']
-              })
-            }
-          ],
-          opacity: sparkle.opacity,
-        }}
-      >
-        <MaterialCommunityIcons
-          name="star-four-points"
-          size={12 + (index % 3) * 4}
-          color={C.accent.gold}
-          style={{ opacity: 0.6 }}
-        />
-      </Animated.View>
-    </Animated.View>
-  );
 
   // ✨ MAGICAL HEADER COMPONENT ✨
   const MagicalHeader = () => (
@@ -864,43 +778,6 @@ export default function Home() {
         pointerEvents="none"
       />
 
-      {/* Header sparkles and stars */}
-      {/* TEMPORARILY DISABLED - Header stars causing potential text rendering issues */}
-      {/*
-      {headerStars.map((star, index) => (
-        <Animated.View
-          key={star.id}
-          style={[
-            styles.headerStar,
-            {
-              left: star.x,
-              top: star.y,
-            }
-          ]}
-        >
-          <Animated.View
-            style={{
-              transform: [
-                { scale: star.scale },
-                { rotate: star.rotation.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: ['0deg', '360deg']
-                })}
-              ],
-              opacity: star.opacity,
-            }}
-          >
-            <MaterialCommunityIcons 
-              name={index % 2 === 0 ? "star" : "star-four-points"} 
-              size={8 + (index % 2) * 4} 
-              color={C.accent.gold} 
-              style={{ opacity: 0.7 }}
-            />
-          </Animated.View>
-        </Animated.View>
-      ))}
-      */}
-
       {/* Header content */}
       <View style={styles.header}>
         <Animated.Text
@@ -916,7 +793,6 @@ export default function Home() {
         <View style={styles.headerButtons}>
           <MagicalButton
             onPress={handleRefreshPress}
-            onLongPress={handleRefreshLongPress}
             disabled={refreshing}
             style={styles.refreshButton}
           >
@@ -985,49 +861,6 @@ export default function Home() {
         ]}
       />
 
-      {/* Footer magical elements */}
-      {/* TEMPORARILY DISABLED - Footer elements causing potential text rendering issues */}
-      {/*
-      {footerElements.map((element, index) => (
-        <Animated.View
-          key={element.id}
-          style={[
-            styles.footerElement,
-            {
-              left: element.x,
-              top: element.y,
-            }
-          ]}
-        >
-          <Animated.View
-            style={{
-              transform: [
-                { scale: element.scale },
-                { rotate: element.rotation.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: ['0deg', '180deg']
-                })}
-              ],
-              opacity: element.opacity,
-            }}
-          >
-            <MaterialCommunityIcons 
-              name={
-                element.type === 'star' ? "star" :
-                element.type === 'moon' ? "moon-waning-crescent" :
-                "star-four-points"
-              } 
-              size={element.type === 'moon' ? 16 : 10 + (index % 3) * 2} 
-              color={
-                element.type === 'moon' ? SepiaColors.accent.amber :
-                SepiaColors.accent.gold
-              } 
-              style={{ opacity: 0.6 }}
-            />
-          </Animated.View>
-        </Animated.View>
-      ))}
-      */}
       {/* Footer content */}
       <View style={styles.footerContent}>
         <Animated.View
@@ -1113,29 +946,15 @@ export default function Home() {
     glowColor?: string;
     pulseSize?: number;
   }) => (
-    // Ultra-simplified version for Android debugging - removing ALL complex styling
+    // Ultra-simplified version
     <TouchableOpacity
-      onPress={() => {
-        console.log('🚀 DEBUG: MagicalButton TouchableOpacity pressed!');
-        if (onPress) {
-          console.log('🚀 DEBUG: Calling onPress handler...');
-          onPress();
-        } else {
-          console.log('🚀 DEBUG: No onPress handler provided!');
-        }
-      }}
-      onPressIn={() => {
-        console.log('🚀 DEBUG: MagicalButton onPressIn detected!');
-      }}
-      onPressOut={() => {
-        console.log('🚀 DEBUG: MagicalButton onPressOut detected!');
-      }}
+      onPress={onPress}
       onLongPress={onLongPress}
       disabled={disabled}
       activeOpacity={0.7}
       style={[
         {
-          // Basic styling for Android debugging
+          // Basic styling
           backgroundColor: 'rgba(255,255,255,0.1)',
           padding: 8,
           borderRadius: 8,
@@ -1314,6 +1133,7 @@ export default function Home() {
     const initializeNotifications = async () => {
       try {
         // Initialize the Notifee notification service (enterprise-grade reliability)
+        // This single call handles: notification permission -> exact alarm -> battery optimization
         console.log('🔧 Initializing Notifee prayer notification system...');
         const initialized = await initializeNotifeePrayerNotifications();
 
@@ -1321,19 +1141,6 @@ export default function Home() {
           console.warn('Failed to initialize Notifee notifications - continuing without notifications');
           return;
         }
-
-        // Request exact alarm permission for Android 12+
-        await requestExactAlarmPermission();
-
-        // Check and handle battery optimization (optional - don't block initialization)
-        setTimeout(() => {
-          checkAndHandleBatteryOptimization();
-        }, 3000); // Delay to avoid overwhelming user with permission requests
-
-        // Check and handle power manager (optional - don't block initialization)
-        setTimeout(() => {
-          checkAndHandlePowerManager();
-        }, 6000); // Further delay to spread out permission requests
 
         // Check and update notification settings
         await checkNotificationSettings();
@@ -1536,10 +1343,6 @@ export default function Home() {
   // Add cooldown mechanism to prevent infinite scheduling loops
   const lastScheduleAttempt = useRef<number>(0);
   const SCHEDULE_COOLDOWN = 5000; // 5 seconds cooldown between scheduling attempts
-
-  // Add global notification cooldown to prevent spam (CRITICAL FIX)
-  const lastNotificationDelivered = useRef<number>(0);
-  const NOTIFICATION_COOLDOWN = 60000; // 60 seconds cooldown between actual notifications
 
   const scheduleNotificationsForToday = async () => {
     try {
@@ -1828,7 +1631,6 @@ export default function Home() {
   useEffect(() => {
     setProgressPercent(0);
     progressAnimation.setValue(0);
-    setElapsedSeconds(0);
 
     if (location && method !== undefined && tuningParams !== undefined) {
       console.log(`Fetching prayer times for day +${currentDay}, location: ${location}`);
@@ -1881,16 +1683,11 @@ export default function Home() {
       }, 3000);
     }
 
-    const countdownTimer = setInterval(() => {
-      updateCountdown();
-    }, 1000);
-
     const dateCheckTimer = setInterval(() => {
       checkDayChange();
     }, 60000);
 
     return () => {
-      clearInterval(countdownTimer);
       clearInterval(dateCheckTimer);
     };
   }, [currentDay, lastRefreshDate, location, method, tuningParams, isFirstLoad]);
@@ -2083,411 +1880,9 @@ export default function Home() {
   useEffect(() => {
     // TEMPORARILY DISABLED - All magical animations commented out to fix driver conflicts
     console.log('🚫 Magical animations temporarily disabled to fix driver conflicts');
-
-    /*
-    // Start continuous sparkle animations
-    const startSparkleAnimations = () => {
-      sparkles.forEach((sparkle, index) => {
-        const initialY = Math.random() * 300;
-        
-        // Position animations (layout properties - must use non-native driver)
-        Animated.loop(
-          Animated.sequence([
-            Animated.timing(sparkle.y, {
-              toValue: initialY - 20,
-              duration: 2000 + index * 500,
-              easing: Easing.inOut(Easing.sin),
-              useNativeDriver: false,
-            }),
-            Animated.timing(sparkle.y, {
-              toValue: initialY + 20,
-              duration: 2000 + index * 500,
-              easing: Easing.inOut(Easing.sin),
-              useNativeDriver: false,
-            }),
-          ])
-        ).start();
-
-        // Transform animations (can use native driver)
-        Animated.loop(
-          Animated.timing(sparkle.rotation, {
-            toValue: 1,
-            duration: 4000 + index * 1000,
-            easing: Easing.linear,
-            useNativeDriver: true,
-          })
-        ).start();
-
-        Animated.loop(
-          Animated.timing(sparkle.scale, {
-            toValue: 0.5 + Math.random() * 0.5,
-            duration: 1500 + index * 300,
-            easing: Easing.inOut(Easing.sin),
-            useNativeDriver: true,
-          })
-        ).start();
-
-        // Opacity animations (can use native driver)
-        Animated.loop(
-          Animated.sequence([
-            Animated.timing(sparkle.opacity, {
-              toValue: 0.8,
-              duration: 1500 + index * 300,
-              easing: Easing.inOut(Easing.sin),
-              useNativeDriver: true,
-            }),
-            Animated.timing(sparkle.opacity, {
-              toValue: 0.2,
-              duration: 1500 + index * 300,
-              easing: Easing.inOut(Easing.sin),
-              useNativeDriver: true,
-            }),
-          ])
-        ).start();
-      });
-    };
-
-    // Header stars animation
-    const startHeaderAnimations = () => {
-      headerStars.forEach((star, index) => {
-        // Position animations (layout properties - must use non-native driver)
-        Animated.loop(
-          Animated.sequence([
-            Animated.timing(star.y, {
-              toValue: (5 + Math.random() * 15) - 3,
-              duration: 3000 + index * 800,
-              easing: Easing.inOut(Easing.sin),
-              useNativeDriver: false,
-            }),
-            Animated.timing(star.y, {
-              toValue: (5 + Math.random() * 15) + 3,
-              duration: 3000 + index * 800,
-              easing: Easing.inOut(Easing.sin),
-              useNativeDriver: false,
-            }),
-          ])
-        ).start();
-
-        // Transform animations (can use native driver)
-        Animated.loop(
-          Animated.timing(star.rotation, {
-            toValue: 1,
-            duration: 6000 + index * 1500,
-            easing: Easing.linear,
-            useNativeDriver: true,
-          })
-        ).start();
-
-        Animated.loop(
-          Animated.timing(star.scale, {
-            toValue: 0.3 + Math.random() * 0.4,
-            duration: 2000 + index * 400,
-            easing: Easing.inOut(Easing.sin),
-            useNativeDriver: true,
-          })
-        ).start();
-
-        // Opacity animations (can use native driver)
-        Animated.loop(
-          Animated.sequence([
-            Animated.timing(star.opacity, {
-              toValue: 0.8,
-              duration: 2000 + index * 400,
-              easing: Easing.inOut(Easing.sin),
-              useNativeDriver: true,
-            }),
-            Animated.timing(star.opacity, {
-              toValue: 0.3,
-              duration: 2000 + index * 400,
-              easing: Easing.inOut(Easing.sin),
-              useNativeDriver: true,
-            }),
-          ])
-        ).start();
-      });
-    };
-
-    // Footer elements animation
-    const startFooterAnimations = () => {
-      footerElements.forEach((element, index) => {
-        // Position animations (layout properties - must use non-native driver)
-        Animated.loop(
-          Animated.sequence([
-            Animated.timing(element.y, {
-              toValue: Math.random() * 25 - 5,
-              duration: 2500 + index * 600,
-              easing: Easing.inOut(Easing.sin),
-              useNativeDriver: false,
-            }),
-            Animated.timing(element.y, {
-              toValue: Math.random() * 25 + 5,
-              duration: 2500 + index * 600,
-              easing: Easing.inOut(Easing.sin),
-              useNativeDriver: false,
-            }),
-          ])
-        ).start();
-
-        // Transform animations (can use native driver)
-        Animated.loop(
-          Animated.timing(element.rotation, {
-            toValue: 1,
-            duration: element.type === 'moon' ? 8000 : 5000 + index * 1000,
-            easing: Easing.linear,
-            useNativeDriver: true,
-          })
-        ).start();
-
-        Animated.loop(
-          Animated.timing(element.scale, {
-            toValue: 0.4 + Math.random() * 0.3,
-            duration: 1800 + index * 400,
-            easing: Easing.inOut(Easing.sin),
-            useNativeDriver: true,
-          })
-        ).start();
-
-        // Opacity animations (can use native driver)
-        Animated.loop(
-          Animated.sequence([
-            Animated.timing(element.opacity, {
-              toValue: 0.7,
-              duration: 1800 + index * 400,
-              easing: Easing.inOut(Easing.sin),
-              useNativeDriver: true,
-            }),
-            Animated.timing(element.opacity, {
-              toValue: 0.2,
-              duration: 1800 + index * 400,
-              easing: Easing.inOut(Easing.sin),
-              useNativeDriver: true,
-            }),
-          ])
-        ).start();
-      });
-    };
-
-    // Header glow animation
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(headerGlowAnimation, {
-          toValue: 1,
-          duration: 3000,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-        Animated.timing(headerGlowAnimation, {
-          toValue: 0,
-          duration: 3000,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-
-    // Footer star animation
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(footerStarAnimation, {
-          toValue: 1,
-          duration: 4000,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-        Animated.timing(footerStarAnimation, {
-          toValue: 0,
-          duration: 4000,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-
-    // Moon phase animation
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(moonPhaseAnimation, {
-          toValue: 1,
-          duration: 5000,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-        Animated.timing(moonPhaseAnimation, {
-          toValue: 0,
-          duration: 5000,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-
-    // Glow animation for circular progress
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(glowAnimation, {
-          toValue: 1,
-          duration: 2000,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-        Animated.timing(glowAnimation, {
-          toValue: 0,
-          duration: 2000,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-
-    // Breathing animation for center content
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(breathingAnimation, {
-          toValue: 1.05,
-          duration: 3000,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-        Animated.timing(breathingAnimation, {
-          toValue: 1,
-          duration: 3000,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-
-    // Footer breathing animation (separate from main breathing)
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(footerBreathingAnimation, {
-          toValue: 1.05,
-          duration: 3500,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-        Animated.timing(footerBreathingAnimation, {
-          toValue: 1,
-          duration: 3500,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-
-    // Shimmer effect
-    Animated.loop(
-      Animated.timing(shimmerAnimation, {
-        toValue: 1,
-        duration: 2500,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      })
-    ).start();
-
-    // ✨ MAGICAL BUTTON ANIMATIONS ✨
-    // Button glow effect
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(buttonGlowAnimation, {
-          toValue: 1,
-          duration: 2000,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-        Animated.timing(buttonGlowAnimation, {
-          toValue: 0,
-          duration: 2000,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-
-    // Button pulse animation
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(buttonPulseAnimation, {
-          toValue: 1.02,
-          duration: 1500,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-        Animated.timing(buttonPulseAnimation, {
-          toValue: 1,
-          duration: 1500,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-
-    // Arrow bounce animation (uses translateX, needs non-native driver)
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(arrowBounceAnimation, {
-          toValue: 1,
-          duration: 1000,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: false,
-        }),
-        Animated.timing(arrowBounceAnimation, {
-          toValue: 0,
-          duration: 1000,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: false,
-        }),
-      ])
-    ).start();
-
-    // Location shimmer animation
-    Animated.loop(
-      Animated.timing(locationShimmerAnimation, {
-        toValue: 1,
-        duration: 3000,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      })
-    ).start();
-
-    // Separate shimmer animations that use translateX (can't use native driver)
-    Animated.loop(
-      Animated.timing(footerShimmerAnimation, {
-        toValue: 1,
-        duration: 2500,
-        easing: Easing.linear,
-        useNativeDriver: false,
-      })
-    ).start();
-
-    Animated.loop(
-      Animated.timing(buttonShimmerAnimation, {
-        toValue: 1,
-        duration: 3000,
-        easing: Easing.linear,
-        useNativeDriver: false,
-      })
-    ).start();
-
-    startSparkleAnimations();
-    startHeaderAnimations();
-    startFooterAnimations();
-    */
   }, []);
 
-  // Prayer Time Monitoring System - Automatically detects when prayer times arrive
-  const lastTriggeredPrayer = useRef<string | null>(null);
-
-  // ❌ REMOVED: Prayer monitoring system - AlarmManager handles notifications automatically
-  // The prayer monitoring system was causing infinite loops and conflicts with AlarmManager.
-  // AlarmManager + Notifee handle notifications perfectly on their own.
-
-  // Pre-fetch disabled - No caching system active
-  const prefetchDay = async (dayOffset: number): Promise<void> => {
-    // Prefetching disabled since we removed caching completely
-    console.log(`Prefetching disabled for day ${dayOffset} - no cache system active`);
-    return;
-  };
+  // Prayer Time Monitoring System - AlarmManager + Notifee own notification triggering.
 
   // Simplified and improved next prayer calculation
   const updateNextPrayer = (data: PrayerData): void => {
@@ -2582,8 +1977,6 @@ export default function Home() {
 
     return lastPrayer;
   };
-  const safetyMechanismTriggered = useRef<string>('');
-
   const updateCountdown = useCallback(() => {
     if (!nextPrayer) return;
 
@@ -2666,8 +2059,6 @@ export default function Home() {
 
         if (Math.abs(hourProgress - progressPercent) > 0.01) {
           setProgressPercent(hourProgress);
-          setTotalSeconds(oneHourInSeconds);
-          setElapsedSeconds(hourElapsed);
 
           Animated.timing(progressAnimation, {
             toValue: hourProgress,
@@ -2695,8 +2086,6 @@ export default function Home() {
 
         if (Math.abs(circularProgress - progressPercent) > 0.01) {
           setProgressPercent(circularProgress);
-          setTotalSeconds(totalTimeSpan);
-          setElapsedSeconds(elapsedTime);
 
           Animated.timing(progressAnimation, {
             toValue: circularProgress,
@@ -2737,8 +2126,6 @@ export default function Home() {
 
         if (Math.abs(hourProgress - progressPercent) > 0.01) {
           setProgressPercent(hourProgress);
-          setTotalSeconds(oneHourInSeconds);
-          setElapsedSeconds(hourElapsed);
 
           Animated.timing(progressAnimation, {
             toValue: hourProgress,
@@ -2760,8 +2147,6 @@ export default function Home() {
 
         if (Math.abs(circularProgress - progressPercent) > 0.01) {
           setProgressPercent(circularProgress);
-          setTotalSeconds(6 * 3600); // 6 hour assumption
-          setElapsedSeconds((6 * 3600) * circularProgress);
 
           Animated.timing(progressAnimation, {
             toValue: circularProgress,
@@ -2811,90 +2196,8 @@ export default function Home() {
     }
   }, [nextPrayer]);
 
-  // Animated circular progress component
-  const AnimatedCircularProgress = ({
-    progress,
-    size,
-    strokeWidth
-  }: {
-    progress: number,
-    size: number,
-    strokeWidth: number
-  }) => {
-    const radius = (size - strokeWidth) / 2;
-    const circumference = radius * 2 * Math.PI;
-
-    const animatedStrokeDashoffset = progressAnimation.interpolate({
-      inputRange: [0, 1],
-      outputRange: [circumference, 0],
-      extrapolate: 'clamp'
-    });
-
-    const AnimatedCircle = Animated.createAnimatedComponent(Circle);
-
-    // Check if we should show progress (less than 1 hour remaining)
-    const shouldShowProgress = nextPrayer &&
-      differenceInSeconds(new Date(nextPrayer.date), new Date()) <= 3600;
-
-    return (
-      <View style={{ width: size, height: size }}>
-        <Svg width={size} height={size}>
-          <Circle
-            stroke={SepiaColors.border.medium}
-            fill="none"
-            cx={size / 2}
-            cy={size / 2}
-            r={radius}
-            strokeWidth={strokeWidth}
-          />
-
-          {shouldShowProgress && (
-            <AnimatedCircle
-              stroke={SepiaColors.accent.gold}
-              fill="none"
-              cx={size / 2}
-              cy={size / 2}
-              r={radius}
-              strokeWidth={strokeWidth}
-              strokeDasharray={`${circumference} ${circumference}`}
-              strokeDashoffset={animatedStrokeDashoffset}
-              strokeLinecap="round"
-              rotation="-90"
-              origin={`${size / 2}, ${size / 2}`}
-            />
-          )}
-        </Svg>
-
-        <View style={styles.progressCenter}>
-          {nextPrayer && (
-            <>
-              <Text style={styles.nextPrayerText}>
-                Next: {nextPrayer.name}
-              </Text>
-              <Text style={styles.nextPrayerTime}>{nextPrayer.time}</Text>
-              {countdownLoading ? (
-                <View style={styles.countdownLoading}>
-                  <ActivityIndicator size="small" color={SepiaColors.accent.gold} />
-                  <Text style={styles.countdownLoadingText}>{t('calculating')}</Text>
-                </View>
-              ) : (
-                <>
-                  <Text style={styles.countdownText}>{countdown}</Text>
-                  {shouldShowProgress && (
-                    <Text style={styles.progressIndicatorText}>{t('finalHour')}</Text>
-                  )}
-                </>
-              )}
-            </>
-          )}
-        </View>
-      </View>
-    );
-  };
-
   // Day navigation functions
   const goToPreviousDay = () => {
-    console.log('🚀 DEBUG: goToPreviousDay pressed!');
     if (currentDay > 0) {
       const newDay = currentDay - 1;
       setCurrentDay(newDay);
@@ -2913,7 +2216,6 @@ export default function Home() {
   };
 
   const goToNextDay = () => {
-    console.log('🚀 DEBUG: goToNextDay pressed!');
     if (currentDay < 9) {
       const newDay = currentDay + 1;
       setCurrentDay(newDay);
@@ -2927,59 +2229,12 @@ export default function Home() {
     }
   };
 
-  // Language functions
-  const toggleLanguageSelector = () => {
-    setShowLanguageSelector(!showLanguageSelector);
+  const goToToday = () => {
+    setCurrentDay(0);
+    setCurrentDate(new Date());
+    setNextPrayer(null);
+    setCountdown('');
   };
-
-  const selectLanguage = async (langId: string): Promise<void> => {
-    await changeLanguage(langId);
-    setShowLanguageSelector(false);
-  };
-
-  // Language selector component
-  const LanguageSelector = () => (
-    <Modal
-      transparent={true}
-      visible={showLanguageSelector}
-      animationType="fade"
-      onRequestClose={() => setShowLanguageSelector(false)}
-    >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>{t('language')}</Text>
-            <TouchableOpacity onPress={() => setShowLanguageSelector(false)}>
-              <MaterialCommunityIcons name="close" size={24} color={SepiaColors.text.primary} />
-            </TouchableOpacity>
-          </View>
-          <FlatList
-            data={Object.values(availableLanguages) as LanguageItem[]}
-            keyExtractor={(item: LanguageItem) => item.id}
-            renderItem={({ item }: { item: LanguageItem }) => (
-              <TouchableOpacity
-                style={[
-                  styles.languageItem,
-                  currentLang === item.id && styles.selectedLanguageItem
-                ]}
-                onPress={() => selectLanguage(item.id)}
-              >
-                <Text style={[
-                  styles.languageName,
-                  currentLang === item.id && styles.selectedLanguageName
-                ]}>
-                  {item.name}
-                </Text>
-                {currentLang === item.id && (
-                  <MaterialCommunityIcons name="check" size={20} color={SepiaColors.accent.gold} />
-                )}
-              </TouchableOpacity>
-            )}
-          />
-        </View>
-      </View>
-    </Modal>
-  );
 
   // Support / Donation flow (mirror Settings)
   const [showPaywall, setShowPaywall] = useState(false);
@@ -2987,7 +2242,6 @@ export default function Home() {
   const { loading: iapLoading, fetchOfferings } = usePurchase();
 
   const openDonation = () => {
-    console.log('🚀 DEBUG: openDonation pressed!');
     const extra: any = (Constants.expoConfig?.extra || (Constants as any).manifest?.extra || {});
     const rciOSKey = process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY || extra?.revenuecat?.iosApiKey;
     const rcAndroidKey = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY || extra?.revenuecat?.androidApiKey;
@@ -3097,33 +2351,6 @@ export default function Home() {
     </Modal>
   );
 
-  // Ensure the current date matches the system date when app is opened
-  const checkAndUpdateDate = () => {
-    if (currentDay === 0) {
-      const systemDate = new Date();
-      // Compare dates by converting to date strings (ignoring time)
-      const systemDateStr = format(systemDate, 'yyyy-MM-dd');
-      const appDateStr = format(currentDate, 'yyyy-MM-dd');
-
-      if (systemDateStr !== appDateStr) {
-        console.log('App date does not match system date, updating...');
-        setCurrentDate(systemDate);
-        // Force refresh prayer times for the new date
-        setLastRefreshDate(''); // This will trigger a data refresh
-
-        // Reset to today's view
-        setCurrentDay(0);
-
-        // If notifications are enabled, reschedule them for the new date
-        if (notificationsEnabled) {
-          setTimeout(() => {
-            scheduleNotificationsForToday();
-          }, 3000); // Give some time for data to be fetched
-        }
-      }
-    }
-  };
-
   const changeRegion = async (newRegionId: string): Promise<void> => {
     try {
       console.log(`Changing region from ${regionId} to ${newRegionId}`);
@@ -3187,141 +2414,17 @@ export default function Home() {
     }
   };
 
-  // Date synchronization with system
-  useEffect(() => {
-    const forceCurrentDateRefresh = () => {
-      const now = new Date();
-      console.log('Performing date check on app start/resume');
-      console.log(`System date: ${format(now, 'yyyy-MM-dd')}`);
-      console.log(`App date: ${format(currentDate, 'yyyy-MM-dd')}`);
-
-      if (currentDay === 0) {
-        const systemDateStr = format(now, 'yyyy-MM-dd');
-        const appDateStr = format(currentDate, 'yyyy-MM-dd');
-
-        if (systemDateStr !== appDateStr) {
-          console.log('Date changed while app was running');
-          forceCurrentDateRefresh();
-        }
-      }
-    };
-
-    forceCurrentDateRefresh();
-
-    const subscription = AppState.addEventListener('change', (nextAppState) => {
-      if (appState.match(/inactive|background/) && nextAppState === 'active') {
-        console.log('App resumed from background, checking date');
-        forceCurrentDateRefresh();
-      }
-      setAppState(nextAppState);
-    });
-
-    const minuteTimer = setInterval(() => {
-      if (currentDay === 0) {
-        const now = new Date();
-        const systemDateStr = format(now, 'yyyy-MM-dd');
-        const appDateStr = format(currentDate, 'yyyy-MM-dd');
-
-        if (systemDateStr !== appDateStr) {
-          console.log('Date changed while app was running');
-          forceCurrentDateRefresh();
-        }
-      }
-    }, 60000);
-
-    return () => {
-      subscription.remove();
-      clearInterval(minuteTimer);
-    };
-  }, []);
-
   useEffect(() => {
     checkDayChange();
   }, [currentDate, notificationsEnabled, currentDay]);
-
-  // Enhanced debug function to check notification status with comprehensive Notifee debugging
-  const debugNotifications = async () => {
-    try {
-      console.log('🔍 STARTING COMPREHENSIVE NOTIFEE DEBUG...');
-
-      // Use the comprehensive debugging function
-      const debugResult = await debugNotifeeNotifications();
-      const bgStatus = await getBackgroundFetchStatus();
-
-      if (debugResult.error) {
-        Alert.alert('Debug Error', debugResult.error);
-        return;
-      }
-
-      const { status, debugInfo, recommendations } = debugResult;
-
-      // Add background task info
-      let fullDebugInfo = debugInfo;
-      fullDebugInfo += `\n🔄 Background Task: ${bgStatus.statusText}\n`;
-      fullDebugInfo += `📍 Background Status: ${bgStatus.status}\n`;
-
-      // Add current time info
-      const now = new Date();
-      const currentTimeStr = now.toLocaleTimeString();
-      fullDebugInfo += `\n⏰ Current Time: ${currentTimeStr}\n`;
-      fullDebugInfo += `🔔 Notifications Enabled: ${notificationsEnabled ? '✅ Yes' : '❌ No'}\n`;
-
-      // Add prayer settings for reference
-      if (notificationSettings) {
-        fullDebugInfo += `\n⚙️ PRAYER SETTINGS:\n`;
-        Object.entries(notificationSettings).forEach(([prayer, enabled]) => {
-          fullDebugInfo += `${prayer}: ${enabled ? '✅' : '❌'}\n`;
-        });
-      }
-
-      // Add prayer times for reference
-      if (prayerTimes && prayerTimes.times) {
-        fullDebugInfo += `\n🕐 TODAY'S PRAYER TIMES:\n`;
-        Object.entries(prayerTimes.times).forEach(([prayer, time]) => {
-          const [hours, minutes] = time.split(':').map(Number);
-          const prayerTimeInMinutes = hours * 60 + minutes;
-          const currentTimeInMinutes = now.getHours() * 60 + now.getMinutes();
-          const status = prayerTimeInMinutes > currentTimeInMinutes ? '⏳ Upcoming' : '✅ Passed';
-          fullDebugInfo += `${prayer}: ${time} ${status}\n`;
-        });
-      }
-
-      // Add recommendations if any
-      if (recommendations && recommendations.length > 0) {
-        fullDebugInfo += `\n💡 RECOMMENDATIONS:\n`;
-        recommendations.forEach((rec, index) => {
-          fullDebugInfo += `${index + 1}. ${rec}\n`;
-        });
-      }
-
-      Alert.alert('Notifee Debug', fullDebugInfo, [
-        {
-          text: 'Clear All & Reschedule', onPress: async () => {
-            await cancelAllNotifeePrayerNotifications();
-            setTimeout(() => scheduleNotificationsForToday(), 1000);
-            Alert.alert('Done', 'All Notifee notifications cleared and rescheduled');
-          }
-        },
-        { text: 'Reschedule Only', onPress: () => scheduleNotificationsForToday() },
-        { text: 'Close' }
-      ]);
-    } catch (error) {
-      Alert.alert('Debug Error', `Failed to get debug info: ${error}`);
-    }
-  };
 
   const handleClearCache = (): void => {
     clearCache(true);
   };
 
-  // Enhanced refresh button with long press debug
+  // Enhanced refresh button
   const handleRefreshPress = () => {
-    console.log('🚀 DEBUG: handleRefreshPress pressed!');
     handleClearCache();
-  };
-
-  const handleRefreshLongPress = () => {
-    debugNotifications();
   };
 
   // Render the UI
@@ -3355,21 +2458,10 @@ export default function Home() {
         pointerEvents="none"
       />
 
-      {/* ✨ FLOATING SPARKLES ✨ */}
-      {/* TEMPORARILY DISABLED - Sparkles causing text rendering issues */}
-      {/*
-      {sparkles.map((sparkle, index) => (
-        <MagicalSparkle key={sparkle.id} sparkle={sparkle} index={index} />
-      ))}
-      */}
-
       <View style={styles.container}>
 
         {/* Region Picker Modal */}
         <RegionPicker />
-
-        {/* Language Selector Modal */}
-        <LanguageSelector />
 
         {/* Support Paywall Modal */}
         {showPaywall && (
@@ -3384,9 +2476,8 @@ export default function Home() {
         <View style={[styles.headerSection, { marginBottom: 4 }]}>
           <MagicalHeader />
           <MagicalButton
-            style={[styles.enhancedLocationContainer, { paddingVertical: 10, marginTop: 4 }]}
+            style={[styles.enhancedLocationContainer, { paddingVertical: 8, marginTop: 4 }]}
             onPress={() => {
-              console.log('🚀 DEBUG: Location button pressed!');
               router.push('/settings');
             }}
             disabled={regionChanging}
@@ -3411,7 +2502,7 @@ export default function Home() {
           </MagicalButton>
         </View>
         <View style={[styles.dateNavigationSection, { marginBottom: 8 }]}>
-          <View style={[styles.enhancedDateNav, { paddingVertical: 10 }]}>
+          <View style={[styles.enhancedDateNav, { paddingVertical: 6 }]}>
             <MagicalArrowButton direction="left" onPress={goToPreviousDay} disabled={currentDay === 0} iconName="chevron-left" />
             <View style={styles.dateDisplayContainer}>
               <Text style={styles.primaryDateText}>
@@ -3423,6 +2514,16 @@ export default function Home() {
             </View>
             <MagicalArrowButton direction="right" onPress={goToNextDay} disabled={currentDay === 9} iconName="chevron-right" />
           </View>
+          {currentDay > 1 && (
+            <TouchableOpacity
+              style={styles.returnToTodayButton}
+              onPress={goToToday}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons name="calendar-today" size={14} color={SepiaColors.accent.gold} />
+              <Text style={styles.returnToTodayText}>{t('returnToToday')}</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* ✨ MAIN CONTENT AREA WITH ENHANCED LAYOUT ✨ */}
@@ -3563,6 +2664,16 @@ export default function Home() {
                 </View>
               )}
 
+              {/* ✨ IQAMA EXPLANATION FOOTER ✨ */}
+              {prayerTimes?.times && (
+                <View style={styles.iqamaFooterContainer}>
+                  <MaterialCommunityIcons name="information-outline" size={13} color={C.text.tertiary || C.text.secondary} />
+                  <Text style={styles.iqamaFooterText}>
+                    {t('iqamaExplanation')}
+                  </Text>
+                </View>
+              )}
+
               {/* ✨ MAGICAL FOOTER ✨ */}
               <MagicalFooter />
             </ScrollView>
@@ -3573,815 +2684,3 @@ export default function Home() {
   );
 }
 
-// Styles for our UI components
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: SepiaColors.background.primary,
-  },
-  container: {
-    flex: 1,
-    paddingHorizontal: 12, // Reduced horizontal padding to minimize unused space
-    paddingTop: 0, // Keep zero top padding
-    paddingBottom: 90, // Extra padding to account for tab bar height + safe area
-    backgroundColor: 'transparent', // Make transparent to show gradient background
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 4, // Reduced from 8 to 4
-    paddingHorizontal: 2, // Keep minimal horizontal padding
-  },
-  headerTitle: {
-    fontSize: 18, // Reduced from 20 to 18
-    fontWeight: '600',
-    color: SepiaColors.text.primary,
-    flex: 1, // Allow title to take available space
-  },
-  headerButtons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end', // Align buttons to the right
-    paddingRight: 0, // No right padding to avoid overflow
-    flexShrink: 0, // Don't allow buttons to shrink
-  },
-  refreshButton: {
-    backgroundColor: `${SepiaColors.surface.secondary}CC`, // Add transparency
-    padding: 6, // Reduced from 8 to 6
-    borderRadius: 20,
-    marginRight: 6, // Reduced from 8 to 6
-    borderWidth: 1,
-    borderColor: SepiaColors.border.light,
-  },
-  rotating: {
-    transform: [{ rotate: '45deg' }],
-  },
-  donateButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: SepiaColors.accent.gold,
-    paddingHorizontal: 10, // Reduced from 12 to 10
-    paddingVertical: 4, // Reduced from 6 to 4
-    borderRadius: 20,
-  },
-  donateText: {
-    color: SepiaColors.text.inverse,
-    marginLeft: 6,
-    fontWeight: 'bold',
-    letterSpacing: 0.5,
-  },
-  locationContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 8, // Reduced padding
-    backgroundColor: `${SepiaColors.surface.secondary}AA`, // Add transparency
-    borderBottomWidth: 1,
-    borderBottomColor: `${SepiaColors.border.light}80`, // More transparent border
-  },
-  locationText: {
-    color: SepiaColors.text.primary,
-    marginLeft: 8,
-    fontSize: 16,
-    fontWeight: '500',
-    letterSpacing: 0.5,
-    textTransform: 'capitalize',
-  },
-  dateNav: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8, // Reduced vertical padding
-    paddingHorizontal: 12, // Reduced horizontal padding
-    // Legacy light-mode style: replaced dynamically in component with themed enhancedDateNav; keep neutral fallback.
-    backgroundColor: 'transparent',
-    borderBottomWidth: 1,
-    borderBottomColor: `${SepiaColors.border.light}60`, // More transparent border
-  },
-  navButton: {
-    padding: 4, // Reduced from 6 to 4 for more compact buttons
-    borderRadius: 20,
-    // Background handled by MagicalArrowButton using theme; leave transparent here.
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: SepiaColors.border.light,
-  },
-  dateText: {
-    color: SepiaColors.text.primary,
-    fontSize: 16,
-    fontWeight: 'bold',
-    letterSpacing: 0.5,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: SepiaColors.background.primary,
-  },
-  loadingText: {
-    color: SepiaColors.text.secondary,
-    marginTop: 16,
-    fontSize: 16,
-    letterSpacing: 0.5,
-  },
-  scrollView: {
-    flex: 1,
-    width: '100%',
-  },
-  scrollViewContent: {
-    paddingHorizontal: 8, // Reduced horizontal padding
-    paddingBottom: 120, // Extra padding to ensure content is not hidden behind tab bar
-  },
-  dateContainer: {
-    marginVertical: 6, // Reduced from 10 to 6
-    borderRadius: 16,
-    overflow: 'hidden',
-    backgroundColor: `${SepiaColors.surface.primary}DD`, // Add transparency
-  },
-  dateInnerContainer: {
-    padding: 8, // Reduced from 12 to 8
-    alignItems: 'center',
-    backgroundColor: `${SepiaColors.surface.elevated}BB`, // Add transparency
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: `${SepiaColors.border.accent}60`, // Gold border with transparency
-  },
-  gregorianDate: {
-    color: SepiaColors.text.primary,
-    fontSize: 16, // Reduced from 18 to 16
-    fontWeight: 'bold',
-    letterSpacing: 0.5,
-  },
-  hijriDate: {
-    color: SepiaColors.text.secondary,
-    fontSize: 12, // Reduced from 14 to 12
-    marginTop: 4,
-    fontWeight: '400',
-    letterSpacing: 0.5,
-  },
-  countdownContainer: {
-    padding: 12, // Reduced from 20 to 12
-    alignItems: 'center',
-    // Use themed surface via inline style when rendered; keep neutral here.
-    backgroundColor: 'transparent',
-    margin: 12, // Reduced from 16 to 12
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: SepiaColors.border.medium,
-  },
-  nextPrayerText: {
-    color: SepiaColors.text.primary,
-    fontSize: 16,
-    textAlign: 'center',
-    letterSpacing: 0.5,
-    fontWeight: '500',
-  },
-  nextPrayerTime: {
-    color: SepiaColors.accent.gold,
-    fontSize: 26,
-    fontWeight: 'bold',
-    marginVertical: 6,
-    textAlign: 'center',
-    letterSpacing: 1,
-  },
-  countdownText: {
-    color: SepiaColors.text.primary,
-    fontSize: 42, // Increased from 32 to 42 for better readability
-    fontWeight: '300',
-    letterSpacing: 2,
-    textAlign: 'center',
-  },
-  timesContainer: {
-    paddingHorizontal: 4,
-    paddingVertical: 10,
-  },
-  prayerItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    // Now handled by enhancedPrayerItem with proper dark mode colors
-    backgroundColor: 'transparent',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: `${SepiaColors.border.light}80`, // More transparent border
-  },
-  nextPrayerItem: {
-    backgroundColor: `${SepiaColors.special.highlight}EE`, // More vibrant but still transparent
-    borderWidth: 0.5,
-    borderColor: SepiaColors.accent.gold,
-  },
-  prayerNameContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  iconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: SepiaColors.surface.secondary,
-    borderWidth: 1,
-    borderColor: SepiaColors.border.medium,
-  },
-  prayerName: {
-    color: SepiaColors.text.primary,
-    fontSize: 16,
-    marginLeft: 12,
-    fontWeight: '500',
-    letterSpacing: 0.5,
-  },
-  prayerTime: {
-    color: SepiaColors.accent.gold,
-    fontSize: 16,
-    fontWeight: 'bold',
-    letterSpacing: 0.5,
-  },
-  circularCountdownContainer: {
-    alignItems: 'center',
-    backgroundColor: SepiaColors.surface.transparent,
-    borderWidth: 1,
-    borderColor: SepiaColors.border.light,
-  },
-  progressCenter: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 10,
-  },
-  footer: {
-    marginTop: 24,
-    marginBottom: 16,
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: SepiaColors.border.light,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: `${SepiaColors.text.primary}70`,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  modalContent: {
-    width: '90%',
-    backgroundColor: SepiaColors.surface.elevated,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: SepiaColors.border.medium,
-    overflow: 'hidden',
-    maxHeight: '70%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: SepiaColors.border.light,
-  },
-  modalTitle: {
-    color: SepiaColors.text.primary,
-    fontSize: 20,
-    fontWeight: 'bold',
-    letterSpacing: 0.5,
-  },
-  regionItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: SepiaColors.border.light,
-  },
-  selectedRegionItem: {
-    backgroundColor: SepiaColors.special.highlight,
-  },
-  regionName: {
-    color: SepiaColors.text.primary,
-    fontSize: 18,
-    letterSpacing: 0.5,
-  },
-  selectedRegionName: {
-    color: SepiaColors.accent.gold,
-    fontWeight: 'bold',
-  },
-  dropdownIcon: {
-    marginLeft: 'auto',
-    marginRight: 10,
-  },
-  settingsButton: {
-    backgroundColor: SepiaColors.surface.secondary,
-    padding: 10,
-    borderRadius: 20,
-    marginRight: 10,
-    borderWidth: 0.5,
-    borderColor: SepiaColors.border.light,
-  },
-  countdownLoading: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 6,
-  },
-  countdownLoadingText: {
-    color: SepiaColors.text.secondary,
-    fontSize: 16,
-    marginLeft: 6,
-    opacity: 0.8,
-  },
-  // Add new language button style
-  languageButton: {
-    backgroundColor: SepiaColors.surface.secondary,
-    padding: 8,
-    borderRadius: 20,
-    marginRight: 4, // Reduced margin to prevent overflow
-    borderWidth: 0.5,
-    borderColor: SepiaColors.border.light,
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 36, // Fixed width to ensure proper sizing
-    height: 36, // Fixed height to match width
-  },
-  // Language selector styles
-  languageItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: SepiaColors.border.light,
-  },
-  selectedLanguageItem: {
-    backgroundColor: SepiaColors.special.highlight,
-  },
-  languageName: {
-    color: SepiaColors.text.primary,
-    fontSize: 18,
-    letterSpacing: 0.5,
-  },
-  selectedLanguageName: {
-    color: SepiaColors.accent.gold,
-    fontWeight: 'bold',
-  },
-  contentContainer: {
-    flex: 1, // Add this to allow the container to expand properly
-    width: '100%',
-    backgroundColor: 'transparent', // Make transparent to show magical gradient
-  },
-  progressIndicatorText: {
-    color: SepiaColors.accent.gold,
-    fontSize: 12,
-    marginTop: 4,
-    fontWeight: '500',
-    letterSpacing: 0.5,
-    opacity: 0.8,
-  },
-
-  // ✨ MAGICAL ENHANCEMENT STYLES ✨
-  sparkle: {
-    position: 'absolute',
-    zIndex: 1,
-  },
-
-  // ✨ MAGICAL HEADER STYLES ✨
-  magicalHeader: {
-    position: 'relative',
-    paddingVertical: 8, // Reduced from 12 to 8
-    paddingHorizontal: 12, // Reduced from 16 to 12
-    marginBottom: 0, // Removed margin to eliminate gap
-    borderRadius: 20,
-    backgroundColor: 'transparent', // Made transparent to match page
-    borderWidth: 0,
-    borderColor: 'transparent',
-    // Avoid clipping touches on Android
-    // overflow: 'hidden',
-    zIndex: 5,
-    // Help Android stacking
-    elevation: 2,
-  },
-  headerGlow: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: SepiaColors.accent.gold,
-    borderRadius: 20,
-    // Ensure this never intercepts touches
-    // pointerEvents set on element usage as well
-  },
-  headerStar: {
-    position: 'absolute',
-    zIndex: 2,
-  },
-
-  // ✨ MAGICAL FOOTER STYLES ✨
-  magicalFooter: {
-    position: 'relative',
-    paddingVertical: 15,
-    paddingHorizontal: 20,
-    marginTop: 20,
-    marginBottom: 10,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    borderWidth: 0.5,
-    borderColor: 'rgba(218, 165, 32, 0.1)',
-    overflow: 'hidden',
-  },
-  footerShimmer: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    width: 100,
-    backgroundColor: 'linear-gradient(90deg, transparent, rgba(218, 165, 32, 0.15), transparent)',
-  },
-  footerElement: {
-    position: 'absolute',
-    zIndex: 2,
-  },
-  footerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 3,
-    position: 'relative',
-  },
-  footerMoon: {
-    marginRight: 10,
-  },
-  footerText: {
-    color: SepiaColors.text.secondary,
-    fontSize: 14,
-    fontWeight: '500',
-    letterSpacing: 0.5,
-    textAlign: 'center',
-    flex: 1,
-  },
-  footerStar: {
-    marginLeft: 10,
-  },
-
-  enhancedCircularContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginVertical: 20,
-    position: 'relative',
-  },
-  circularGlow: {
-    position: 'absolute',
-    backgroundColor: SepiaColors.accent.gold,
-    opacity: 0.05,
-  },
-  circularProgress: {
-    position: 'relative',
-    zIndex: 2,
-  },
-  circularContent: {
-    position: 'absolute',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 3,
-  },
-  nextPrayerLabel: {
-    color: SepiaColors.text.tertiary,
-    fontSize: 12,
-    marginBottom: 4,
-    fontWeight: '500',
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-  },
-  nextPrayerName: {
-    color: SepiaColors.text.primary,
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 4,
-    letterSpacing: 0.5,
-  },
-  countdown: {
-    color: SepiaColors.accent.gold,
-    fontSize: 18, // Increased from 16 to 18 for better readability
-    fontWeight: '600',
-    marginTop: 8,
-    letterSpacing: 0.5,
-    textAlign: 'center',
-    minHeight: 22, // Ensure consistent height for different countdown formats
-  },
-  activeIconContainer: {
-    backgroundColor: SepiaColors.special.highlight,
-  },
-  activePrayerName: {
-    color: SepiaColors.accent.darkGold,
-    fontWeight: 'bold',
-  },
-  activePrayerTime: {
-    color: SepiaColors.accent.amber,
-    fontWeight: 'bold',
-    fontSize: 18,
-  },
-  buttonShimmer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(255, 220, 140, 0.15)',
-    borderRadius: 8,
-  },
-
-  // ✨ ENHANCED LAYOUT STYLES ✨
-
-  // Header Section Styles
-  headerSection: {
-    marginBottom: 8, // Reduced from 20 to 8 for more compact layout
-  },
-
-  // Enhanced Location Container
-  enhancedLocationContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 18,
-    marginTop: 0, // Removed margin to eliminate gap
-    borderWidth: 0.5,
-    borderColor: 'rgba(218, 165, 32, 0.2)',
-  },
-  locationIconWrapper: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(218, 165, 32, 0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  locationTextWrapper: {
-    flex: 1,
-  },
-  locationLabel: {
-    color: SepiaColors.text.tertiary,
-    fontSize: 12,
-    fontWeight: '500',
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-    marginBottom: 2,
-  },
-  locationActionWrapper: {
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  // Date Navigation Section
-  dateNavigationSection: {
-    marginBottom: 8, // Reduced from 20 to 8 for more compact layout
-  },
-  enhancedDateNav: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    borderRadius: 20,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderWidth: 0.5,
-    borderColor: 'rgba(218, 165, 32, 0.15)',
-  },
-  dateDisplayContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-  },
-  primaryDateText: {
-    color: SepiaColors.text.primary,
-    fontSize: 18,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-    textAlign: 'center',
-  },
-  secondaryDateText: {
-    color: SepiaColors.text.secondary,
-    fontSize: 13,
-    fontWeight: '500',
-    letterSpacing: 0.3,
-    textAlign: 'center',
-    marginTop: 2,
-    opacity: 0.8,
-  },
-  hijriDateText: {
-    color: SepiaColors.accent.amber,
-    fontSize: 11,
-    fontWeight: '400',
-    letterSpacing: 0.2,
-    textAlign: 'center',
-    marginTop: 1,
-    opacity: 0.9,
-  },
-
-  // Enhanced Content Container
-  enhancedContentContainer: {
-    flex: 1,
-    backgroundColor: 'transparent',
-  },
-
-  // Enhanced Loading States
-  enhancedLoadingContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 60,
-  },
-  loadingIconWrapper: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderRadius: 30,
-    padding: 20,
-    marginBottom: 20,
-    borderWidth: 0.5,
-    borderColor: 'rgba(218, 165, 32, 0.2)',
-  },
-  enhancedLoadingText: {
-    color: SepiaColors.text.primary,
-    fontSize: 16,
-    fontWeight: '600',
-    textAlign: 'center',
-    marginBottom: 8,
-    letterSpacing: 0.3,
-  },
-  loadingSubtext: {
-    color: SepiaColors.text.secondary,
-    fontSize: 14,
-    textAlign: 'center',
-    opacity: 0.7,
-    letterSpacing: 0.2,
-  },
-
-  // Enhanced Scroll View
-  enhancedScrollView: {
-    flex: 1,
-  },
-  enhancedScrollViewContent: {
-    paddingBottom: 40,
-  },
-
-  // Enhanced Date Container
-  enhancedDateContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderRadius: 16,
-    marginBottom: 12, // Reduced from 20 to 12
-    borderWidth: 0.5,
-    borderColor: 'rgba(218, 165, 32, 0.15)',
-    overflow: 'hidden',
-  },
-  dateCardContent: {
-    padding: 12, // Reduced from 18 to 12
-  },
-  gregorianDateSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4, // Reduced from 8 to 4
-  },
-  enhancedGregorianDate: {
-    color: SepiaColors.text.primary,
-    fontSize: 14, // Reduced from 16 to 14
-    fontWeight: '600',
-    marginLeft: 8,
-    letterSpacing: 0.3,
-  },
-  hijriDateSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  enhancedHijriDate: {
-    color: SepiaColors.text.secondary,
-    fontSize: 12, // Reduced from 14 to 12
-    fontWeight: '500',
-    marginLeft: 8,
-    letterSpacing: 0.2,
-    opacity: 0.9,
-  },
-
-  // Countdown Section
-  countdownSection: {
-    alignItems: 'center',
-    marginBottom: 15, // Reduced from 25 to 15
-  },
-
-  // Enhanced Prayer Times Container
-  enhancedTimesContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    borderRadius: 20,
-    padding: 12, // Reduced from 20 to 12
-    marginBottom: 12, // Reduced from 20 to 12
-    borderWidth: 0.5,
-    borderColor: 'rgba(218, 165, 32, 0.15)',
-  },
-  timesHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-    paddingBottom: 8,
-    borderBottomWidth: 0.5,
-    borderBottomColor: 'rgba(218, 165, 32, 0.15)',
-  },
-  timesHeaderText: {
-    color: SepiaColors.text.primary,
-    fontSize: 18,
-    fontWeight: '700',
-    marginLeft: 10,
-    letterSpacing: 0.5,
-  },
-  prayerTimesGrid: {
-    gap: 8, // Reduced from 12 to 8
-  },
-
-  // Enhanced Prayer Item
-  enhancedPrayerItem: {
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
-    borderRadius: 16,
-    padding: 12, // Reduced from 16 to 12
-    borderWidth: 0.5,
-    borderColor: 'rgba(218, 165, 32, 0.1)',
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  enhancedNextPrayerItem: {
-    backgroundColor: 'rgba(218, 165, 32, 0.06)',
-    borderColor: 'rgba(218, 165, 32, 0.25)',
-  },
-  prayerItemHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8, // Reduced from 12 to 8
-  },
-  enhancedIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(218, 165, 32, 0.08)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-    borderWidth: 0.5,
-    borderColor: 'rgba(218, 165, 32, 0.15)',
-  },
-  activeEnhancedIconContainer: {
-    backgroundColor: 'rgba(218, 165, 32, 0.15)',
-    borderColor: 'rgba(218, 165, 32, 0.3)',
-  },
-  enhancedPrayerName: {
-    // Base (light theme) color; dark theme overrides applied inline for accessibility
-    color: SepiaColors.text.primary,
-    fontSize: 16,
-    fontWeight: '600',
-    letterSpacing: 0.3,
-    flex: 1,
-  },
-  activeEnhancedPrayerName: {
-    color: SepiaColors.accent.darkGold,
-    fontWeight: '700',
-  },
-  prayerTimeWrapper: {
-    alignItems: 'flex-end',
-  },
-  enhancedPrayerTime: {
-    // Base (light theme) color; dark theme overrides applied inline for accessibility
-    color: SepiaColors.text.primary,
-    fontSize: 18,
-    fontWeight: '600',
-    letterSpacing: 0.5,
-    textAlign: 'right',
-  },
-  activeEnhancedPrayerTime: {
-    color: SepiaColors.accent.amber,
-    fontWeight: '700',
-    fontSize: 20,
-  },
-  nextIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
-    backgroundColor: 'rgba(218, 165, 32, 0.12)',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-  },
-  nextIndicatorText: {
-    color: SepiaColors.accent.darkGold,
-    fontSize: 10,
-    fontWeight: '600',
-    marginLeft: 4,
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-  },
-});

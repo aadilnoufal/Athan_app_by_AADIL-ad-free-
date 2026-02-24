@@ -29,9 +29,9 @@
 // - Vibration patterns
 // =============================================================================
 
-import notifee, { 
-  TriggerType, 
-  RepeatFrequency, 
+import notifee, {
+  TriggerType,
+  RepeatFrequency,
   AndroidImportance,
   AndroidVisibility,
   AndroidCategory,
@@ -49,38 +49,56 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
  * Check and request essential Android permissions for prayer notifications
  * Critical for Android 12+ compatibility
  */
+// Session-scoped "ask me later" flags — reset every app launch
+let _alarmAskLaterThisSession = false;
+let _batteryAskLaterThisSession = false;
+let _notifAskLaterThisSession = false;
+
 const requestAlarmPermission = async () => {
   if (Platform.OS === 'android') {
     try {
+      if (_alarmAskLaterThisSession) {
+        console.log('🔔 Alarm permission deferred this session');
+        return false;
+      }
+
       // Check if exact alarm permission method is available
       if (typeof notifee.canScheduleExactAlarms !== 'function') {
         console.log('⚠️ canScheduleExactAlarms not available in this Notifee version');
         return true; // Assume permission is granted for older versions
       }
-      
+
       // Check if exact alarm permission is available (Android 12+)
       const alarmPermissionStatus = await notifee.canScheduleExactAlarms();
       console.log('🔔 Exact alarm permission status:', alarmPermissionStatus);
-      
+
       if (!alarmPermissionStatus) {
-        Alert.alert(
-          'Exact Alarms Permission Required',
-          'For accurate prayer time notifications, please enable "Alarms & reminders" permission. This is required for Android 12+.',
-          [
-            {
-              text: 'Open Settings',
-              onPress: async () => {
-                if (typeof notifee.openAlarmPermissionSettings === 'function') {
-                  await notifee.openAlarmPermissionSettings();
-                } else {
-                  console.log('⚠️ openAlarmPermissionSettings not available');
-                }
+        return new Promise((resolve) => {
+          Alert.alert(
+            'Exact Alarms Permission Required',
+            'For accurate prayer time notifications, please enable "Alarms & reminders" permission. This is required for Android 12+.',
+            [
+              {
+                text: 'Open Settings',
+                onPress: async () => {
+                  if (typeof notifee.openAlarmPermissionSettings === 'function') {
+                    await notifee.openAlarmPermissionSettings();
+                  }
+                  resolve(false);
+                },
               },
-            },
-            { text: 'Later', style: 'cancel' },
-          ]
-        );
-        return false;
+              {
+                text: 'Ask Me Later',
+                onPress: () => {
+                  _alarmAskLaterThisSession = true;
+                  console.log('🔔 User chose Ask Me Later for alarm permission');
+                  resolve(false);
+                },
+                style: 'cancel',
+              },
+            ]
+          );
+        });
       }
       return true;
     } catch (error) {
@@ -98,16 +116,24 @@ const requestAlarmPermission = async () => {
 const checkBatteryOptimization = async () => {
   if (Platform.OS === 'android') {
     try {
+      if (_batteryAskLaterThisSession) {
+        console.log('🔋 Battery optimization deferred this session');
+        return;
+      }
+
       // Check if user has chosen to not ask again about battery optimization
       const dontAskAgain = await AsyncStorage.getItem('battery_optimization_dont_ask');
       if (dontAskAgain === 'true') {
         console.log('🔋 User chose not to ask about battery optimization again');
-      } else {
-        // Check if battery optimization is enabled
-        const batteryOptimizationEnabled = await notifee.isBatteryOptimizationEnabled();
-        console.log('🔋 Battery optimization enabled:', batteryOptimizationEnabled);
-        
-        if (batteryOptimizationEnabled) {
+        return;
+      }
+
+      // Check if battery optimization is enabled
+      const batteryOptimizationEnabled = await notifee.isBatteryOptimizationEnabled();
+      console.log('🔋 Battery optimization enabled:', batteryOptimizationEnabled);
+
+      if (batteryOptimizationEnabled) {
+        return new Promise((resolve) => {
           Alert.alert(
             'Battery Optimization Detected',
             'To ensure prayer notifications work reliably, please disable battery optimization for this app.',
@@ -116,52 +142,32 @@ const checkBatteryOptimization = async () => {
                 text: 'Open Settings',
                 onPress: async () => {
                   await notifee.openBatteryOptimizationSettings();
+                  resolve();
                 },
+              },
+              {
+                text: 'Ask Me Later',
+                onPress: () => {
+                  _batteryAskLaterThisSession = true;
+                  console.log('🔋 User chose Ask Me Later for battery optimization');
+                  resolve();
+                },
+                style: 'cancel',
               },
               {
                 text: 'Don\'t Ask Again',
                 onPress: async () => {
                   await AsyncStorage.setItem('battery_optimization_dont_ask', 'true');
                   console.log('🔋 User chose not to ask about battery optimization again');
+                  resolve();
                 },
                 style: 'destructive',
               },
             ]
           );
-        }
+        });
       }
-
-      // Check if user has chosen to not ask again about power management
-      const powerDontAskAgain = await AsyncStorage.getItem('power_management_dont_ask');
-      if (powerDontAskAgain === 'true') {
-        console.log('⚡ User chose not to ask about power management again');
-      } else {
-        // Check device-specific power management
-        const powerManagerInfo = await notifee.getPowerManagerInfo();
-        if (powerManagerInfo.activity) {
-          console.log('⚡ Power manager info:', powerManagerInfo);
-          Alert.alert(
-            'Power Management Settings',
-            'Please add this app to auto-start/whitelist to ensure notifications work properly.',
-            [
-              {
-                text: 'Open Settings', 
-                onPress: async () => {
-                  await notifee.openPowerManagerSettings();
-                },
-              },
-              {
-                text: 'Don\'t Ask Again',
-                onPress: async () => {
-                  await AsyncStorage.setItem('power_management_dont_ask', 'true');
-                  console.log('⚡ User chose not to ask about power management again');
-                },
-                style: 'destructive',
-              },
-            ]
-          );
-        }
-      }
+      // NOTE: Power manager / auto-start prompt removed — too intrusive for first open
     } catch (error) {
       console.log('⚠️ Battery optimization check failed:', error);
     }
@@ -181,7 +187,7 @@ const requestIOSPermissions = async () => {
         criticalAlert: true, // For important prayer notifications
         announcement: true,
       });
-      
+
       console.log('🍎 iOS notification permission:', settings);
       return settings.authorizationStatus >= 1;
     }
@@ -198,7 +204,7 @@ const requestIOSPermissions = async () => {
 const requestEssentialPermissions = async () => {
   try {
     console.log('🔐 Requesting essential permissions...');
-    
+
     if (Platform.OS === 'ios') {
       // iOS-specific permission handling
       const iosPermission = await requestIOSPermissions();
@@ -207,18 +213,29 @@ const requestEssentialPermissions = async () => {
         exactAlarms: true // iOS doesn't need explicit alarm permissions
       };
     } else {
-      // Android permission handling
+      // === STEP 1: Notification permission FIRST (most important) ===
+      if (_notifAskLaterThisSession) {
+        console.log('🔔 Notification permission deferred this session');
+        return { notifications: false, exactAlarms: false };
+      }
+
       const notificationPermission = await notifee.requestPermission();
       console.log('🔔 Notification permission:', notificationPermission);
-      
-      // Request exact alarm permission (Android 12+)
+
+      const notifGranted = notificationPermission.authorizationStatus === 1;
+      if (!notifGranted) {
+        // If user denies notifications, don't bother with alarm/battery
+        return { notifications: false, exactAlarms: false };
+      }
+
+      // === STEP 2: Exact alarm permission (Android 12+) ===
       const alarmPermission = await requestAlarmPermission();
-      
-      // Check battery optimization
+
+      // === STEP 3: Battery optimization (single prompt, no power manager) ===
       await checkBatteryOptimization();
-      
+
       return {
-        notifications: notificationPermission.authorizationStatus === 1,
+        notifications: true,
         exactAlarms: alarmPermission
       };
     }
@@ -291,7 +308,7 @@ async function createPrayerNotificationChannels() {
     console.log(`🔊 Creating notification channels (Azan + Default)`);
 
     // ========== AZAN SOUND CHANNELS ==========
-    
+
     // Main prayer channel with AZAN sound
     await notifee.createChannel({
       id: 'prayer-times-azan',
@@ -323,7 +340,7 @@ async function createPrayerNotificationChannels() {
     });
 
     // ========== DEFAULT SOUND CHANNELS ==========
-    
+
     // Main prayer channel with DEFAULT Android sound
     await notifee.createChannel({
       id: 'prayer-times-default',
@@ -370,7 +387,7 @@ async function createPrayerNotificationChannels() {
     });
 
     console.log("✅ Notification channels created (Azan + Android Default)");
-    
+
   } catch (error) {
     console.error("❌ Error creating notification channels:", error);
     // Fallback to default sound channels
@@ -384,7 +401,7 @@ async function createPrayerNotificationChannels() {
 async function createIOSNotificationCategories() {
   try {
     console.log("🍎 Creating iOS notification categories...");
-    
+
     await notifee.setNotificationCategories([
       {
         id: 'prayer-category',
@@ -417,7 +434,7 @@ async function createIOSNotificationCategories() {
         ],
       },
     ]);
-    
+
     console.log("✅ iOS notification categories created successfully");
   } catch (error) {
     console.error("❌ Error creating iOS notification categories:", error);
@@ -430,7 +447,7 @@ async function createIOSNotificationCategories() {
 async function createFallbackChannels() {
   try {
     console.log("🔄 Creating fallback channels with default sounds...");
-    
+
     await notifee.createChannel({
       id: channelId,
       name: 'Prayer Times (Default Sound)',
@@ -458,7 +475,7 @@ async function createFallbackChannels() {
       lights: true,
       badge: true,
     });
-    
+
     console.log("✅ Fallback channels created successfully");
   } catch (fallbackError) {
     console.error("❌ Error creating fallback channels:", fallbackError);
@@ -476,25 +493,25 @@ const createPrayerNotificationChannel = createPrayerNotificationChannels;
  */
 function createCrossPlatformNotification(prayer, time, useAzanSound, isReminder = false) {
   const shouldUseAzan = useAzanSound && prayer !== 'Sunrise' && !isReminder;
-  
+
   // Sunrise is NOT a prayer, just a time marker
   const isSunrise = prayer === 'Sunrise';
-  const title = isReminder 
-    ? `🔔 ${prayer} Prayer Reminder` 
-    : isSunrise 
-      ? `☀️ ${prayer}` 
+  const title = isReminder
+    ? `🔔 ${prayer} Prayer Reminder`
+    : isSunrise
+      ? `☀️ ${prayer}`
       : `🕌 ${prayer} Prayer Time`;
-  
-  const body = isReminder ? 
-    `${prayer} prayer starts in 15 minutes (${time})` : 
-    isSunrise 
-      ? `Sunrise time (${time})` 
+
+  const body = isReminder ?
+    `${prayer} prayer starts in 15 minutes (${time})` :
+    isSunrise
+      ? `Sunrise time (${time})`
       : `It's time for ${prayer} prayer (${time})`;
 
   const baseNotification = {
     title,
     body,
-    data: { 
+    data: {
       prayerName: prayer,
       prayerTime: time,
       type: isReminder ? "prayer-reminder" : "prayer-time",
@@ -521,12 +538,12 @@ function createCrossPlatformNotification(prayer, time, useAzanSound, isReminder 
   } else {
     // Android - pick the CORRECT channel (azan or default Android sound)
     const isFajr = prayer === 'Fajr';
-    const channelId = shouldUseAzan 
+    const channelId = shouldUseAzan
       ? (isFajr ? 'fajr-prayer-azan' : 'prayer-times-azan')
       : (isFajr ? 'fajr-prayer-default' : 'prayer-times-default');
-    
+
     console.log(`📱 ${prayer}: Using channel "${channelId}" (${shouldUseAzan ? 'AZAN' : 'DEFAULT ANDROID SOUND'})`);
-    
+
     return {
       ...baseNotification,
       android: {
@@ -535,7 +552,7 @@ function createCrossPlatformNotification(prayer, time, useAzanSound, isReminder 
         smallIcon: 'ic_launcher_foreground',
         color: prayer === 'Fajr' ? '#0066cc' : '#1a8e2d',
         // No sound specified here - channel handles it perfectly
-        vibrationPattern: prayer === 'Fajr' ? 
+        vibrationPattern: prayer === 'Fajr' ?
           [200, 400, 200, 400, 200, 400] : [300, 600, 300, 600],
         pressAction: {
           id: 'default',
@@ -632,7 +649,7 @@ export async function scheduleNotifeePrayerNotifications(prayerTimes, settings =
   try {
     const scheduledIds = [];
     const prayers = ['Fajr', 'Sunrise', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
-    
+
     // Get sound preference
     const useAzanSound = await getSoundPreference();
     console.log(`🔊 Sound preference: ${useAzanSound ? 'Azan sound' : 'Android default sound'}`);
@@ -644,7 +661,7 @@ export async function scheduleNotifeePrayerNotifications(prayerTimes, settings =
     for (const prayer of prayers) {
       // Check if notifications are enabled for this prayer
       console.log(`🔍 Checking ${prayer}: setting=${settings[prayer]}, time=${prayerTimes[prayer]}`);
-      
+
       if (settings[prayer] === false) {
         console.log(`⏭️ Skipping ${prayer} - disabled in settings`);
         continue;
@@ -657,7 +674,7 @@ export async function scheduleNotifeePrayerNotifications(prayerTimes, settings =
       }
 
       const [hours, minutes] = time.split(":").map(Number);
-      
+
       // Validate time
       if (isNaN(hours) || isNaN(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
         console.warn(`❌ Invalid time for ${prayer}: ${time}`);
@@ -693,7 +710,7 @@ export async function scheduleNotifeePrayerNotifications(prayerTimes, settings =
       // Create notification using cross-platform configuration (picks correct channel)
       const notificationId = `prayer-${prayer.toLowerCase()}`;
       const notificationConfig = createCrossPlatformNotification(prayer, time, useAzanSound);
-      
+
       await notifee.createTriggerNotification(
         {
           id: notificationId,
@@ -712,12 +729,12 @@ export async function scheduleNotifeePrayerNotifications(prayerTimes, settings =
       });
 
       const soundEmoji = shouldUseAzan ? '🔊 azan' : '🔔 default';
-      const channelUsed = Platform.OS === 'android' 
-        ? (shouldUseAzan 
+      const channelUsed = Platform.OS === 'android'
+        ? (shouldUseAzan
           ? (prayer === 'Fajr' ? 'fajr-prayer-azan' : 'prayer-times-azan')
           : (prayer === 'Fajr' ? 'fajr-prayer-default' : 'prayer-times-default'))
         : 'iOS';
-      
+
       console.log(`✅ Scheduled ${prayer} at ${time} (${soundEmoji}) - Channel: ${channelUsed}`);
     }
 
@@ -741,7 +758,7 @@ export async function cancelAllNotifeePrayerNotifications() {
   try {
     // Get all trigger notifications
     const triggerIds = await notifee.getTriggerNotificationIds();
-    
+
     let canceledCount = 0;
     for (const id of triggerIds) {
       if (id.startsWith('prayer-')) {
@@ -779,13 +796,13 @@ export async function cancelAllNotifeePrayerNotifications() {
 export async function cancelAllNotificationsCompletely() {
   try {
     console.log('🔴 NUCLEAR: Cancelling ALL notifications completely...');
-    
+
     let canceledCount = 0;
-    
+
     // 1. Cancel ALL displayed notifications (not just prayer ones)
     await notifee.cancelAllNotifications();
     console.log('✅ Cancelled all displayed notifications');
-    
+
     // 2. Cancel ALL trigger/scheduled notifications
     const triggerIds = await notifee.getTriggerNotificationIds();
     for (const id of triggerIds) {
@@ -797,7 +814,7 @@ export async function cancelAllNotificationsCompletely() {
       }
     }
     console.log(`✅ Cancelled ${canceledCount} scheduled trigger notifications`);
-    
+
     // 3. Double-check by getting remaining triggers
     const remainingTriggers = await notifee.getTriggerNotificationIds();
     if (remainingTriggers.length > 0) {
@@ -806,7 +823,7 @@ export async function cancelAllNotificationsCompletely() {
         await notifee.cancelTriggerNotification(id);
       }
     }
-    
+
     console.log('🔴 NUCLEAR: All notifications completely cancelled');
     return canceledCount;
   } catch (error) {
@@ -826,19 +843,19 @@ export async function updateNotifeePrayerNotifications(prayerTimes, settings = {
     // Implement cooldown to prevent rapid re-scheduling
     const now = Date.now();
     if (now - lastUpdateAttempt < UPDATE_COOLDOWN) {
-      console.log(`⏱️ Notifee update cooldown active, skipping (${UPDATE_COOLDOWN/1000}s cooldown)`);
+      console.log(`⏱️ Notifee update cooldown active, skipping (${UPDATE_COOLDOWN / 1000}s cooldown)`);
       return [];
     }
     lastUpdateAttempt = now;
-    
+
     console.log("🔄 Updating Notifee prayer notifications...");
-    
+
     // Cancel existing notifications
     const canceledCount = await cancelAllNotifeePrayerNotifications();
-    
+
     // Schedule new notifications
     const scheduledIds = await scheduleNotifeePrayerNotifications(prayerTimes, settings);
-    
+
     console.log(`✅ Updated Notifee notifications: ${canceledCount} canceled, ${scheduledIds.length} scheduled`);
     return scheduledIds;
   } catch (error) {
@@ -853,7 +870,7 @@ export async function updateNotifeePrayerNotifications(prayerTimes, settings = {
 export async function getScheduledNotifeePrayerNotifications() {
   try {
     const triggerIds = await notifee.getTriggerNotificationIds();
-    
+
     const prayerNotifications = triggerIds
       .filter(id => id.startsWith('prayer-'))
       .map(id => ({
@@ -878,25 +895,25 @@ export async function scheduleImmediateNotifeeNotification(prayerName, message =
     // Get sound preference
     const useAzanSound = await getSoundPreference();
     const shouldUseAzan = useAzanSound && prayerName !== 'Sunrise';
-    
+
     console.log(`🔊 ${prayerName} notification will use: ${shouldUseAzan ? 'azan' : 'default Android'} sound`);
-    
+
     // Create cross-platform notification configuration
     const notificationConfig = createCrossPlatformNotification(
-      prayerName, 
-      'now', 
-      useAzanSound, 
+      prayerName,
+      'now',
+      useAzanSound,
       false
     );
-    
+
     // Override body with custom message if provided
     if (message) {
       notificationConfig.body = message;
     }
-    
+
     const notificationId = await notifee.displayNotification({
       ...notificationConfig,
-      data: { 
+      data: {
         ...notificationConfig.data,
         type: "immediate-prayer-reminder",
       },
@@ -904,7 +921,7 @@ export async function scheduleImmediateNotifeeNotification(prayerName, message =
 
     const soundInfo = shouldUseAzan ? '🔊 azan' : '🔔 default';
     console.log(`⚡ Immediate notification displayed for ${prayerName} (${soundInfo}) - Channel handles sound (ID: ${notificationId})`);
-    
+
     return notificationId;
   } catch (error) {
     console.error("❌ Error scheduling immediate Notifee notification:", error);
@@ -921,15 +938,15 @@ export async function scheduleNotifeeTestNotification() {
     // Get sound preference
     const useAzanSound = await getSoundPreference();
     console.log(`🧪 Test notification - User preference: ${useAzanSound ? 'AZAN' : 'DEFAULT ANDROID SOUND'}`);
-    
+
     // Pick the CORRECT channel based on preference
     const testChannelId = useAzanSound ? 'prayer-times-azan' : 'prayer-times-default';
-    
+
     // Create test notification configuration
     const testConfig = {
       title: "🧪 Test Prayer Notification",
       body: `Testing ${useAzanSound ? 'azan' : 'default Android'} sound from channel`,
-      data: { 
+      data: {
         type: "prayer-time",
         prayerName: "Test",
         soundType: useAzanSound ? 'azan' : 'default',
@@ -963,10 +980,10 @@ export async function scheduleNotifeeTestNotification() {
         },
       };
     }
-    
+
     const notificationId = await notifee.displayNotification(testConfig);
     console.log(`✅ Test notification displayed - Channel "${testChannelId}" will play ${useAzanSound ? 'azan' : 'default Android sound'}`);
-    
+
     return notificationId;
   } catch (error) {
     console.error("❌ Error displaying test notification:", error);
@@ -980,39 +997,39 @@ export async function scheduleNotifeeTestNotification() {
  */
 export function setupNotifeeEventHandlers() {
   console.log('🔧 Setting up Notifee event handlers (channels handle sounds automatically)');
-  
+
   // Foreground events
   notifee.onForegroundEvent(({ type, detail }) => {
     const { notification, pressAction } = detail;
-    
+
     // Filter spam events
     if (type === 7 || type === undefined) return;
-    
+
     console.log('📱 Notifee foreground event:', type, pressAction?.id);
-    
+
     switch (type) {
       case EventType.DISMISSED:
         console.log('🗑️ Notification dismissed');
         break;
-        
+
       case EventType.PRESS:
         console.log('👆 Notification pressed');
         break;
-        
+
       case EventType.ACTION_PRESS:
         if (pressAction?.id === 'mark_read' && notification?.id) {
           notifee.cancelDisplayedNotification(notification.id);
         }
         break;
-        
+
       case EventType.DELIVERED:
         console.log('📨 Notification delivered');
         const prayerData = notification?.data;
-        
+
         // Check for both prayer-time and prayer-reminder types
         if (prayerData?.type === 'prayer-time' || prayerData?.type === 'prayer-reminder') {
           console.log(`✅ ${prayerData.prayerName} prayer notification delivered - Channel played ${prayerData.soundType} sound automatically`);
-          
+
           // Top up rolling window for iOS
           try {
             const { onPrayerNotificationDelivered } = require('./prayerNotificationScheduler');
@@ -1024,7 +1041,7 @@ export function setupNotifeeEventHandlers() {
         break;
     }
   });
-  
+
   // Background events are now handled at the top level in index.ts
   // DO NOT register onBackgroundEvent here as it will overwrite the top-level handler
   // The top-level handler in index.ts is critical for notifications when app is closed
@@ -1036,9 +1053,9 @@ export function setupNotifeeEventHandlers() {
 export async function debugNotifeeNotifications() {
   try {
     console.log('� === NOTIFEE COMPREHENSIVE DEBUG REPORT ===');
-    
+
     const status = await getNotifeeServiceStatus();
-    
+
     // Display all the debugging information
     let debugInfo = '🔍 NOTIFEE DEBUG REPORT\n\n';
     debugInfo += `✅ Service Initialized: ${status.initialized}\n`;
@@ -1048,11 +1065,11 @@ export async function debugNotifeeNotifications() {
     debugInfo += `🔋 Battery Optimization: ${status.batteryOptimization}\n`;
     debugInfo += `📋 Scheduled Notifications: ${status.scheduledCount}\n`;
     debugInfo += `🔊 Sound Preference: ${status.soundPreference}\n`;
-    
+
     if (status.powerManagerInfo?.activity) {
       debugInfo += `⚡ Power Manager: ${status.powerManagerInfo.activity}\n`;
     }
-    
+
     if (status.scheduledNotifications && status.scheduledNotifications.length > 0) {
       debugInfo += '\n📅 SCHEDULED NOTIFICATIONS:\n';
       status.scheduledNotifications.forEach((notif, index) => {
@@ -1061,14 +1078,14 @@ export async function debugNotifeeNotifications() {
     } else {
       debugInfo += '\n⚠️ NO SCHEDULED NOTIFICATIONS FOUND\n';
     }
-    
+
     console.log(debugInfo);
     return {
       status,
       debugInfo,
       recommendations: generateRecommendations(status)
     };
-    
+
   } catch (error) {
     console.error("❌ Error in Notifee debug:", error);
     return { error: error.message };
@@ -1080,27 +1097,27 @@ export async function debugNotifeeNotifications() {
  */
 function generateRecommendations(status) {
   const recommendations = [];
-  
+
   if (!status.permissionsGranted) {
     recommendations.push('📱 Grant notification permissions in device settings');
   }
-  
+
   if (status.alarmPermission === 'Denied') {
     recommendations.push('⏰ Enable exact alarm permission for Android 12+');
   }
-  
+
   if (status.batteryOptimization?.includes('Enabled')) {
     recommendations.push('🔋 Disable battery optimization for better reliability');
   }
-  
+
   if (status.powerManagerInfo?.activity) {
     recommendations.push('⚡ Check power management settings');
   }
-  
+
   if (status.scheduledCount === 0) {
     recommendations.push('📅 Schedule prayer notifications');
   }
-  
+
   return recommendations;
 }
 
@@ -1110,7 +1127,7 @@ function generateRecommendations(status) {
 async function scheduleSnoozeNotification(prayerName) {
   try {
     const snoozeTime = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes from now
-    
+
     const trigger = {
       type: TriggerType.TIMESTAMP,
       timestamp: snoozeTime.getTime(),
@@ -1121,7 +1138,7 @@ async function scheduleSnoozeNotification(prayerName) {
         id: `snooze-${prayerName.toLowerCase()}-${Date.now()}`,
         title: `🔔 ${prayerName} Prayer Reminder`,
         body: `Snoozed reminder: It's time for ${prayerName} prayer`,
-        data: { 
+        data: {
           prayerName,
           type: "snooze-prayer-reminder"
         },
@@ -1169,14 +1186,14 @@ export async function getNotifeeServiceStatus() {
     const settings = await notifee.getNotificationSettings();
     const scheduledNotifications = await getScheduledNotifeePrayerNotifications();
     const useAzanSound = await getSoundPreference();
-    
+
     let alarmPermission = 'N/A';
     let batteryOptimization = 'Unknown';
     let powerManagerInfo = null;
-    
+
     if (Platform.OS === 'android') {
       alarmPermission = settings.android?.alarm === AndroidNotificationSetting.ENABLED ? 'Granted' : 'Denied';
-      
+
       // Check battery optimization
       try {
         const batteryOptEnabled = await notifee.isBatteryOptimizationEnabled();
@@ -1184,7 +1201,7 @@ export async function getNotifeeServiceStatus() {
       } catch (error) {
         console.log('Could not check battery optimization:', error);
       }
-      
+
       // Check power manager info
       try {
         powerManagerInfo = await notifee.getPowerManagerInfo();
@@ -1192,7 +1209,7 @@ export async function getNotifeeServiceStatus() {
         console.log('Could not get power manager info:', error);
       }
     }
-    
+
     return {
       initialized: isInitialized,
       permissionsGranted: settings.authorizationStatus >= 1,
@@ -1224,7 +1241,7 @@ export async function getNotifeeServiceStatus() {
  */
 export async function requestExactAlarmPermission() {
   if (Platform.OS !== 'android') return true;
-  
+
   try {
     const settings = await notifee.getNotificationSettings();
     if (settings.android?.alarm === AndroidNotificationSetting.DISABLED) {
@@ -1243,88 +1260,17 @@ export async function requestExactAlarmPermission() {
  * Check and handle battery optimization
  */
 export async function checkAndHandleBatteryOptimization() {
-  if (Platform.OS !== 'android') return true;
-  
-  try {
-    // Check if user has chosen to not ask again
-    const dontAskAgain = await AsyncStorage.getItem('battery_optimization_dont_ask');
-    if (dontAskAgain === 'true') {
-      console.log('🔋 User chose not to ask about battery optimization again');
-      return true;
-    }
-
-    const batteryOptimizationEnabled = await notifee.isBatteryOptimizationEnabled();
-    if (batteryOptimizationEnabled) {
-      Alert.alert(
-        'Battery Optimization Detected',
-        'To ensure prayer notifications are delivered reliably, please disable battery optimization for this app.',
-        [
-          {
-            text: 'Open Settings',
-            onPress: async () => await notifee.openBatteryOptimizationSettings(),
-          },
-          {
-            text: 'Don\'t Ask Again',
-            onPress: async () => {
-              await AsyncStorage.setItem('battery_optimization_dont_ask', 'true');
-              console.log('🔋 User chose not to ask about battery optimization again');
-            },
-            style: 'destructive',
-          },
-        ],
-        { cancelable: false }
-      );
-      return false;
-    }
-    return true;
-  } catch (error) {
-    console.error("❌ Error checking battery optimization:", error);
-    return true;
-  }
+  // Now handled inside requestEssentialPermissions during init;
+  // kept as no-op for backward compatibility.
+  return true;
 }
 
 /**
  * Check and handle power manager restrictions
  */
 export async function checkAndHandlePowerManager() {
-  if (Platform.OS !== 'android') return true;
-  
-  try {
-    // Check if user has chosen to not ask again
-    const dontAskAgain = await AsyncStorage.getItem('power_management_dont_ask');
-    if (dontAskAgain === 'true') {
-      console.log('⚡ User chose not to ask about power management again');
-      return true;
-    }
-
-    const powerManagerInfo = await notifee.getPowerManagerInfo();
-    if (powerManagerInfo.activity) {
-      Alert.alert(
-        'Power Management Restrictions Detected',
-        'To ensure prayer notifications work properly, please adjust your power management settings to prevent this app from being killed.',
-        [
-          {
-            text: 'Open Settings',
-            onPress: async () => await notifee.openPowerManagerSettings(),
-          },
-          {
-            text: 'Don\'t Ask Again',
-            onPress: async () => {
-              await AsyncStorage.setItem('power_management_dont_ask', 'true');
-              console.log('⚡ User chose not to ask about power management again');
-            },
-            style: 'destructive',
-          },
-        ],
-        { cancelable: false }
-      );
-      return false;
-    }
-    return true;
-  } catch (error) {
-    console.error("❌ Error checking power manager:", error);
-    return true;
-  }
+  // Removed — too intrusive for users. Power manager prompts are no longer shown.
+  return true;
 }
 
 /**
@@ -1333,7 +1279,7 @@ export async function checkAndHandlePowerManager() {
 export async function testNotifeeFeatures() {
   try {
     console.log('🧪 === STARTING COMPREHENSIVE NOTIFEE FEATURE TEST ===');
-    
+
     const testResults = {
       initialization: false,
       permissions: false,
@@ -1343,7 +1289,7 @@ export async function testNotifeeFeatures() {
       actionHandling: false,
       statusReporting: false,
     };
-    
+
     // Test 1: Initialization
     try {
       const initialized = await initializeNotifeePrayerNotifications();
@@ -1352,7 +1298,7 @@ export async function testNotifeeFeatures() {
     } catch (error) {
       console.log(`❌ Initialization: FAILED - ${error}`);
     }
-    
+
     // Test 2: Permissions
     try {
       const settings = await notifee.getNotificationSettings();
@@ -1361,7 +1307,7 @@ export async function testNotifeeFeatures() {
     } catch (error) {
       console.log(`❌ Permissions: ERROR - ${error}`);
     }
-    
+
     // Test 3: Channel Creation (Android)
     if (Platform.OS === 'android') {
       try {
@@ -1375,7 +1321,7 @@ export async function testNotifeeFeatures() {
       testResults.channelCreation = true; // N/A for iOS
       console.log(`✅ Channel Creation: N/A (iOS)`);
     }
-    
+
     // Test 4: Immediate Notification
     try {
       const notificationId = await scheduleImmediateNotifeeNotification('Test', 'This is a test notification');
@@ -1384,7 +1330,7 @@ export async function testNotifeeFeatures() {
     } catch (error) {
       console.log(`❌ Immediate Notification: FAILED - ${error}`);
     }
-    
+
     // Test 5: Trigger Notification
     try {
       const triggerTime = new Date(Date.now() + 10 * 1000); // 10 seconds from now
@@ -1405,7 +1351,7 @@ export async function testNotifeeFeatures() {
     } catch (error) {
       console.log(`❌ Trigger Notification: FAILED - ${error}`);
     }
-    
+
     // Test 6: Status Reporting
     try {
       const status = await getNotifeeServiceStatus();
@@ -1414,18 +1360,18 @@ export async function testNotifeeFeatures() {
     } catch (error) {
       console.log(`❌ Status Reporting: FAILED - ${error}`);
     }
-    
+
     const passedTests = Object.values(testResults).filter(Boolean).length;
     const totalTests = Object.keys(testResults).length;
-    
+
     console.log(`🎯 TEST SUMMARY: ${passedTests}/${totalTests} tests passed`);
-    
+
     return {
       results: testResults,
       summary: `${passedTests}/${totalTests} tests passed`,
       allPassed: passedTests === totalTests
     };
-    
+
   } catch (error) {
     console.error('❌ Error during feature testing:', error);
     return { error: error.message };
@@ -1456,11 +1402,11 @@ export const testImmediateNotification = async () => {
         pressAction: { id: 'default' },
       },
     });
-    
+
     console.log('✅ Immediate test notification sent with azan sound');
-    
+
     // Add fallback manual azan playback
-    
+
     console.log('✅ Immediate test notification sent - Channel will play sound automatically');
     return true;
   } catch (error) {
@@ -1477,9 +1423,9 @@ export const testScheduledNotification = async () => {
     const trigger = {
       type: TriggerType.TIMESTAMP,
       timestamp: Date.now() + 60000, // 1 minute from now
-      alarmManager: { 
+      alarmManager: {
         allowWhileIdle: true,
-        exact: true 
+        exact: true
       },
     };
 
@@ -1541,8 +1487,8 @@ export const checkNotificationStatus = async () => {
   try {
     const status = {
       permissions: await notifee.getNotificationSettings(),
-      exactAlarms: typeof notifee.canScheduleExactAlarms === 'function' 
-        ? await notifee.canScheduleExactAlarms() 
+      exactAlarms: typeof notifee.canScheduleExactAlarms === 'function'
+        ? await notifee.canScheduleExactAlarms()
         : true, // Assume true for older versions
       batteryOptimized: typeof notifee.isBatteryOptimizationEnabled === 'function'
         ? await notifee.isBatteryOptimizationEnabled()
@@ -1552,7 +1498,7 @@ export const checkNotificationStatus = async () => {
         : null,
       scheduledNotifications: await notifee.getTriggerNotifications(),
     };
-    
+
     console.log('📊 Notification System Status:', JSON.stringify(status, null, 2));
     return status;
   } catch (error) {
@@ -1566,7 +1512,7 @@ export const checkNotificationStatus = async () => {
  */
 export const runNotificationSystemTest = async () => {
   console.log('🧪 Starting comprehensive notification system test...');
-  
+
   const results = {
     permissions: false,
     immediateNotification: false,
@@ -1601,7 +1547,7 @@ export const runNotificationSystemTest = async () => {
     const totalTests = 4; // permissions, immediate, scheduled, fajr
 
     console.log(`🎯 NOTIFICATION TEST SUMMARY: ${passedTests}/${totalTests} tests passed`);
-    
+
     return {
       results,
       summary: `${passedTests}/${totalTests} tests passed`,
@@ -1629,20 +1575,20 @@ export async function forceRecreateNotificationChannels() {
 
   try {
     console.log('🔄 Force recreating notification channels for sound fix...');
-    
+
     // Delete existing channels first
     await notifee.deleteChannel(channelId);
     await notifee.deleteChannel('fajr_prayer_channel');
     await notifee.deleteChannel('prayer_reminder_channel');
-    
+
     console.log('🗑️ Deleted existing channels');
-    
+
     // Wait a moment for deletion to process
     await new Promise(resolve => setTimeout(resolve, 1000));
-    
+
     // Recreate channels with correct sound
     await createPrayerNotificationChannels();
-    
+
     console.log('✅ Notification channels recreated with correct azan sound');
     return true;
   } catch (error) {
@@ -1658,12 +1604,12 @@ export async function forceRecreateNotificationChannels() {
 export async function forceRefreshPrayerNotifications() {
   try {
     console.log('🔄 Force refreshing all prayer notifications with correct sound...');
-    
+
     // Step 1: Recreate channels first
     if (Platform.OS === 'android') {
       await forceRecreateNotificationChannels();
     }
-    
+
     // Step 2: Cancel ALL existing prayer notifications
     const triggerIds = await notifee.getTriggerNotificationIds();
     let canceledCount = 0;
@@ -1674,17 +1620,17 @@ export async function forceRefreshPrayerNotifications() {
       }
     }
     console.log(`🗑️ Canceled ${canceledCount} existing prayer notifications`);
-    
+
     // Step 3: Get current prayer times and settings from storage
     let prayerTimes = null;
     let notificationSettings = {};
-    
+
     try {
       const storedTimes = await AsyncStorage.getItem('prayer_times');
       if (storedTimes) {
         prayerTimes = JSON.parse(storedTimes);
       }
-      
+
       const storedSettings = await AsyncStorage.getItem('notification_settings');
       if (storedSettings) {
         notificationSettings = JSON.parse(storedSettings);
@@ -1702,7 +1648,7 @@ export async function forceRefreshPrayerNotifications() {
     } catch (error) {
       console.log('⚠️ Could not load existing prayer settings:', error);
     }
-    
+
     // Step 4: Reschedule with new sound settings if we have prayer times
     if (prayerTimes) {
       console.log('📅 Rescheduling prayer notifications with correct azan sound...');
@@ -1713,7 +1659,7 @@ export async function forceRefreshPrayerNotifications() {
       console.log('⚠️ No prayer times found in storage - notifications will be scheduled when times are set');
       return [];
     }
-    
+
   } catch (error) {
     console.error('❌ Error force refreshing prayer notifications:', error);
     return [];
@@ -1743,7 +1689,7 @@ export async function getDontAskAgainStatus() {
   try {
     const batteryDontAsk = await AsyncStorage.getItem('battery_optimization_dont_ask');
     const powerDontAsk = await AsyncStorage.getItem('power_management_dont_ask');
-    
+
     return {
       batteryOptimization: batteryDontAsk === 'true',
       powerManagement: powerDontAsk === 'true'

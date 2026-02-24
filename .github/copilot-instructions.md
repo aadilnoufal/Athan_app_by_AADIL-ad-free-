@@ -70,7 +70,6 @@ Do not consider a task complete until the above docs are reviewed and updated wh
 - Prefer solutions that reduce future complexity, not increase it.
 - When in doubt, choose the approach that is easiest to understand and change later.
 
-## learings
--if you make a mistake note that nistake down and ho not to cause it againg in a leassons.md file and also note down the solution you implemented to fix it in the same file, this will help you to avoid making the same mistake again and also will help you to solve similar problems in the future.
-- Always ask clarifying questions when requirements are ambiguous.
-- Write comprehensive tests covering happy paths, edge cases, and error states.
+## learings in lessons.md
+-if you make a mistake note that mistake down and how not to cause it again in a lessons.md file and also note down the solution you implemented to fix it in the same file, this will help you to avoid making the same mistake again and also will help you to solve similar problems in the future.
+- Write comprehensive tests covering edge cases, and error states.

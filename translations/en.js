@@ -7,6 +7,10 @@ export default {
   today: 'Today',
   tomorrow: 'Tomorrow',
   days: 'days',
+  returnToToday: 'Return to Today',
+  iqamaPrefix: 'Iqama +',
+  iqamaSuffix: ' min',
+  iqamaExplanation: 'Iqama times are approximate: Fajr +25 min, Dhuhr +20 min, Asr +20 min, Maghrib +10 min, Isha +20 min after Adhan.',
 
   // Prayer names
   Fajr: 'Fajr',
@@ -65,7 +69,7 @@ export default {
   testSound: 'Test Sound',
   testInAppAlert: 'Test In-App Alert',
   status: 'Status',
-  manageSubscriptions: 'Manage Apple Subscriptions',
+  manageSubscriptions: 'Manage Subscriptions',
 
   // Location settings
   locationSettings: 'Location Settings',

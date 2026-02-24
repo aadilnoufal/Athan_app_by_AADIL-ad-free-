@@ -7,35 +7,35 @@ import { SepiaColors } from '../constants/sepiaColors';
 // Dark color palette mirroring the structure of SepiaColors
 export const DarkColors = {
   background: {
-  primary: '#0E1317', // Slightly deeper for better glow contrast
-  secondary: '#141B21', // Lightened a touch
-  tertiary: '#1B252B', // Lightened to increase separation from primary
-  overlay: 'rgba(14,19,23,0.92)'
+    primary: '#0E1317', // Slightly deeper for better glow contrast
+    secondary: '#141B21', // Lightened a touch
+    tertiary: '#1B252B', // Lightened to increase separation from primary
+    overlay: 'rgba(14,19,23,0.92)'
   },
   surface: {
-  primary: '#1C262D', // Lightened ~4% for more readable text on blocks
-  secondary: '#223039', // Slightly brighter for contrast against primary
-  elevated: '#27343C', // Keep elevation differentiation
-  transparent: 'rgba(39,52,60,0.85)'
+    primary: '#1C262D', // Lightened ~4% for more readable text on blocks
+    secondary: '#223039', // Slightly brighter for contrast against primary
+    elevated: '#27343C', // Keep elevation differentiation
+    transparent: 'rgba(39,52,60,0.85)'
   },
   text: {
-  primary: '#FAF6EE', // Brighter for improved readability
-  secondary: '#E1D6C7', // Was #C9BFAF
-  tertiary: '#B9AD9B', // Was #A39683
-  inverse: '#0E1317',
-  muted: '#A0917E'
+    primary: '#FAF6EE', // Brighter for improved readability
+    secondary: '#E1D6C7', // Was #C9BFAF
+    tertiary: '#B9AD9B', // Was #A39683
+    inverse: '#0E1317',
+    muted: '#A0917E'
   },
   accent: {
-  gold: '#F0D661', // Slightly brighter
-  darkGold: '#D0AC34',
-  amber: '#E1C05A',
-  copper: '#C08048'
+    gold: '#F0D661', // Slightly brighter
+    darkGold: '#D0AC34',
+    amber: '#E1C05A',
+    copper: '#C08048'
   },
   border: {
-  light: 'rgba(240,214,97,0.22)', // Increased alpha for clearer separation
-  medium: 'rgba(240,214,97,0.32)',
-  dark: 'rgba(240,214,97,0.42)',
-  accent: 'rgba(240,214,97,0.42)'
+    light: 'rgba(240,214,97,0.22)', // Increased alpha for clearer separation
+    medium: 'rgba(240,214,97,0.32)',
+    dark: 'rgba(240,214,97,0.42)',
+    accent: 'rgba(240,214,97,0.42)'
   },
   shadow: {
     light: 'rgba(0,0,0,0.3)',
@@ -49,10 +49,10 @@ export const DarkColors = {
     info: '#6C5518'
   },
   special: {
-  nextPrayer: '#F0D661',
-  active: '#D0AC34',
-  disabled: '#45525A', // Slightly lighter for legibility if text ends up inside
-  highlight: 'rgba(240,214,97,0.18)'
+    nextPrayer: '#F0D661',
+    active: '#D0AC34',
+    disabled: '#45525A', // Slightly lighter for legibility if text ends up inside
+    highlight: 'rgba(240,214,97,0.18)'
   }
 };
 
@@ -62,8 +62,8 @@ const ThemeContext = createContext({
   colors: SepiaColors,
   isDark: false,
   mode: 'light',
-  toggleTheme: () => {},
-  setTheme: (_m) => {},
+  toggleTheme: () => { },
+  setTheme: (_m) => { },
   // transition helpers
   transitionProgress: new Animated.Value(0)
 });
@@ -97,7 +97,7 @@ export const ThemeProvider = ({ children }) => {
     setPrevBg(currentColors.background.primary);
     transitionProgress.setValue(1); // fully visible overlay of old color
     setMode(nextMode);
-    try { await AsyncStorage.setItem(THEME_KEY, nextMode); } catch {}
+    try { await AsyncStorage.setItem(THEME_KEY, nextMode); } catch { }
     // animate fade of previous color
     Animated.timing(transitionProgress, {
       toValue: 0,

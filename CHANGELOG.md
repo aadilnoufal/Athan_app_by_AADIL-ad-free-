@@ -2,6 +2,46 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.17.0] - 2026-02-25
+
+### Added
+- **Bundled offline Quran text** – Full Arabic (Uthmani) and English (Sahih International) Quran text (~3.5 MB) is now bundled in the app binary under `assets/quran/`. Reading works fully offline from first launch with zero network calls.
+- **Rolling audio preload** – While an ayah is playing, the next ayah's audio is preloaded in the background, reducing inter-ayah silence on slow networks.
+- **Quran data download script** – Added `scripts/download-quran-bundle.js` to re-fetch bundled JSON files from alquran.cloud API if needed.
+
+### Changed
+- **Removed per-surah download UI** – The download/delete icons next to each surah in the Quran list are removed; all text is always available via bundled data.
+- **Simplified Settings → Quran section** – Replaced "Download All" button and download stats with a static "bundled offline" info note. "Clear All" now only removes cached audio and extra translations.
+- **Sepia / light-mode contrast improvements** – Replaced hardcoded gradient fallback colors (#F5F1E6, #F2EEE1) and semi-transparent white card backgrounds with themed tokens (`colors.background.tertiary`, `colors.surface.secondary`, `colors.surface.primary`) across Home, Dua, Qibla, Quran, and Settings pages. Strengthened subtle border opacity on Dua and Qibla cards.
+
+### Fixed
+- **Sepia card readability** – Cards on Dua and Qibla pages no longer wash out against the sepia background in light mode.
+
+## [3.16.1] - 2026-02-24
+
+### Fixed
+- **Phantom "hooks" tab crash** – `useHomeAppStateSync` was inside `app/(tabs)/hooks/` which expo-router treated as a navigable route. Moved to `app/(tabs)/_hooks/` (underscore prefix is ignored by expo-router). The old `hooks/` directory was removed.
+- **Oversized UI elements on Home screen** – Location bar, date navigation row, prayer card items, and the "Next" indicator badge were taller than intended. Padding values trimmed: location bar `paddingVertical` 14→10, date nav `paddingVertical` 12→8, prayer card `padding` 12→10, `prayerItemHeader marginBottom` 8→4.
+
+## [3.16.0] - 2026-02-23
+
+### Fixed
+- **Duplicate battery prompts on first open** – Consolidated notification startup flow so only one battery optimization prompt is shown (previously two were fired: one from the service init and one from the Home screen).
+- **Removed intrusive auto-start / power manager prompt** – The “Add to auto-start/whitelist” alert was too aggressive for first-time users and has been removed.
+- **Notification prompt now always appears first** – Permission order enforced: Notification → Exact Alarm → Battery Optimization.
+- **Removed duplicate permission requests from Settings mount** – Settings no longer re-runs `requestExactAlarmPermission()` separately; all permissions are handled inside `initializeNotifeePrayerNotifications()`.
+- **Intermittent resume crash on Home** – Fixed a foreground-resume date sync issue that could recurse and crash when reopening after backgrounding.
+
+### Added
+- **“Ask Me Later” on all Android prompts** – Notification, Exact Alarm, and Battery Optimization prompts now include an “Ask Me Later” button that defers the prompt until the next app launch (session-scoped).
+- **“Return to Today” button** – When viewing prayer times 2+ days in the future, a golden pill button appears below the date navigator to jump back to the countdown page.
+- **Iqama time offsets in prayer list** – Each prayer row now shows approximate iqama offset (e.g. “Iqama +25 min”) in small text below the prayer name. A brief explanation footer is shown beneath the prayer grid.
+
+### Changed
+- **“Manage Apple Subscriptions” → “Manage Subscriptions”** – Button label in Settings is now platform-neutral (EN & AR).
+- **Home lifecycle synchronization extracted** – AppState/date-resume synchronization moved into `app/(tabs)/hooks/useHomeAppStateSync.ts` to reduce coupling in `app/(tabs)/index.tsx`.
+- **Home debug surface reduced** – Removed non-essential long-press notification debug path and verbose DEBUG-only interaction logs from Home.
+
 ## [3.15.0] - 2025-07-20
 
 ### Added

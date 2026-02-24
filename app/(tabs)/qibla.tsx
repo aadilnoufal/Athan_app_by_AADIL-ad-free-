@@ -5,10 +5,10 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  StyleSheet, 
-  Text, 
-  View, 
+import {
+  StyleSheet,
+  Text,
+  View,
   Dimensions,
   Animated,
   TouchableOpacity,
@@ -32,7 +32,7 @@ const COMPASS_SIZE = Math.min(screenWidth * 0.78, 320);
 export default function QiblaScreen() {
   const { colors, isDark } = useTheme();
   const { t, language } = useLanguage();
-  
+
   const compassRotateAnim = useRef(new Animated.Value(0)).current;
   const qiblaRotateAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -55,8 +55,8 @@ export default function QiblaScreen() {
       return [colors.surface.secondary, colors.surface.secondary, '#F2EEE1'];
     }
   };
-  const gradientColors: [string, string, string] = isDark 
-    ? [colors.background.primary, colors.background.secondary, colors.surface.primary] 
+  const gradientColors: [string, string, string] = isDark
+    ? [colors.background.primary, colors.background.secondary, colors.surface.primary]
     : getTimeBasedGradient();
 
   const {
@@ -212,215 +212,215 @@ export default function QiblaScreen() {
           <Text style={styles.headerTitle}>{t('qiblaTitle')}</Text>
         </View>
 
-        <ScrollView 
+        <ScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
 
-        {/* Calibration Tip */}
-        {showCalibrationTip && compass.accuracy < CompassAccuracy.HIGH && (
-          <Animated.View style={styles.calibrationCard}>
-            <View style={styles.calibrationHeader}>
-              <MaterialCommunityIcons 
-                name="information" 
-                size={20} 
-                color={colors.accent.gold} 
-              />
-              <Text style={styles.calibrationTitle}>
-                {t('qiblaCalibrationTip')}
-              </Text>
-              <TouchableOpacity onPress={() => setShowCalibrationTip(false)}>
-                <MaterialCommunityIcons 
-                  name="close" 
-                  size={20} 
-                  color={colors.text.secondary} 
+          {/* Calibration Tip */}
+          {showCalibrationTip && compass.accuracy < CompassAccuracy.HIGH && (
+            <Animated.View style={styles.calibrationCard}>
+              <View style={styles.calibrationHeader}>
+                <MaterialCommunityIcons
+                  name="information"
+                  size={20}
+                  color={colors.accent.gold}
                 />
-              </TouchableOpacity>
-            </View>
-            <Text style={styles.calibrationText}>
-              {t('qiblaCalibrationInstruction')}
-            </Text>
-            {/* Figure-8 animation hint */}
-            <View style={styles.figure8Container}>
-              <Text style={styles.figure8Text}>∞</Text>
-            </View>
-          </Animated.View>
-        )}
+                <Text style={styles.calibrationTitle}>
+                  {t('qiblaCalibrationTip')}
+                </Text>
+                <TouchableOpacity onPress={() => setShowCalibrationTip(false)}>
+                  <MaterialCommunityIcons
+                    name="close"
+                    size={20}
+                    color={colors.text.secondary}
+                  />
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.calibrationText}>
+                {t('qiblaCalibrationInstruction')}
+              </Text>
+              {/* Figure-8 animation hint */}
+              <View style={styles.figure8Container}>
+                <Text style={styles.figure8Text}>∞</Text>
+              </View>
+            </Animated.View>
+          )}
 
-        {/* Main Compass */}
-        <View style={styles.compassWrapper}>
-          <Animated.View 
-            style={[
-              styles.compassContainer,
-              { transform: [{ scale: pulseAnim }] },
-              isFacingQibla && styles.compassGlow,
-            ]}
-          >
-            {/* Outer decorative ring */}
-            <View style={styles.outerRing}>
-              {/* Compass rose - rotates with heading */}
-              <Animated.View 
-                style={[
-                  styles.compassRose,
-                  { transform: [{ rotate: compassRotateInterpolate }] }
-                ]}
-              >
-                <Svg width={COMPASS_SIZE - 30} height={COMPASS_SIZE - 30}>
-                  <G x={(COMPASS_SIZE - 30) / 2} y={(COMPASS_SIZE - 30) / 2}>
-                    {/* Degree marks */}
-                    {Array.from({ length: 72 }).map((_, i) => {
-                      const angle = i * 5;
-                      const isMajor = angle % 30 === 0;
-                      const isCardinal = angle % 90 === 0;
-                      const tickLength = isCardinal ? 15 : isMajor ? 10 : 5;
-                      const tickWidth = isCardinal ? 2 : 1;
-                      const r1 = radius - tickLength;
-                      const r2 = radius;
-                      const rad = (angle - 90) * (Math.PI / 180);
-                      
-                      return (
-                        <Line
-                          key={i}
-                          x1={r1 * Math.cos(rad)}
-                          y1={r1 * Math.sin(rad)}
-                          x2={r2 * Math.cos(rad)}
-                          y2={r2 * Math.sin(rad)}
-                          stroke={angle === 0 ? '#FF4444' : colors.text.secondary}
-                          strokeWidth={tickWidth}
-                          opacity={isMajor ? 0.8 : 0.4}
-                        />
-                      );
-                    })}
-                    
-                    {/* Cardinal directions */}
-                    {['N', 'E', 'S', 'W'].map((dir, i) => {
-                      const angle = i * 90;
-                      const rad = (angle - 90) * (Math.PI / 180);
-                      const r = radius - 35;
-                      return (
-                        <SvgText
-                          key={dir}
-                          x={r * Math.cos(rad)}
-                          y={r * Math.sin(rad) + 6}
-                          fill={dir === 'N' ? '#FF4444' : colors.text.primary}
-                          fontSize={dir === 'N' ? 20 : 16}
-                          fontWeight="bold"
-                          textAnchor="middle"
-                        >
-                          {dir}
-                        </SvgText>
-                      );
-                    })}
+          {/* Main Compass */}
+          <View style={styles.compassWrapper}>
+            <Animated.View
+              style={[
+                styles.compassContainer,
+                { transform: [{ scale: pulseAnim }] },
+                isFacingQibla && styles.compassGlow,
+              ]}
+            >
+              {/* Outer decorative ring */}
+              <View style={styles.outerRing}>
+                {/* Compass rose - rotates with heading */}
+                <Animated.View
+                  style={[
+                    styles.compassRose,
+                    { transform: [{ rotate: compassRotateInterpolate }] }
+                  ]}
+                >
+                  <Svg width={COMPASS_SIZE - 30} height={COMPASS_SIZE - 30}>
+                    <G x={(COMPASS_SIZE - 30) / 2} y={(COMPASS_SIZE - 30) / 2}>
+                      {/* Degree marks */}
+                      {Array.from({ length: 72 }).map((_, i) => {
+                        const angle = i * 5;
+                        const isMajor = angle % 30 === 0;
+                        const isCardinal = angle % 90 === 0;
+                        const tickLength = isCardinal ? 15 : isMajor ? 10 : 5;
+                        const tickWidth = isCardinal ? 2 : 1;
+                        const r1 = radius - tickLength;
+                        const r2 = radius;
+                        const rad = (angle - 90) * (Math.PI / 180);
 
-                    {/* Inner circle */}
-                    <Circle
-                      r={radius - 55}
-                      fill="none"
-                      stroke={colors.text.secondary}
-                      strokeWidth={1}
-                      opacity={0.2}
-                    />
-                  </G>
-                </Svg>
-              </Animated.View>
+                        return (
+                          <Line
+                            key={i}
+                            x1={r1 * Math.cos(rad)}
+                            y1={r1 * Math.sin(rad)}
+                            x2={r2 * Math.cos(rad)}
+                            y2={r2 * Math.sin(rad)}
+                            stroke={angle === 0 ? '#FF4444' : colors.text.secondary}
+                            strokeWidth={tickWidth}
+                            opacity={isMajor ? 0.8 : 0.4}
+                          />
+                        );
+                      })}
 
-              {/* Qibla indicator - rotates independently */}
-              <Animated.View 
-                style={[
-                  styles.qiblaIndicator,
-                  { transform: [{ rotate: qiblaRotateInterpolate }] }
-                ]}
-              >
-                <View style={[styles.kaabaMarker, { backgroundColor: colors.accent.gold }]}>
-                  <Text style={styles.kaabaEmoji}>🕋</Text>
-                </View>
-                <View style={[styles.qiblaLine, { backgroundColor: colors.accent.gold }]} />
-              </Animated.View>
+                      {/* Cardinal directions */}
+                      {['N', 'E', 'S', 'W'].map((dir, i) => {
+                        const angle = i * 90;
+                        const rad = (angle - 90) * (Math.PI / 180);
+                        const r = radius - 35;
+                        return (
+                          <SvgText
+                            key={dir}
+                            x={r * Math.cos(rad)}
+                            y={r * Math.sin(rad) + 6}
+                            fill={dir === 'N' ? '#FF4444' : colors.text.primary}
+                            fontSize={dir === 'N' ? 20 : 16}
+                            fontWeight="bold"
+                            textAnchor="middle"
+                          >
+                            {dir}
+                          </SvgText>
+                        );
+                      })}
 
-              {/* Center info */}
-              <View style={styles.centerInfo}>
-                <Text style={styles.degreesText}>{Math.round(qiblaDirection)}°</Text>
-                <Text style={styles.cardinalText}>{qiblaCardinal}</Text>
-                {isFacingQibla ? (
-                  <View style={styles.facingQiblaContainer}>
-                    <MaterialCommunityIcons 
-                      name="check-circle" 
-                      size={20} 
-                      color={colors.accent.gold} 
-                    />
-                    <Text style={styles.facingQiblaText}>
-                      {t('qiblaFacingQibla')}
-                    </Text>
+                      {/* Inner circle */}
+                      <Circle
+                        r={radius - 55}
+                        fill="none"
+                        stroke={colors.text.secondary}
+                        strokeWidth={1}
+                        opacity={0.2}
+                      />
+                    </G>
+                  </Svg>
+                </Animated.View>
+
+                {/* Qibla indicator - rotates independently */}
+                <Animated.View
+                  style={[
+                    styles.qiblaIndicator,
+                    { transform: [{ rotate: qiblaRotateInterpolate }] }
+                  ]}
+                >
+                  <View style={[styles.kaabaMarker, { backgroundColor: colors.accent.gold }]}>
+                    <Text style={styles.kaabaEmoji}>🕋</Text>
                   </View>
-                ) : (
-                  <Text style={styles.turnText}>
-                    {qiblaRotation > 0 ? '→ ' : '← '}
-                    {Math.abs(Math.round(qiblaRotation))}°
-                  </Text>
-                )}
-              </View>
+                  <View style={[styles.qiblaLine, { backgroundColor: colors.accent.gold }]} />
+                </Animated.View>
 
-              {/* North indicator (fixed at top) */}
-              <View style={styles.northIndicator}>
-                <View style={styles.northTriangle} />
+                {/* Center info */}
+                <View style={styles.centerInfo}>
+                  <Text style={styles.degreesText}>{Math.round(qiblaDirection)}°</Text>
+                  <Text style={styles.cardinalText}>{qiblaCardinal}</Text>
+                  {isFacingQibla ? (
+                    <View style={styles.facingQiblaContainer}>
+                      <MaterialCommunityIcons
+                        name="check-circle"
+                        size={20}
+                        color={colors.accent.gold}
+                      />
+                      <Text style={styles.facingQiblaText}>
+                        {t('qiblaFacingQibla')}
+                      </Text>
+                    </View>
+                  ) : (
+                    <Text style={styles.turnText}>
+                      {qiblaRotation > 0 ? '→ ' : '← '}
+                      {Math.abs(Math.round(qiblaRotation))}°
+                    </Text>
+                  )}
+                </View>
+
+                {/* North indicator (fixed at top) */}
+                <View style={styles.northIndicator}>
+                  <View style={styles.northTriangle} />
+                </View>
+              </View>
+            </Animated.View>
+          </View>
+
+          {/* Compact Info Box */}
+          <View style={styles.compactInfoBox}>
+            <View style={styles.compactInfoRow}>
+              <View style={styles.compactInfoItem}>
+                <MaterialCommunityIcons name="signal" size={14} color={getAccuracyColor()} />
+                <Text style={styles.compactInfoLabel}>{t('qiblaAccuracy')}:</Text>
+                <Text style={[styles.compactInfoValue, { color: getAccuracyColor() }]}>
+                  {getAccuracyLabel()}
+                </Text>
+              </View>
+              <View style={styles.compactInfoDivider} />
+              {location && (
+                <>
+                  <View style={styles.compactInfoItem}>
+                    <MaterialCommunityIcons name="map-marker-distance" size={14} color={colors.text.secondary} />
+                    <Text style={styles.compactInfoLabel}>{t('qiblaDistance')}:</Text>
+                    <Text style={styles.compactInfoValue}>{location.distanceToKaaba.toFixed(0)} km</Text>
+                  </View>
+                  <View style={styles.compactInfoDivider} />
+                </>
+              )}
+              <View style={styles.compactInfoItem}>
+                <MaterialCommunityIcons name="compass-outline" size={14} color={colors.text.secondary} />
+                <Text style={styles.compactInfoLabel}>{t('qiblaHeading')}:</Text>
+                <Text style={styles.compactInfoValue}>{Math.round(compassHeading)}° {facingCardinal}</Text>
               </View>
             </View>
-          </Animated.View>
-        </View>
+          </View>
 
-        {/* Compact Info Box */}
-        <View style={styles.compactInfoBox}>
-          <View style={styles.compactInfoRow}>
-            <View style={styles.compactInfoItem}>
-              <MaterialCommunityIcons name="signal" size={14} color={getAccuracyColor()} />
-              <Text style={styles.compactInfoLabel}>{t('qiblaAccuracy')}:</Text>
-              <Text style={[styles.compactInfoValue, { color: getAccuracyColor() }]}>
-                {getAccuracyLabel()}
+          {/* Refresh button */}
+          <TouchableOpacity style={styles.refreshButton} onPress={reinitialize}>
+            <MaterialCommunityIcons name="refresh" size={18} color={colors.text.primary} />
+            <Text style={styles.refreshText}>{t('qiblaRecalibrate')}</Text>
+          </TouchableOpacity>
+
+          {/* Device orientation tip */}
+          {!compass.isDeviceFlat && (
+            <View style={styles.tiltWarning}>
+              <MaterialCommunityIcons name="cellphone" size={18} color={colors.accent.gold} />
+              <Text style={styles.tiltText}>
+                {t('qiblaHoldFlat')}
               </Text>
             </View>
-            <View style={styles.compactInfoDivider} />
-            {location && (
-              <>
-                <View style={styles.compactInfoItem}>
-                  <MaterialCommunityIcons name="map-marker-distance" size={14} color={colors.text.secondary} />
-                  <Text style={styles.compactInfoLabel}>{t('qiblaDistance')}:</Text>
-                  <Text style={styles.compactInfoValue}>{location.distanceToKaaba.toFixed(0)} km</Text>
-                </View>
-                <View style={styles.compactInfoDivider} />
-              </>
-            )}
-            <View style={styles.compactInfoItem}>
-              <MaterialCommunityIcons name="compass-outline" size={14} color={colors.text.secondary} />
-              <Text style={styles.compactInfoLabel}>{t('qiblaHeading')}:</Text>
-              <Text style={styles.compactInfoValue}>{Math.round(compassHeading)}° {facingCardinal}</Text>
-            </View>
-          </View>
-        </View>
+          )}
 
-        {/* Refresh button */}
-        <TouchableOpacity style={styles.refreshButton} onPress={reinitialize}>
-          <MaterialCommunityIcons name="refresh" size={18} color={colors.text.primary} />
-          <Text style={styles.refreshText}>{t('qiblaRecalibrate')}</Text>
-        </TouchableOpacity>
-
-        {/* Device orientation tip */}
-        {!compass.isDeviceFlat && (
-          <View style={styles.tiltWarning}>
-            <MaterialCommunityIcons name="cellphone" size={18} color={colors.accent.gold} />
-            <Text style={styles.tiltText}>
-              {t('qiblaHoldFlat')}
+          {/* Islamic Disclaimer */}
+          <View style={styles.disclaimerContainer}>
+            <MaterialCommunityIcons name="information-outline" size={14} color={colors.text.secondary} />
+            <Text style={styles.disclaimerText}>
+              {t('qiblaDisclaimer')}
             </Text>
           </View>
-        )}
-
-        {/* Islamic Disclaimer */}
-        <View style={styles.disclaimerContainer}>
-          <MaterialCommunityIcons name="information-outline" size={14} color={colors.text.secondary} />
-          <Text style={styles.disclaimerText}>
-            {t('qiblaDisclaimer')}
-          </Text>
-        </View>
-      </ScrollView>
+        </ScrollView>
       </View>
     </SafeAreaView>
   );

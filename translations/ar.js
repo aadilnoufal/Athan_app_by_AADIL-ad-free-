@@ -7,6 +7,10 @@ export default {
   today: 'اليوم',
   tomorrow: 'غداً',
   days: 'أيام',
+  returnToToday: 'العودة لليوم',
+  iqamaPrefix: 'إقامة +',
+  iqamaSuffix: ' د',
+  iqamaExplanation: 'أوقات الإقامة تقريبية: الفجر +25 د، الظهر +20 د، العصر +20 د، المغرب +10 د، العشاء +20 د بعد الأذان.',
 
   // Prayer names
   Fajr: 'الفجر',
@@ -65,7 +69,7 @@ export default {
   testSound: 'اختبار الصوت',
   testInAppAlert: 'اختبار تنبيه داخل التطبيق',
   status: 'الحالة',
-  manageSubscriptions: 'إدارة اشتراكات Apple',
+  manageSubscriptions: 'إدارة الاشتراكات',
 
   // Location settings
   locationSettings: 'إعدادات الموقع',

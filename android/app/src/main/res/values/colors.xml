@@ -5,12 +5,12 @@
   <color name="colorPrimaryDark">#141009</color>
   
   <!-- Sepia Theme Colors -->
-  <color name="sepia_background">#FBF7EE</color>
-  <color name="sepia_text_primary">#463A28</color>
-  <color name="sepia_text_secondary">#615238</color>
-  <color name="sepia_accent_gold">#DDB842</color>
-  <color name="sepia_accent_dark_gold">#C6A330</color>
-  <color name="sepia_progress_background">#E0D8C0</color>
+  <color name="sepia_background">#FCFBF9</color>
+  <color name="sepia_text_primary">#2D2824</color>
+  <color name="sepia_text_secondary">#5C544D</color>
+  <color name="sepia_accent_gold">#D4AF37</color>
+  <color name="sepia_accent_dark_gold">#AA8C2C</color>
+  <color name="sepia_progress_background">#EAE7DF</color>
 
   <!-- Midnight Theme Colors -->
   <color name="midnight_background">#0E1317</color>

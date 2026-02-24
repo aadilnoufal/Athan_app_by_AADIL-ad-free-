@@ -1,12 +1,12 @@
 import React, { useState, useRef } from 'react';
-import { 
-  StyleSheet, 
-  Text, 
-  View, 
-  ScrollView, 
-  TouchableOpacity, 
-  LayoutAnimation, 
-  Platform, 
+import {
+  StyleSheet,
+  Text,
+  View,
+  ScrollView,
+  TouchableOpacity,
+  LayoutAnimation,
+  Platform,
   UIManager,
   StatusBar,
 } from 'react-native';
@@ -34,23 +34,23 @@ const DuaItem = ({ dua, isLast, styles, colors, language }: any) => {
   const text = language === 'ar' && dua.textAr ? dua.textAr : dua.text;
 
   return (
-    <TouchableOpacity 
-      onPress={toggle} 
+    <TouchableOpacity
+      onPress={toggle}
       activeOpacity={0.7}
       style={[
-        styles.duaItem, 
+        styles.duaItem,
         isLast && styles.lastDuaItem,
       ]}
     >
       <View style={styles.duaRow}>
         <Text style={[styles.duaTitle, { textAlign: language === 'ar' ? 'right' : 'left' }]}>{title}</Text>
-        <MaterialCommunityIcons 
-          name={expanded ? "chevron-up" : "chevron-down"} 
-          size={18} 
-          color={colors.text.secondary} 
+        <MaterialCommunityIcons
+          name={expanded ? "chevron-up" : "chevron-down"}
+          size={18}
+          color={colors.text.secondary}
         />
       </View>
-      
+
       {expanded && (
         <View style={styles.duaContent}>
           {dua.isInfo ? (
@@ -93,8 +93,8 @@ export default function DuaScreen() {
       return [colors.surface.secondary, colors.surface.secondary, '#F2EEE1'];
     }
   };
-  const gradientColors: [string, string, string] = isDark 
-    ? [colors.background.primary, colors.background.secondary, colors.surface.primary] 
+  const gradientColors: [string, string, string] = isDark
+    ? [colors.background.primary, colors.background.secondary, colors.surface.primary]
     : getTimeBasedGradient();
 
   const recordLayout = (id: string, y: number) => {
@@ -120,7 +120,7 @@ export default function DuaScreen() {
     const gold = colors.accent.gold;
     return `${gold}${Math.round(opacity * 255).toString(16).padStart(2, '0')}`;
   };
-  
+
   const cardBg = isDark ? 'rgba(255, 255, 255, 0.04)' : 'rgba(255, 255, 255, 0.7)';
   const subtleBorder = isDark ? goldTint(0.25) : goldTint(0.15);
 
@@ -289,49 +289,49 @@ export default function DuaScreen() {
           <Text style={styles.headerTitle}>{t('duasTitle')}</Text>
         </View>
 
-        <ScrollView 
-          ref={scrollRef} 
-          contentContainerStyle={styles.content} 
+        <ScrollView
+          ref={scrollRef}
+          contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
         >
           {DUA_CATEGORIES.map((category) => {
             const isExpanded = expandedCategory === category.id;
             const categoryTitle = language === 'ar' && category.titleAr ? category.titleAr : category.title;
-            
+
             return (
               <View
                 key={category.id}
                 style={styles.sectionCard}
                 onLayout={(e) => recordLayout(category.id, e.nativeEvent.layout.y)}
               >
-                <TouchableOpacity 
-                  style={styles.sectionHeader} 
+                <TouchableOpacity
+                  style={styles.sectionHeader}
                   onPress={() => toggleCategory(category.id)}
                   activeOpacity={0.7}
                 >
                   <View style={styles.sectionTitleRow}>
                     <View style={styles.sectionIcon}>
-                      <MaterialCommunityIcons 
-                        name={getCategoryIcon(category.id) as any} 
-                        size={18} 
-                        color={colors.accent.gold} 
+                      <MaterialCommunityIcons
+                        name={getCategoryIcon(category.id) as any}
+                        size={18}
+                        color={colors.accent.gold}
                       />
                     </View>
                     <Text style={styles.sectionTitle}>{categoryTitle}</Text>
                   </View>
-                  <MaterialCommunityIcons 
-                    name={isExpanded ? "chevron-up" : "chevron-down"} 
-                    size={20} 
-                    color={colors.text.secondary} 
+                  <MaterialCommunityIcons
+                    name={isExpanded ? "chevron-up" : "chevron-down"}
+                    size={20}
+                    color={colors.text.secondary}
                   />
                 </TouchableOpacity>
 
                 {isExpanded && (
                   <View style={styles.duasListContainer}>
                     {category.duas.map((dua: any, index: number) => (
-                      <DuaItem 
-                        key={dua.id} 
-                        dua={dua} 
+                      <DuaItem
+                        key={dua.id}
+                        dua={dua}
                         isLast={index === category.duas.length - 1}
                         styles={styles}
                         colors={colors}

@@ -22,6 +22,8 @@ app/
   (tabs)/
     _layout.tsx        Tab navigator (Prayer Times, Dua, Quran, Qibla, Settings)
     index.tsx          Home / Prayer Times screen
+    hooks/
+      useHomeAppStateSync.ts  Home AppState/date-resume synchronization
     dua.tsx            Duas & Azkar screen
     quran.tsx          Quran reader screen (surah list → reader → search)
     qibla.tsx          Qibla compass screen
@@ -62,15 +64,15 @@ widgets/
 ```
 User opens Quran tab
   → quran.tsx loads surah list via quranStorage.getSurahListCached()
-    → checks local file cache (expo-file-system: quran/meta.json)
-    → if miss → fetches from alquran.cloud/v1/surah, writes cache
+    → returns instantly from BUNDLED_SURAH_LIST (no network, no file I/O)
 
 User taps a surah
-  → quran.tsx calls readOfflineSurah() first
-    → if downloaded → renders from disk instantly (no network)
-    → if not → fetches Arabic + user's chosen translation edition via fetchSurahWithTranslation()
-  → fetches Arabic bismillah text (getBismillahText(EDITIONS.ARABIC)) for stripping
-  → fetches translation bismillah text (getBismillahText(translationEdition)) for stripping
+  → quran.tsx calls readOfflineSurah(n, 'ar')
+    → always returns bundled Arabic data (BUNDLED_QURAN_AR) — works fully offline
+  → for translation:
+    → if user's edition is 'en.sahih' → returns bundled English (BUNDLED_QURAN_EN)
+    → else → fetches chosen translation from API, falls back to bundled English on failure
+  → fetches Arabic bismillah from bundled data (getBismillahText) for stripping
   → checks if surah audio is downloaded for current reciter (isSurahAudioDownloaded)
   → saves last-read position (setLastRead) for "Continue Reading" card
 
@@ -80,6 +82,8 @@ User taps an ayah or the play button
     → if not local → fetches audio data from API (fetchSurahAudio) → streams remote URL
     → plays via expo-av Audio.Sound
     → auto-advances to next ayah on finish
+    → rolling preload: preloads next ayah's audio in background (preloadNextAyah)
+    → on didJustFinish: uses preloaded sound if available, otherwise creates fresh
 
 User taps download audio button
   → quranStorage.downloadSurahAudio(surahNumber, reciterEdition, onProgress)
@@ -91,23 +95,13 @@ User changes font size / translation edition / reciter in Settings
   → quranStorage.setQuranFontScale / setTranslationEdition / setReciterPref
     → persists to AsyncStorage
     → quran.tsx reads on next focus
-    → if reciter changed: cached audioSurahData invalidated, audioDownloaded re-checked
+    → if reciter changed: cached audioSurahData invalidated, audioDownloaded re-checked,
+      preloaded nextSoundRef discarded
 
 User changes "Auto-scroll with audio" in Settings
   → quranStorage.setQuranAutoScrollWithAudio(enabled)
     → persists to AsyncStorage
     → quran.tsx follows/pauses synced ayah scrolling during playback
-
-User taps download icon on a surah
-  → quranStorage.downloadSurah(n)
-    → fetches both editions (Arabic, Translation), writes JSON files to quran/surahs/
-    → updates AsyncStorage download index
-
-User triggers "Download Full Quran" from Settings
-  → quranStorage.downloadFullQuran(onProgress)
-    → fetches /v1/quran/quran-uthmani + /v1/quran/en.sahih (bulk)
-    → writes 228 JSON files (114 × 2 editions)
-    → progress callback updates UI
 
 User triggers "Download All Audio" from Settings
   → quranStorage.downloadAllAudio(reciterEdition, onProgress)
@@ -115,16 +109,17 @@ User triggers "Download All Audio" from Settings
     → downloads all ayah MP3s per surah via downloadSurahAudio()
     → progress callback updates UI
 
-User clears downloads from Settings
+User clears cached data from Settings
   → quranStorage.deleteAllQuranData()
-    → deletes quran/ directory + removes AsyncStorage index
+    → deletes quran/ directory (cached audio, extra translations) + removes AsyncStorage index
+    → bundled Arabic + English data remain available (part of app binary)
 ```
 
 ## Key Design Decisions
 
-1. **Online-first, optional offline** – App size stays small; users opt-in to downloads.
-2. **Per-surah granularity** – Users can download only surahs they read often.
-3. **Audio streaming + optional download** – Audio streams by default; user can download per-surah per-reciter.
+1. **Bundled offline Quran text** – Full Arabic (Uthmani) + English (Sahih International) text is bundled in `assets/quran/` (~3.5 MB). No network needed for reading; works fully offline from first launch.
+2. **On-demand translations** – Non-English translations are fetched from the API when selected; fall back to bundled English on failure.
+3. **Audio streaming + rolling preload** – Audio streams by default; next ayah is preloaded in background while current plays, reducing inter-ayah gaps. User can also download per-surah per-reciter.
 4. **expo-file-system for content** – AsyncStorage has size limits; file system handles multi-MB JSON/MP3 without issue.
 5. **Edition preference in Settings** – Persisted via AsyncStorage; Quran tab reads it on mount.
 6. **Bismillah stripping** – API includes Bismillah in ayah 1 text; `stripBismillah()` fetches the exact bismillah from the API's own surah 1 ayah 1 for reliable comparison, with tatweel-normalized constant fallbacks.
@@ -135,3 +130,6 @@ User clears downloads from Settings
 11. **Ayah reference search** – Regex-based detection of `N:N` patterns in search input, validated against surah list metadata, shown as a quick-jump card.
 12. **Custom Quran fonts** – Amiri and Scheherazade New (OFL-licensed) bundled in `assets/fonts/`, loaded at runtime via `expo-font`. Preference persisted via AsyncStorage.
 13. **Single bookmark** – One bookmark stored in AsyncStorage; replaces Continue Reading card when set. Bookmark icon shown per ayah in reading view.
+14. **Consolidated notification prompts** – All Android permission prompts (notification, exact-alarm, battery) go through a single ordered flow in `requestEssentialPermissions()`. Session-scoped "Ask Me Later" flags reset on every fresh app launch. Power-manager/auto-start prompt removed.
+15. **Iqama offsets** – Hardcoded offsets (Fajr 25, Dhuhr 20, Asr 20, Maghrib 10, Isha 20 min after adhan). Displayed as small text below prayer name; footer explains the convention. Sunrise excluded.
+16. **Home lifecycle isolation** – Foreground-resume date synchronization for Home is isolated in `useHomeAppStateSync` to avoid stale AppState/date closures and reduce crash risk during resume.

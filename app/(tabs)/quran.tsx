@@ -25,21 +25,16 @@ import { useLanguage } from '../../contexts/LanguageContext';
 import {
     SurahMeta,
     SurahData,
-    Ayah,
     fetchSurah,
-    fetchSurahWithTranslation,
     fetchSurahAudio,
     EDITIONS,
     SearchMatch,
 } from '../../lib/quranApi';
 import {
     getSurahListCached,
-    downloadSurah,
     readOfflineSurah,
-    deleteSurah,
     getEditionPref,
     EditionPref,
-    getDownloadIndex,
     getQuranFontScale,
     getQuranAutoScrollWithAudio,
     getTranslationEdition,
@@ -277,10 +272,6 @@ export default function QuranScreen() {
     const [translationEdition, setTranslationEditionState] = useState<string>(EDITIONS.ENGLISH);
     const [fontScale, setFontScaleState] = useState(1.2);
 
-    // Offline index (surah numbers that are downloaded)
-    const [downloadedSet, setDownloadedSet] = useState<Set<number>>(new Set());
-    const [downloadingSurah, setDownloadingSurah] = useState<number | null>(null);
-
     // Continue from last read
     const [lastRead, setLastReadState] = useState<LastReadEntry | null>(null);
 
@@ -313,6 +304,8 @@ export default function QuranScreen() {
 
     const scrollRef = useRef<ScrollView>(null);
     const soundRef = useRef<Audio.Sound | null>(null);
+    const nextSoundRef = useRef<Audio.Sound | null>(null);   // rolling preload
+    const nextSoundIndexRef = useRef<number>(-1);             // which ayah nextSoundRef holds
     const searchInputRef = useRef<TextInput>(null);
 
     // ── Refs for stable audio callbacks (avoids stale closures) ──
@@ -337,6 +330,12 @@ export default function QuranScreen() {
             // Clear cached audio URLs (they belong to old reciter)
             setAudioSurahData(null);
             audioSurahDataRef.current = null;
+            // Discard preloaded sound (belongs to old reciter)
+            if (nextSoundRef.current) {
+                nextSoundRef.current.unloadAsync().catch(() => { });
+                nextSoundRef.current = null;
+                nextSoundIndexRef.current = -1;
+            }
             // Re-check download status for new reciter
             const surahNum = currentSurahArRef.current?.number;
             if (surahNum) {
@@ -370,8 +369,8 @@ export default function QuranScreen() {
         if (hour >= 15 && hour < 18)
             return [colors.background.secondary, colors.background.tertiary, colors.surface.secondary];
         if (hour >= 18 && hour < 20)
-            return [colors.background.tertiary, colors.surface.secondary, '#F5F1E6'];
-        return [colors.surface.secondary, colors.surface.secondary, '#F2EEE1'];
+            return [colors.background.tertiary, colors.surface.secondary, colors.background.tertiary];
+        return [colors.surface.secondary, colors.background.tertiary, colors.surface.secondary];
     };
     const gradientColors: [string, string, string] = isDark
         ? [colors.background.primary, colors.background.secondary, colors.surface.primary]
@@ -441,15 +440,14 @@ export default function QuranScreen() {
         });
     }, [surahList, searchQuery]);
 
-    // ── Init: load surah list + download index + all prefs ─────────
+    // ── Init: load surah list + all prefs ─────────
     useEffect(() => {
         (async () => {
             try {
                 setLoading(true);
-                const [list, pref, idx, scale, trEd, recPref, autoScrollPref, hintDismissed, lastReadEntry, fontFamPref, bookmarkData] = await Promise.all([
+                const [list, pref, scale, trEd, recPref, autoScrollPref, hintDismissed, lastReadEntry, fontFamPref, bookmarkData] = await Promise.all([
                     getSurahListCached(),
                     getEditionPref(),
-                    getDownloadIndex(),
                     getQuranFontScale(),
                     getTranslationEdition(),
                     getReciterPref(),
@@ -461,7 +459,6 @@ export default function QuranScreen() {
                 ]);
                 setSurahList(list);
                 setEditionPref(pref);
-                setDownloadedSet(new Set(Object.keys(idx.surahs).map(Number)));
                 setFontScaleState(scale);
                 setTranslationEditionState(trEd);
                 setReciterEdition(recPref);
@@ -497,13 +494,12 @@ export default function QuranScreen() {
         useCallback(() => {
             (async () => {
                 try {
-                    const [scale, pref, trEd, recPref, autoScrollPref, idx, fontFamPref, bookmarkData] = await Promise.all([
+                    const [scale, pref, trEd, recPref, autoScrollPref, fontFamPref, bookmarkData] = await Promise.all([
                         getQuranFontScale(),
                         getEditionPref(),
                         getTranslationEdition(),
                         getReciterPref(),
                         getQuranAutoScrollWithAudio(),
-                        getDownloadIndex(),
                         getQuranFontFamily(),
                         getBookmark(),
                     ]);
@@ -513,7 +509,6 @@ export default function QuranScreen() {
                     setReciterEdition(recPref);
                     setAutoScrollWithAudio(autoScrollPref);
                     autoScrollEnabled.current = autoScrollPref;
-                    setDownloadedSet(new Set(Object.keys(idx.surahs).map(Number)));
                     setQuranFontFamilyState(fontFamPref);
                     setBookmarkEntryState(bookmarkData);
                 } catch { }
@@ -566,13 +561,8 @@ export default function QuranScreen() {
         }).catch(() => { });
         return () => {
             soundRef.current?.unloadAsync().catch(() => { });
+            nextSoundRef.current?.unloadAsync().catch(() => { });
         };
-    }, []);
-
-    // ── Refresh download set after an action ─────────────────────
-    const refreshDownloadIndex = useCallback(async () => {
-        const idx = await getDownloadIndex();
-        setDownloadedSet(new Set(Object.keys(idx.surahs).map(Number)));
     }, []);
 
     // ── Retry loading surah list (after network error) ────────────
@@ -580,13 +570,11 @@ export default function QuranScreen() {
         try {
             setLoading(true);
             setError(null);
-            const [list, idx, lastReadEntry] = await Promise.all([
+            const [list, lastReadEntry] = await Promise.all([
                 getSurahListCached(),
-                getDownloadIndex(),
                 getLastRead(),
             ]);
             setSurahList(list);
-            setDownloadedSet(new Set(Object.keys(idx.surahs).map(Number)));
             setLastReadState(lastReadEntry);
         } catch (e: any) {
             setError(e.message ?? 'Failed to load surah list');
@@ -617,60 +605,30 @@ export default function QuranScreen() {
                     ? getBismillahText(EDITIONS.ARABIC).catch(() => null)
                     : Promise.resolve(null);
 
-                // Try offline Arabic first
-                const offlineAr = await readOfflineSurah(surahNumber, 'ar');
+                // Arabic text is always available from bundled data
+                const arData = await readOfflineSurah(surahNumber, 'ar');
+                if (!arData) throw new Error('Bundled Arabic data missing');
+                setCurrentSurahAr(arData);
 
-                if (offlineAr) {
-                    setCurrentSurahAr(offlineAr);
-
-                    // For translation: use offline only if user's edition is
-                    // the default English (which is what downloadSurah stores).
-                    // Otherwise fetch the chosen translation online.
-                    let trData: SurahData | null = null;
-                    if (translationEdition === EDITIONS.ENGLISH) {
+                // Translation: use bundled English if that's the selected edition,
+                // otherwise fetch the chosen translation online (fallback to English).
+                let trData: SurahData | null = null;
+                if (translationEdition === EDITIONS.ENGLISH) {
+                    trData = await readOfflineSurah(surahNumber, 'en');
+                } else {
+                    try {
+                        trData = await fetchSurah(surahNumber, translationEdition);
+                    } catch {
+                        // Fallback to bundled English if network fails
                         trData = await readOfflineSurah(surahNumber, 'en');
-                    } else {
-                        try {
-                            trData = await fetchSurah(surahNumber, translationEdition);
-                        } catch {
-                            // Fallback to offline English if network fails
-                            trData = await readOfflineSurah(surahNumber, 'en');
-                        }
                     }
-                    setCurrentSurahTr(trData);
-
-                    const [trBis, arBis] = await Promise.all([trBismillahPromise, arBismillahPromise]);
-                    trBismillahRef.current = trBis;
-                    arBismillahRef.current = arBis;
-                    setSurahLoading(false);
-                    checkAudioStatus(surahNumber);
-
-                    // Save last read position (preserve ayahIndex when continuing)
-                    const meta = surahList.find(s => s.number === surahNumber);
-                    if (meta) {
-                        const entry: LastReadEntry = {
-                            surahNumber,
-                            surahName: meta.englishName,
-                            surahNameArabic: meta.name,
-                            ayahIndex: scrollToAyahRef.current ?? 0,
-                            timestamp: Date.now(),
-                        };
-                        setLastRead(entry).catch(() => { });
-                        setLastReadState(entry);
-                    }
-                    return;
                 }
+                setCurrentSurahTr(trData);
 
-                // Fetch online with user's chosen translation edition
-                const [[ar, tr], trBis, arBis] = await Promise.all([
-                    fetchSurahWithTranslation(surahNumber, translationEdition),
-                    trBismillahPromise,
-                    arBismillahPromise,
-                ]);
+                const [trBis, arBis] = await Promise.all([trBismillahPromise, arBismillahPromise]);
                 trBismillahRef.current = trBis;
                 arBismillahRef.current = arBis;
-                setCurrentSurahAr(ar);
-                setCurrentSurahTr(tr);
+                setSurahLoading(false);
                 checkAudioStatus(surahNumber);
 
                 // Save last read position (preserve ayahIndex when continuing)
@@ -705,40 +663,6 @@ export default function QuranScreen() {
             setAudioDownloaded(false);
         }
     }, [reciterEdition]);
-
-    // ── Download a single surah ───────────────────────────────────
-    const handleDownloadSurah = useCallback(
-        async (surahNumber: number) => {
-            setDownloadingSurah(surahNumber);
-            try {
-                await downloadSurah(surahNumber);
-                await refreshDownloadIndex();
-            } catch (e: any) {
-                Alert.alert(t('downloadFailed'), t('downloadFailedMsg'));
-            } finally {
-                setDownloadingSurah(null);
-            }
-        },
-        [t, refreshDownloadIndex],
-    );
-
-    // ── Remove offline copy of a surah ────────────────────────────
-    const handleDeleteSurah = useCallback(
-        (surahNumber: number) => {
-            Alert.alert(t('deleteDownload'), `${t('confirm')}?`, [
-                { text: t('cancel'), style: 'cancel' },
-                {
-                    text: t('delete'),
-                    style: 'destructive',
-                    onPress: async () => {
-                        await deleteSurah(surahNumber);
-                        await refreshDownloadIndex();
-                    },
-                },
-            ]);
-        },
-        [t, refreshDownloadIndex],
-    );
 
     // ── Search: just dismiss keyboard (filtering is real-time via filteredSurahList) ──
     const runSearch = useCallback(() => {
@@ -810,10 +734,74 @@ export default function QuranScreen() {
                 soundRef.current = null;
             }
         } catch { }
+        // Clean up preloaded next sound
+        try {
+            if (nextSoundRef.current) {
+                await nextSoundRef.current.unloadAsync();
+                nextSoundRef.current = null;
+                nextSoundIndexRef.current = -1;
+            }
+        } catch { }
         setIsPlaying(false);
         setCurrentAyahIndex(-1);
         currentAyahIndexRef.current = -1;
     }, []);
+
+    // ── Audio: resolve URI for a given ayah (local file or remote) ──
+    const resolveAyahAudioUri = useCallback(async (
+        surah: SurahData,
+        ayahIndex: number,
+    ): Promise<string | null> => {
+        const ayah = surah.ayahs[ayahIndex];
+        if (!ayah) return null;
+
+        // Try local file first
+        if (audioDownloadedRef.current) {
+            const localUri = await getLocalAudioUri(reciterEditionRef.current, ayah.number);
+            if (localUri) return localUri;
+        }
+
+        // Fetch audio data if needed, then use remote URL
+        let audioData = audioSurahDataRef.current;
+        if (!audioData) {
+            audioData = await fetchSurahAudio(surah.number, reciterEditionRef.current);
+            setAudioSurahData(audioData);
+            audioSurahDataRef.current = audioData;
+        }
+        return audioData.ayahs[ayahIndex]?.audio ?? null;
+    }, []);
+
+    // ── Audio: preload the next ayah in the background ────────────
+    const preloadNextAyah = useCallback(async (nextIndex: number) => {
+        const surah = currentSurahArRef.current;
+        if (!surah || nextIndex >= surah.ayahs.length) return;
+
+        // Don't preload if we already have this ayah preloaded
+        if (nextSoundIndexRef.current === nextIndex && nextSoundRef.current) return;
+
+        // Clean up any existing preloaded sound
+        try {
+            if (nextSoundRef.current) {
+                await nextSoundRef.current.unloadAsync();
+                nextSoundRef.current = null;
+                nextSoundIndexRef.current = -1;
+            }
+        } catch { }
+
+        try {
+            const uri = await resolveAyahAudioUri(surah, nextIndex);
+            if (!uri) return;
+
+            const { sound } = await Audio.Sound.createAsync(
+                { uri },
+                { shouldPlay: false },  // preload only, don't play yet
+            );
+            nextSoundRef.current = sound;
+            nextSoundIndexRef.current = nextIndex;
+        } catch {
+            // Preload is best-effort; failure is non-critical
+        }
+    }, [resolveAyahAudioUri]);
 
     // ── Audio: play a specific ayah (ref-based, no stale closures) ─
     const playAyah = useCallback(async (ayahIndex: number) => {
@@ -840,66 +828,87 @@ export default function QuranScreen() {
                 soundRef.current = null;
             }
 
-            // Try local file first
-            let uri: string | null = null;
-            if (audioDownloadedRef.current) {
-                uri = await getLocalAudioUri(reciterEditionRef.current, ayah.number);
+            // Check if we have a preloaded sound for this ayah
+            let sound: Audio.Sound | null = null;
+            if (nextSoundRef.current && nextSoundIndexRef.current === ayahIndex) {
+                sound = nextSoundRef.current;
+                nextSoundRef.current = null;
+                nextSoundIndexRef.current = -1;
             }
 
-            // If no local file, fetch audio data and use remote URL
-            if (!uri) {
-                let audioData = audioSurahDataRef.current;
-                if (!audioData) {
-                    audioData = await fetchSurahAudio(surah.number, reciterEditionRef.current);
-                    setAudioSurahData(audioData);
-                    audioSurahDataRef.current = audioData;
-                }
-                uri = audioData.ayahs[ayahIndex]?.audio ?? null;
-            }
-
-            if (!uri) {
-                Alert.alert(t('audioError'), t('audioErrorMsg'));
-                setAudioLoading(false);
-                isPlayingLockRef.current = false;
-                return;
-            }
-
-            // Track whether this instance has already triggered advance
-            let didAdvance = false;
-
-            const { sound } = await Audio.Sound.createAsync(
-                { uri },
-                { shouldPlay: true },
-                (status) => {
+            if (sound) {
+                // Use preloaded sound — set up status callback and play
+                let didAdvance = false;
+                sound.setOnPlaybackStatusUpdate((status) => {
                     if (status.isLoaded && status.didJustFinish && !didAdvance) {
-                        didAdvance = true; // prevent double-fire
+                        didAdvance = true;
                         const currentIdx = currentAyahIndexRef.current;
                         const surahNow = currentSurahArRef.current;
                         const nextIdx = currentIdx + 1;
 
                         if (surahNow && nextIdx < surahNow.ayahs.length) {
-                            // Release lock so next ayah can play
                             isPlayingLockRef.current = false;
                             playAyah(nextIdx);
                         } else {
-                            // End of surah
                             isPlayingLockRef.current = false;
                             setIsPlaying(false);
                             setCurrentAyahIndex(-1);
                             currentAyahIndexRef.current = -1;
                         }
                     }
+                });
+                await sound.playAsync();
+            } else {
+                // No preloaded sound — fetch and create fresh
+                const uri = await resolveAyahAudioUri(surah, ayahIndex);
+                if (!uri) {
+                    Alert.alert(t('audioError'), t('audioErrorMsg'));
+                    setAudioLoading(false);
+                    isPlayingLockRef.current = false;
+                    return;
                 }
-            );
+
+                let didAdvance = false;
+                const result = await Audio.Sound.createAsync(
+                    { uri },
+                    { shouldPlay: true },
+                    (status) => {
+                        if (status.isLoaded && status.didJustFinish && !didAdvance) {
+                            didAdvance = true;
+                            const currentIdx = currentAyahIndexRef.current;
+                            const surahNow = currentSurahArRef.current;
+                            const nextIdx = currentIdx + 1;
+
+                            if (surahNow && nextIdx < surahNow.ayahs.length) {
+                                isPlayingLockRef.current = false;
+                                playAyah(nextIdx);
+                            } else {
+                                isPlayingLockRef.current = false;
+                                setIsPlaying(false);
+                                setCurrentAyahIndex(-1);
+                                currentAyahIndexRef.current = -1;
+                            }
+                        }
+                    }
+                );
+                sound = result.sound;
+            }
+
             soundRef.current = sound;
             setIsPlaying(true);
+
+            // Rolling preload: start loading the next ayah in the background
+            const nextIdx = ayahIndex + 1;
+            if (nextIdx < surah.ayahs.length) {
+                preloadNextAyah(nextIdx);
+            }
         } catch (e: any) {
             Alert.alert(t('audioError'), t('audioErrorMsg'));
         } finally {
             setAudioLoading(false);
             isPlayingLockRef.current = false;
         }
-    }, [t]);  // Only depends on t — everything else is read from refs
+    }, [t, resolveAyahAudioUri, preloadNextAyah]);
 
     // ── Audio: toggle play / pause ────────────────────────────────
     const togglePlayPause = useCallback(async () => {
@@ -1111,9 +1120,6 @@ export default function QuranScreen() {
 
     /* ── Surah List Item ────────────────────────────────────────── */
     const SurahListItem = ({ item }: { item: SurahMeta }) => {
-        const isDownloaded = downloadedSet.has(item.number);
-        const isDownloading = downloadingSurah === item.number;
-
         return (
             <TouchableOpacity
                 activeOpacity={0.7}
@@ -1135,27 +1141,6 @@ export default function QuranScreen() {
 
                 {/* Arabic name */}
                 <Text style={[s.surahArabicName, { color: colors.text.primary, fontFamily: arabicFontFamily }]}>{item.name}</Text>
-
-                {/* Download / offline indicator */}
-                <View style={s.surahActions}>
-                    {isDownloading ? (
-                        <ActivityIndicator size="small" color={colors.accent.gold} />
-                    ) : isDownloaded ? (
-                        <TouchableOpacity
-                            onPress={() => handleDeleteSurah(item.number)}
-                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                        >
-                            <MaterialCommunityIcons name="check-circle" size={20} color={colors.accent.gold} />
-                        </TouchableOpacity>
-                    ) : (
-                        <TouchableOpacity
-                            onPress={() => handleDownloadSurah(item.number)}
-                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                        >
-                            <MaterialCommunityIcons name="download-outline" size={20} color={colors.text.tertiary} />
-                        </TouchableOpacity>
-                    )}
-                </View>
             </TouchableOpacity>
         );
     };
@@ -1709,7 +1694,6 @@ const s = StyleSheet.create({
     surahEnglishName: { fontSize: 15, fontWeight: '600', letterSpacing: 0.3 },
     surahTranslation: { fontSize: 12, marginTop: 2, letterSpacing: 0.2 },
     surahArabicName: { fontSize: 16, fontWeight: '600', marginRight: 10, fontFamily: Platform.OS === 'ios' ? 'System' : undefined },
-    surahActions: { width: 28, alignItems: 'center' },
 
     /* Reading view */
     readingScroll: { flex: 1 },

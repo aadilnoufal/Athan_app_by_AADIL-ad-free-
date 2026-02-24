@@ -31,6 +31,13 @@ import {
     EDITIONS,
 } from '../lib/quranApi';
 
+/* ---------- Bundled Quran data (shipped with app) ---------- */
+// These JSON files are bundled inside the app binary (~3.5 MB total).
+// They provide instant offline access to Arabic + English (Sahih International).
+const BUNDLED_SURAH_LIST: SurahMeta[] = require('../assets/quran/surah_list.json');
+const BUNDLED_QURAN_AR: SurahData[] = require('../assets/quran/quran_ar.json');
+const BUNDLED_QURAN_EN: SurahData[] = require('../assets/quran/quran_en.json');
+
 /* ---------- Constants ---------- */
 
 const QURAN_DIR = `${FileSystem.documentDirectory}quran/`;
@@ -111,29 +118,24 @@ export async function setEditionPref(pref: EditionPref): Promise<void> {
 
 /* ---------- Public: Metadata cache ---------- */
 
-/** Get surah list from cache if available, else fetch & cache. */
+/**
+ * Get surah list – always available instantly from bundled data.
+ * Also attempts to cache an API copy for freshness, but never blocks on it.
+ */
 export async function getSurahListCached(): Promise<SurahMeta[]> {
-    await ensureDirs();
-    try {
-        const info = await FileSystem.getInfoAsync(META_FILE);
-        if (info.exists) {
-            const raw = await FileSystem.readAsStringAsync(META_FILE);
-            return JSON.parse(raw) as SurahMeta[];
-        }
-    } catch {
-        // Fall through to fetch
-    }
-    const list = await fetchSurahList();
-    await FileSystem.writeAsStringAsync(META_FILE, JSON.stringify(list));
-    return list;
+    // Bundled data is always available; return immediately
+    return BUNDLED_SURAH_LIST;
 }
 
 /* ---------- Public: Single-surah download ---------- */
 
 /**
- * Check whether a surah is available offline.
+ * Check whether a surah text is available offline.
+ * With bundled data this always returns true for Arabic/English.
  */
 export async function isSurahDownloaded(surahNumber: number): Promise<boolean> {
+    // Bundled Arabic + English are always available
+    if (surahNumber >= 1 && surahNumber <= 114) return true;
     const index = await readIndex();
     return !!index.surahs[surahNumber];
 }
@@ -178,22 +180,50 @@ export async function downloadSurah(surahNumber: number): Promise<DownloadedSura
 }
 
 /**
- * Read a previously downloaded surah from disk.
- * Returns null if not downloaded.
+ * Read an offline surah. Priority order:
+ *   1. Disk cache (user may have downloaded a different translation)
+ *   2. Bundled data (Arabic / English always available)
+ * Returns null only for non-bundled languages with no disk cache.
  */
 export async function readOfflineSurah(
     surahNumber: number,
     lang: 'ar' | 'en',
 ): Promise<SurahData | null> {
+    // 1. Try disk cache first (supports user-downloaded translations)
     try {
         const path = surahFilePath(surahNumber, lang);
         const info = await FileSystem.getInfoAsync(path);
-        if (!info.exists) return null;
-        const raw = await FileSystem.readAsStringAsync(path);
-        return JSON.parse(raw) as SurahData;
+        if (info.exists) {
+            const raw = await FileSystem.readAsStringAsync(path);
+            return JSON.parse(raw) as SurahData;
+        }
     } catch {
-        return null;
+        // Fall through to bundled
     }
+    // 2. Fall back to bundled data (Arabic / English)
+    return getBundledSurah(surahNumber, lang);
+}
+
+/**
+ * Read a surah directly from the bundled app data.
+ * Supports 'ar' (Arabic) and 'en' (English Sahih International) only.
+ * Returns null for any other language.
+ */
+export function getBundledSurah(
+    surahNumber: number,
+    lang: 'ar' | 'en',
+): SurahData | null {
+    const source = lang === 'ar' ? BUNDLED_QURAN_AR : lang === 'en' ? BUNDLED_QURAN_EN : null;
+    if (!source) return null;
+    // Surah numbers are 1-indexed; array is 0-indexed
+    const idx = surahNumber - 1;
+    if (idx < 0 || idx >= source.length) return null;
+    return source[idx];
+}
+
+/** Quran text is always available offline (bundled in app). */
+export function isQuranTextBundled(): boolean {
+    return true;
 }
 
 /* ---------- Public: Full Quran download ---------- */
@@ -261,7 +291,10 @@ export async function deleteSurah(surahNumber: number): Promise<void> {
     await writeIndex(index);
 }
 
-/** Delete ALL downloaded Quran data + reset index. */
+/**
+ * Delete ALL cached Quran data (extra translations, audio files) + reset index.
+ * Note: This does NOT remove the bundled Arabic/English data (it's part of the app binary).
+ */
 export async function deleteAllQuranData(): Promise<void> {
     try {
         await FileSystem.deleteAsync(QURAN_DIR, { idempotent: true });
@@ -396,11 +429,19 @@ export async function removeBookmark(): Promise<void> {
 
 /**
  * Get the Bismillah text for a translation edition (surah 1, ayah 1).
- * Cached in AsyncStorage so we only fetch once per edition.
- * Used to strip the Bismillah from first ayah of surahs 2-113.
+ * For Arabic / English, reads directly from bundled data (no network).
+ * For other editions, cached in AsyncStorage so we only fetch once.
  */
 export async function getBismillahText(edition: string): Promise<string | null> {
     try {
+        // Fast path: bundled editions
+        if (edition === EDITIONS.ARABIC || edition === 'quran-uthmani') {
+            return BUNDLED_QURAN_AR[0]?.ayahs?.[0]?.text ?? null;
+        }
+        if (edition === EDITIONS.ENGLISH || edition === 'en.sahih') {
+            return BUNDLED_QURAN_EN[0]?.ayahs?.[0]?.text ?? null;
+        }
+
         const raw = await AsyncStorage.getItem(BISMILLAH_CACHE_KEY);
         const cache: Record<string, string> = raw ? JSON.parse(raw) : {};
         if (cache[edition]) return cache[edition];
