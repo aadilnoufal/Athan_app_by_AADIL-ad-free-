@@ -36,7 +36,49 @@ backgroundColor: isDark ? C.surface.primary : C.background.secondary
 
 ---
 
-## 2025-02-27: Always grep for removed imports before deleting
+## 2025-02-27: Jest mock hoisting + useEffect race conditions
+
+### The Mistake (1): Jest-expo mock variable hoisting
+
+With `jest-expo` preset, declaring `const mockFn = jest.fn()` before `jest.mock()` and referencing `mockFn` inside the factory FAILS — the variable is `undefined` when the factory runs due to hoisting.
+
+### The Fix (1)
+
+Use inline `jest.fn()` inside `jest.mock()` factories, then get references via `jest.requireMock()`:
+
+```ts
+jest.mock("../someModule", () => ({
+  myFn: jest.fn().mockResolvedValue("default"),
+}));
+const someModule = jest.requireMock("../someModule");
+// Later: expect(someModule.myFn).toHaveBeenCalled();
+```
+
+### The Mistake (2): useEffect async race condition in tests
+
+When a hook has a `useEffect` that loads state from async storage, calling a handler function before that useEffect resolves causes a race. The useEffect's state updates resolve DURING the handler's `act()` block, resetting state back to the loaded defaults.
+
+### The Fix (2)
+
+Always `await waitFor()` for the initial state to load before calling any handler:
+
+```ts
+const { result } = renderHook(() => useMyHook());
+await waitFor(() => {
+  expect(result.current.value).toBe("loaded");
+});
+// NOW safe to call handlers
+await act(async () => {
+  await result.current.handleChange("new");
+});
+expect(result.current.value).toBe("new");
+```
+
+### Prevention Strategy
+
+- Never use `const mock = jest.fn()` + reference in `jest.mock()` factory with jest-expo
+- Always verify mock function names match actual exports (grep the hook source)
+- Always wait for useEffect to complete before testing handler state changes
 
 ### The Mistake
 
