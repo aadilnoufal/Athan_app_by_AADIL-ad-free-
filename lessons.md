@@ -7,11 +7,13 @@ This document tracks mistakes made during development and how to avoid them in t
 ## 2026-02-24: Light Mode Contrast Issues with Pure White Surfaces
 
 ### The Mistake
+
 When creating light themes, using `surface.primary: '#FFFFFF'` (pure white) for cards and containers on warm cream backgrounds (like `#FAF8F3` or `#F8F5F0`) creates harsh contrast. The white boxes "pop" too much and look out of place.
 
 Additionally, using `withAlpha(colors.surface.primary, 0.7)` (70% opaque white) or similar transparent overlays still results in washed-out, low-contrast appearances on light backgrounds.
 
 ### Files Affected
+
 - `app/(tabs)/index.tsx` - Date navigation, prayer times container, prayer items
 - `app/(tabs)/dua.tsx` - Dua cards
 - `app/(tabs)/qibla.tsx` - Compass cards
@@ -19,6 +21,7 @@ Additionally, using `withAlpha(colors.surface.primary, 0.7)` (70% opaque white) 
 - `app/(tabs)/settings.tsx` - Section cards, option containers
 
 ### The Fix
+
 For **light mode** card backgrounds, use the theme's **background.secondary** or **background.tertiary** colors instead of **surface.primary**. These warmer colors blend better with the themed backgrounds:
 
 ```tsx
@@ -31,14 +34,33 @@ const cardBg = isDark ? withAlpha(colors.surface.primary, 0.04) : colors.backgro
 backgroundColor: isDark ? C.surface.primary : C.background.secondary
 ```
 
+---
+
+## 2025-02-27: Always grep for removed imports before deleting
+
+### The Mistake
+
+When extracting notification code from `settings.tsx` into `useSettingsNotifications`, I removed `StyleSheet` from the `react-native` import block because it wasn't used in the notification code. However, `StyleSheet.absoluteFillObject` was still used in the JSX of settings.tsx, causing a type error.
+
+### The Fix
+
+Added `StyleSheet` back to the import list.
+
 ### Prevention Strategy
+
+Before removing any import during a refactor, **always grep** for every symbol being removed to ensure it isn't used elsewhere in the file. Use `grep_search` with the exact symbol name scoped to the specific file.
+
+### Prevention Strategy
+
 When implementing light themes:
+
 1. **Never use `surface.primary` (#FFFFFF) directly for cards** in light mode - always use conditional logic
 2. **Use `background.secondary` or `background.tertiary`** for card backgrounds in light mode
 3. **Test new themes visually** on actual device before considering work complete
 4. **Review the color hierarchy**: `background.primary` → `background.secondary` → `background.tertiary` for increasing depth
 
 ### Theme Color Hierarchy (Light Mode)
+
 ```
 background.primary  - Main page background (lightest)
 background.secondary - Cards, containers (slightly darker, warm tint)
