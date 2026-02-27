@@ -4,27 +4,27 @@ High-level architecture of the Prayer Times app.
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Framework | React Native 0.79 + Expo SDK 53 |
-| Routing | Expo Router (file-based, tab group) |
-| State | React state + AsyncStorage for persistence |
-| Styling | StyleSheet + theme context (5 themes) |
-| Notifications | Notifee + expo-notifications |
-| Networking | fetch (REST) |
+| Layer           | Technology                                                                                |
+| --------------- | ----------------------------------------------------------------------------------------- |
+| Framework       | React Native 0.79 + Expo SDK 53                                                           |
+| Routing         | Expo Router (file-based, tab group)                                                       |
+| State           | React state + AsyncStorage for persistence                                                |
+| Styling         | StyleSheet + theme context (5 themes)                                                     |
+| Notifications   | Notifee + expo-notifications                                                              |
+| Networking      | fetch (REST)                                                                              |
 | Offline Storage | expo-file-system (large content), AsyncStorage (prefs/index), react-native-mmkv (fast KV) |
 
 ## Color System
 
 The app supports 5 color themes, managed by `contexts/ThemeContext.js`:
 
-| Theme Name | Key Characteristics |
-|---|---|
-| Dark | Deep backgrounds, muted gold accent (#F0D661), high contrast |
-| Classic Light (Sepia) | Warm cream tones (#F8F5F0), champagne gold (#D4AF37), cozy feel |
-| Warm & Natural | Ivory backgrounds (#FAF8F3), antique gold (#C8A870), earthy warmth |
-| Cool & Modern | Slate backgrounds (#F8F9FA), silver-gold (#B8A565), professional |
-| Neutral & Minimal | Pure white (#FFFFFF), champagne gold (#D4AF37), clean minimalism |
+| Theme Name            | Key Characteristics                                                |
+| --------------------- | ------------------------------------------------------------------ |
+| Dark                  | Deep backgrounds, muted gold accent (#F0D661), high contrast       |
+| Classic Light (Sepia) | Warm cream tones (#F8F5F0), champagne gold (#D4AF37), cozy feel    |
+| Warm & Natural        | Ivory backgrounds (#FAF8F3), antique gold (#C8A870), earthy warmth |
+| Cool & Modern         | Slate backgrounds (#F8F9FA), silver-gold (#B8A565), professional   |
+| Neutral & Minimal     | Pure white (#FFFFFF), champagne gold (#D4AF37), clean minimalism   |
 
 ### Theme Palette Structure
 
@@ -85,11 +85,37 @@ app/
     dua.tsx            Duas & Azkar screen
     quran.tsx          Quran reader screen (surah list → reader → search)
     qibla.tsx          Qibla compass screen
-    settings.tsx       Settings screen (appearance, language, notifications,
-                         location, Quran settings, about/support)
-  components/          Shared components used by tab screens
+    settings.tsx       Settings orchestrator (277 lines — wires hooks to section components)
+  components/
+    settings/          Settings section components & modals
+      settingsStyles.ts         Style factory: createSettingsStyles(colors, isDark)
+      MagicalButton.tsx         Reusable animated theme-aware button
+      AppearanceSection.tsx     Dark mode toggle
+      LanguageSection.tsx       Language selection
+      NotificationSection.tsx   Notification toggles, per-prayer, sound, test
+      LocationSection.tsx       Cascading Country → State → City pickers
+      QuranSettingsSection.tsx  Edition pref, font, auto-scroll, picker buttons
+      AboutSection.tsx          Version, about text, donation, subscription
+      TranslationPickerModal.tsx  Bottom-sheet translation selection with search
+      ReciterPickerModal.tsx      Bottom-sheet reciter selection
+      index.ts                  Barrel export of all settings components
   config/              Static config (prayer time regions, etc.)
   contexts/            React contexts (Theme, Language, RevenueCat)
+
+hooks/
+  settings/
+    useSettingsQuranPrefs.ts     Quran edition/font/scroll/translation/reciter state
+    useSettingsLocation.ts       Region cascading pickers + notification cancel on change
+    useSettingsDonation.ts       RevenueCat paywall + fallback URL
+    useSettingsNotifications.ts  ⚠️ Dual-library (Notifee + expo-notifications) state & handlers
+
+__tests__/
+  hooks/
+    settings/
+      useSettingsDonation.test.ts       4 tests
+      useSettingsLocation.test.ts       9 tests
+      useSettingsNotifications.test.ts  8 tests
+      useSettingsQuranPrefs.test.ts     12 tests
 
 lib/
   quranApi.ts          REST client for alquran.cloud/api
@@ -191,3 +217,4 @@ User clears cached data from Settings
 14. **Consolidated notification prompts** – All Android permission prompts (notification, exact-alarm, battery) go through a single ordered flow in `requestEssentialPermissions()`. Session-scoped "Ask Me Later" flags reset on every fresh app launch. Power-manager/auto-start prompt removed.
 15. **Iqama offsets** – Hardcoded offsets (Fajr 25, Dhuhr 20, Asr 20, Maghrib 10, Isha 20 min after adhan). Displayed as small text below prayer name; footer explains the convention. Sunrise excluded.
 16. **Home lifecycle isolation** – Foreground-resume date synchronization for Home is isolated in `useHomeAppStateSync` to avoid stale AppState/date closures and reduce crash risk during resume.
+17. **Settings modular architecture** – Settings screen (originally 2538 lines) split into 4 domain hooks + 10 section/modal components + 1 thin orchestrator (277 lines). Each hook owns its own state & persistence; components are pure presentational. The notification hook preserves the dual-library (Notifee + expo-notifications) architecture exactly — do NOT refactor the two-library pattern.
