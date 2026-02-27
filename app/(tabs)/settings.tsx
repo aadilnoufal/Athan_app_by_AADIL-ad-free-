@@ -3,7 +3,7 @@ import { Modal } from 'react-native';
 import RevenueCatPaywall from '../components/RevenueCatPaywall';
 import { createSettingsStyles } from '../components/settings/settingsStyles';
 import { MagicalButton } from '../components/settings/MagicalButton';
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -11,7 +11,6 @@ import {
   StatusBar,
   TouchableOpacity,
   Switch,
-  Alert,
   ScrollView,
   Linking,
   Platform,
@@ -21,27 +20,9 @@ import {
   TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
-import notifee from '@notifee/react-native';
-import * as Device from 'expo-device';
-import {
-  scheduleNotifeeTestNotification,
-  initializeNotifeePrayerNotifications,
-  getScheduledNotifeePrayerNotifications,
-  cancelAllNotifeePrayerNotifications,
-  cancelAllNotificationsCompletely,
-  getNotifeeServiceStatus,
-  requestExactAlarmPermission,
-  checkAndHandleBatteryOptimization,
-  checkAndHandlePowerManager,
-  forceRecreateNotificationChannels
-} from '../../utils/notifeePrayerService';
-import { ensurePrayerNotificationWindow, forceRescheduleAllNotifications } from '../../utils/prayerNotificationScheduler';
-import { setupBackgroundTask, unregisterBackgroundTask } from '../../utils/backgroundTask';
-import { playTestSound } from '../../utils/audioHelper';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { SepiaColors } from '../../constants/sepiaColors';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -49,6 +30,7 @@ import { goldTint, getTimeBasedGradientColors } from '../../utils/colorHelpers';
 import { useSettingsQuranPrefs } from '../../hooks/settings/useSettingsQuranPrefs';
 import { useSettingsLocation } from '../../hooks/settings/useSettingsLocation';
 import { useSettingsDonation } from '../../hooks/settings/useSettingsDonation';
+import { useSettingsNotifications } from '../../hooks/settings/useSettingsNotifications';
 import { QuranFontFamily } from '../../utils/quranStorage';
 
 // Define interfaces
@@ -56,16 +38,6 @@ interface LanguageItem {
   id: string;
   name: string;
   [key: string]: any;
-}
-
-interface NotificationSettings {
-  Fajr: boolean;
-  Sunrise: boolean;
-  Dhuhr: boolean;
-  Asr: boolean;
-  Maghrib: boolean;
-  Isha: boolean;
-  [key: string]: boolean;
 }
 
 // Get screen dimensions for responsive design
@@ -84,22 +56,22 @@ export default function SettingsScreen() {
 
   // Animations removed
 
-  // State for notifications
-  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
-  const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({
-    Fajr: true,
-    Sunrise: false,
-    Dhuhr: true,
-    Asr: true,
-    Maghrib: true,
-    Isha: true
-  });
-
-  // Add state for notification sound preference
-  const [useAzanSound, setUseAzanSound] = useState(true);
-
-  // Add notification status state for debugging
-  const [notificationStatus, setNotificationStatus] = useState<any>(null);
+  // Notifications (all state, loading, and handlers via custom hook — DO NOT INLINE)
+  const {
+    notificationsEnabled,
+    notificationSettings,
+    useAzanSound,
+    notificationStatus,
+    toggleNotifications,
+    togglePrayerNotification,
+    toggleSoundPreference,
+    testNotification,
+    testDirectSound,
+    testAzanSoundFix,
+    testInAppNotification,
+    checkNotificationStatus,
+    resetNotifications,
+  } = useSettingsNotifications();
 
   // Location (all state, loading, and handlers via custom hook)
   const {
@@ -183,392 +155,6 @@ export default function SettingsScreen() {
       <View style={{ width: 32 }} />
     </View>
   );
-
-  // Animations removed
-
-  // Load saved settings when component mounts
-  useEffect(() => {
-    const initializeApp = async () => {
-      await loadSettings();
-      // Initialize Notifee notification system (handles all permissions internally)
-      try {
-        await initializeNotifeePrayerNotifications();
-      } catch (error) {
-        console.log('Error initializing Notifee notifications:', error);
-      }
-      // Modern service handles foreground notifications automatically
-    };
-
-    initializeApp();
-  }, []);
-
-  const loadSettings = async () => {
-    try {
-      // Load notification settings
-      const notifEnabled = await AsyncStorage.getItem('notifications_enabled');
-      const notifSettings = await AsyncStorage.getItem('notification_settings');
-
-      if (notifEnabled !== null) {
-        setNotificationsEnabled(notifEnabled === 'true');
-      }
-
-      if (notifSettings !== null) {
-        setNotificationSettings(JSON.parse(notifSettings));
-      }
-
-      // Load notification sound preference
-      const soundPref = await AsyncStorage.getItem('use_azan_sound');
-      if (soundPref !== null) {
-        setUseAzanSound(soundPref === 'true');
-      }
-    } catch (error) {
-      console.error('Error loading settings:', error);
-    }
-  };
-
-  // Request notification permissions
-  const requestNotificationPermissions = async () => {
-    try {
-      if (Device.isDevice) {
-        const settings = await notifee.getNotificationSettings();
-        let finalStatus = settings.authorizationStatus;
-
-        if (settings.authorizationStatus !== 1) { // 1 = AUTHORIZED
-          const newSettings = await notifee.requestPermission();
-          finalStatus = newSettings.authorizationStatus;
-        }
-
-        if (finalStatus !== 1) { // 1 = AUTHORIZED
-          Alert.alert(
-            'Notification Permission',
-            'Please enable notifications to receive prayer time alerts',
-            [{ text: 'OK' }]
-          );
-          return false;
-        }
-        return true;
-      } else {
-        Alert.alert(
-          'Physical Device Required',
-          'Notifications require a physical device to work properly',
-          [{ text: 'OK' }]
-        );
-        return false;
-      }
-    } catch (error) {
-      console.error('Error requesting notification permissions:', error);
-      return false;
-    }
-  };
-
-  // Toggle notifications on/off
-  const toggleNotifications = async (value: boolean) => {
-    try {
-      if (value) {
-        // If turning on, request permissions first
-        const permissionGranted = await requestNotificationPermissions();
-        if (!permissionGranted) {
-          return; // Don't enable if permission not granted
-        }
-
-        // Initialize the Notifee notification service
-        console.log('🔧 Initializing Notifee notification service...');
-        const initialized = await initializeNotifeePrayerNotifications();
-        if (!initialized) {
-          Alert.alert(
-            'Notifee Setup Failed',
-            'Unable to initialize Notifee notification service. Please check permissions.',
-            [{ text: 'OK' }]
-          );
-          return;
-        }
-      }
-
-      setNotificationsEnabled(value);
-      await AsyncStorage.setItem('notifications_enabled', value ? 'true' : 'false');
-
-      // Broadcast an event so other parts of the app know about this change
-      if (value) {
-        // Re-setup background task when enabling notifications
-        await setupBackgroundTask();
-        console.log('✅ Background task re-registered');
-
-        // Let the home screen know to schedule notifications
-        await AsyncStorage.setItem('notifications_updated', Date.now().toString());
-        console.log('✅ Notifications enabled and service initialized');
-      } else {
-        // CRITICAL: Cancel ALL notifications when disabling
-        // This includes displayed notifications, trigger notifications, and background tasks
-        console.log('🔄 Disabling all notifications...');
-
-        // 1. Use the comprehensive cancel function from notifeePrayerService
-        await cancelAllNotificationsCompletely();
-
-        // 2. Unregister background task to stop any background scheduling
-        await unregisterBackgroundTask();
-        console.log('✅ Unregistered background notification task');
-
-        // 3. Clear the notifications_updated flag to prevent re-scheduling
-        await AsyncStorage.removeItem('notifications_updated');
-
-        console.log('❌ All notifications completely cancelled');
-      }
-    } catch (error) {
-      console.error('Error toggling notifications:', error);
-    }
-  };
-
-  // Toggle individual prayer notification settings
-  const togglePrayerNotification = async (prayer: string, value: boolean) => {
-    try {
-      const updatedSettings = {
-        ...notificationSettings,
-        [prayer]: value
-      };
-
-      setNotificationSettings(updatedSettings);
-      await AsyncStorage.setItem('notification_settings', JSON.stringify(updatedSettings));
-
-      // Immediately reschedule notifications when individual prayer is toggled
-      if (notificationsEnabled) {
-        console.log(`🔄 ${prayer} toggled to ${value}, forcing immediate reschedule...`);
-        // Directly call forceRescheduleAllNotifications for immediate update
-        await forceRescheduleAllNotifications();
-        console.log(`✅ Notifications rescheduled after ${prayer} toggle`);
-      }
-    } catch (error) {
-      console.error('Error toggling prayer notification:', error);
-    }
-  };
-
-  // Toggle notification sound preference
-  const toggleSoundPreference = async (value: boolean) => {
-    try {
-      setUseAzanSound(value);
-      await AsyncStorage.setItem('use_azan_sound', value ? 'true' : 'false');
-
-      // Immediately reschedule notifications with new sound preference
-      if (notificationsEnabled) {
-        console.log(`🔊 Sound preference changed to ${value ? 'Azan' : 'Default'}, forcing immediate reschedule...`);
-        await forceRescheduleAllNotifications();
-        console.log('✅ Notifications rescheduled with new sound preference');
-      }
-
-      // Show feedback to the user
-      Alert.alert(
-        'Sound Preference Updated',
-        value
-          ? 'Azan sound will be used for prayer notifications. Sunrise will still use a simple beep.'
-          : 'Simple beep will be used for all prayer notifications.',
-        [{ text: 'OK' }]
-      );
-    } catch (error) {
-      console.error('Error setting sound preference:', error);
-    }
-  };
-
-  // Add a function to test notifications
-  const testNotification = async () => {
-    try {
-      // Initialize Notifee notification system
-      await initializeNotifeePrayerNotifications();
-
-      // Schedule a test notification using Notifee service
-      const result = await scheduleNotifeeTestNotification();
-
-      if (result) {
-        Alert.alert(
-          'Notifee Test Scheduled',
-          'You should receive a Notifee notification shortly. If not, please check your notification permissions.',
-          [{ text: 'OK' }]
-        );
-      } else {
-        Alert.alert(
-          'Notifee Test Failed',
-          'Failed to schedule test notification. Please check permissions.',
-          [{ text: 'OK' }]
-        );
-      }
-    } catch (error) {
-      console.error('Error sending test notification:', error);
-      Alert.alert(
-        'Error',
-        'Failed to send test notification. Please check app permissions.',
-        [{ text: 'OK' }]
-      );
-    }
-  };
-
-  // Add a function to test audio directly
-  const testDirectSound = async () => {
-    try {
-      console.log("Testing direct sound playback");
-      const success = await playTestSound();
-
-      Alert.alert(
-        "Sound Test",
-        success ?
-          "Did you hear the beep sound?" :
-          "There was an error playing the sound. Please check your device settings.",
-        [
-          {
-            text: "No",
-            style: "cancel",
-            onPress: () => {
-              console.log("Sound test failed");
-              Alert.alert(
-                "Sound Test Failed",
-                "Try these troubleshooting steps:\n" +
-                "1. Check if your device is not on silent mode\n" +
-                "2. Increase the volume\n" +
-                "3. Restart the app\n" +
-                "4. Ensure audio files are in the assets/sounds folder"
-              );
-            }
-          },
-          {
-            text: "Yes",
-            onPress: () => console.log("Sound test succeeded")
-          }
-        ]
-      );
-    } catch (error) {
-      console.error("Error playing test sound:", error);
-      Alert.alert(
-        "Sound Test Failed",
-        "Error: " + (error instanceof Error ? error.message : String(error)) + "\n\nPlease check if audio files are in the correct location.",
-        [{ text: "OK" }]
-      );
-    }
-  };
-
-  // Add azan sound fix test function
-  const testAzanSoundFix = async () => {
-    try {
-      Alert.alert(
-        'Testing Azan Sound Fix',
-        'This will recreate notification channels and test azan sound. You should hear the azan sound if it works.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Test',
-            onPress: async () => {
-              try {
-                console.log('🧪 Starting azan sound fix test...');
-
-                // Step 1: Force recreate channels
-                console.log('🔄 Recreating notification channels...');
-                await forceRecreateNotificationChannels();
-
-                // Step 2: Test notification with azan
-                console.log('🔔 Testing notification with azan sound...');
-                const result = await scheduleNotifeeTestNotification();
-
-                if (result) {
-                  Alert.alert(
-                    'Azan Sound Test',
-                    'Notification sent! Did you hear the azan sound? If not, check:\n\n• Phone volume is up\n• Not in silent mode\n• Notification sounds enabled\n• App has notification permissions',
-                    [{ text: 'OK' }]
-                  );
-                } else {
-                  Alert.alert(
-                    'Test Failed',
-                    'Failed to send test notification. Check notification permissions.',
-                    [{ text: 'OK' }]
-                  );
-                }
-              } catch (error) {
-                console.error('❌ Azan sound fix test failed:', error);
-                Alert.alert(
-                  'Test Error',
-                  `Failed to test azan sound: ${error instanceof Error ? error.message : String(error)}`,
-                  [{ text: 'OK' }]
-                );
-              }
-            }
-          }
-        ]
-      );
-    } catch (error) {
-      console.error('Error starting azan sound test:', error);
-      Alert.alert("Error", "Failed to start azan sound test.", [{ text: 'OK' }]);
-    }
-  };
-
-  // Add a function to test in-app notification
-  const testInAppNotification = async () => {
-    try {
-      // Check for notification permissions using Notifee service
-      const result = await initializeNotifeePrayerNotifications();
-
-      if (result) {
-        // If we have global.showTestNotification function (from _layout.tsx)
-        if (global.showTestNotification) {
-          global.showTestNotification();
-          console.log("Triggered test in-app notification");
-        } else {
-          // Fallback to alert if function not available
-          Alert.alert(
-            "Test Function Not Available",
-            "The in-app notification test function isn't available. Please restart the app.",
-            [{ text: "OK" }]
-          );
-        }
-      } else {
-        Alert.alert(
-          "Permission Required",
-          "Please grant notification permission to test notifications",
-          [{ text: "OK" }]
-        );
-      }
-    } catch (error) {
-      console.error("Error testing in-app notification:", error);
-    }
-  };
-
-  // Check notification service status
-  const checkNotificationStatus = async () => {
-    try {
-      const status = await getNotifeeServiceStatus();
-      setNotificationStatus(status);
-
-      Alert.alert(
-        'Notification Status',
-        `Initialized: ${status.initialized ? '✅' : '❌'}\n` +
-        `Permissions: ${status.permissionsGranted ? '✅' : '❌'}\n` +
-        `Scheduled: ${status.scheduledCount} notifications\n` +
-        `Sound: ${status.soundPreference || 'Default'}\n` +
-        `${status.error ? `Error: ${status.error}` : ''}`,
-        [{ text: 'OK' }]
-      );
-    } catch (error) {
-      console.error('Error checking notification status:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      Alert.alert('Error', `Failed to check notification status: ${errorMessage}`);
-    }
-  };
-
-  // Reset all notifications with simplified service
-  const resetNotifications = async () => {
-    try {
-      console.log('🔄 Starting notification reset...');
-
-      // First clear all existing Notifee notifications
-      await cancelAllNotifeePrayerNotifications();
-
-      Alert.alert(
-        'Notifications Reset',
-        `Successfully cancelled all prayer notifications. The app will reschedule notifications automatically when you return to the home page.`,
-        [{ text: 'OK' }]
-      );
-
-      console.log('✅ Notification reset completed successfully');
-    } catch (error) {
-      console.error('❌ Error resetting notifications:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      Alert.alert('Error', `Failed to reset notifications: ${errorMessage}`);
-    }
-  };
 
   // Toggle a section's expanded state
   const toggleSection = (section: string) => {
