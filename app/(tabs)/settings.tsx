@@ -30,13 +30,6 @@ import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
 import notifee from '@notifee/react-native';
 import * as Device from 'expo-device';
 import {
-  getAvailableCountries,
-  getStatesForCountry,
-  getCitiesForState,
-  DEFAULT_REGION,
-  parseRegionId
-} from '../config/prayerTimeConfig';
-import {
   scheduleNotifeeTestNotification,
   initializeNotifeePrayerNotifications,
   getScheduledNotifeePrayerNotifications,
@@ -56,6 +49,7 @@ import { SepiaColors } from '../../constants/sepiaColors';
 import { useTheme } from '../../contexts/ThemeContext';
 import { goldTint, getTimeBasedGradientColors } from '../../utils/colorHelpers';
 import { useSettingsQuranPrefs } from '../../hooks/settings/useSettingsQuranPrefs';
+import { useSettingsLocation } from '../../hooks/settings/useSettingsLocation';
 import { QuranFontFamily } from '../../utils/quranStorage';
 
 // Define interfaces
@@ -108,18 +102,20 @@ export default function SettingsScreen() {
   // Add notification status state for debugging
   const [notificationStatus, setNotificationStatus] = useState<any>(null);
 
-  // Location selection state
-  const [regionId, setRegionId] = useState(DEFAULT_REGION);
-  const [selectedCountry, setSelectedCountry] = useState('');
-  const [selectedState, setSelectedState] = useState('');
-  const [selectedCity, setSelectedCity] = useState('');
-
-  // Get available options from config
-  const countries = getAvailableCountries();
-  const states = selectedCountry ? getStatesForCountry(selectedCountry) : [];
-  const cities = (selectedCountry && selectedState)
-    ? getCitiesForState(selectedCountry, selectedState)
-    : [];
+  // Location (all state, loading, and handlers via custom hook)
+  const {
+    regionId,
+    selectedCountry,
+    selectedState,
+    selectedCity,
+    countries,
+    states,
+    cities,
+    selectCountry,
+    selectState,
+    selectCity,
+    updateRegionId,
+  } = useSettingsLocation({ navigateHome: () => router.push('/') });
 
   // State for UI sections
   const [expandedSection, setExpandedSection] = useState('');
@@ -225,24 +221,6 @@ export default function SettingsScreen() {
       const soundPref = await AsyncStorage.getItem('use_azan_sound');
       if (soundPref !== null) {
         setUseAzanSound(soundPref === 'true');
-      }
-
-      // Load region setting
-      const savedRegion = await AsyncStorage.getItem('selected_region');
-      if (savedRegion) {
-        setRegionId(savedRegion);
-
-        // Parse the region ID to set selected country, state, and city
-        const { countryId, stateId, cityId } = parseRegionId(savedRegion);
-        setSelectedCountry(countryId);
-        setSelectedState(stateId);
-        setSelectedCity(cityId);
-      } else {
-        // Set defaults based on DEFAULT_REGION
-        const { countryId, stateId, cityId } = parseRegionId(DEFAULT_REGION);
-        setSelectedCountry(countryId);
-        setSelectedState(stateId);
-        setSelectedCity(cityId);
       }
     } catch (error) {
       console.error('Error loading settings:', error);
@@ -590,113 +568,6 @@ export default function SettingsScreen() {
       console.error('❌ Error resetting notifications:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       Alert.alert('Error', `Failed to reset notifications: ${errorMessage}`);
-    }
-  };
-
-  // Select country
-  const selectCountry = (countryId: string) => {
-    if (countryId === selectedCountry) return;
-
-    setSelectedCountry(countryId);
-
-    // Get first state for the country
-    const countryStates = getStatesForCountry(countryId);
-    const firstState = countryStates.length > 0 ? countryStates[0].id : '';
-    setSelectedState(firstState);
-
-    // Get first city for the state
-    const stateCities = getCitiesForState(countryId, firstState);
-    const firstCity = stateCities.length > 0 ? stateCities[0].id : '';
-    setSelectedCity(firstCity);
-
-    // Don't automatically update the region - wait for user to press update button
-  };
-
-  // Select state
-  const selectState = (stateId: string) => {
-    if (stateId === selectedState) return;
-
-    setSelectedState(stateId);
-
-    // Get first city for the state
-    const stateCities = getCitiesForState(selectedCountry, stateId);
-    const firstCity = stateCities.length > 0 ? stateCities[0].id : '';
-    setSelectedCity(firstCity);
-
-    // Don't automatically update the region - wait for user to press update button
-  };
-
-  // Select city
-  const selectCity = (cityId: string) => {
-    if (cityId === selectedCity) return;
-
-    setSelectedCity(cityId);
-
-    // Don't automatically update the region - wait for user to press update button
-  };
-
-  // Update the region ID and save it - simplified for no-cache system
-  const updateRegionId = async () => {
-    try {
-      // Create the new region ID from selected country, state, and city
-      const newRegionId = `${selectedCountry}-${selectedState}-${selectedCity}`;
-
-      // Check if the region ID is actually changing
-      if (newRegionId === regionId) {
-        Alert.alert(
-          'No Change',
-          'You haven\'t changed your location.',
-          [{ text: 'OK' }]
-        );
-        return;
-      }
-
-      // Update the UI first
-      setRegionId(newRegionId);
-
-      // Save user preference
-      await AsyncStorage.setItem('selected_region', newRegionId);
-
-      // Cancel ALL existing notifications first
-      await notifee.cancelAllNotifications();
-      console.log('Cancelled all scheduled notifications during region change');
-
-      // Clear any existing cached data (just in case)
-      const cachedKeys = await AsyncStorage.getAllKeys();
-      const prayerTimeKeys = cachedKeys.filter((key: string) =>
-        key.startsWith('prayer_') ||
-        key.startsWith('last_updated_') ||
-        key === 'cached_prayer_data' ||
-        key === 'last_refresh_date'
-      );
-
-      if (prayerTimeKeys.length > 0) {
-        await AsyncStorage.multiRemove(prayerTimeKeys);
-        console.log('Cleared any existing cached data during location change');
-      }
-
-      // Show immediate confirmation and navigate back
-      Alert.alert(
-        'Location Updated',
-        'Your location has been updated. The home page will refresh with new prayer times.',
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              // Navigate back to home - the no-cache system will automatically fetch fresh data
-              router.push('/');
-            }
-          }
-        ],
-        { cancelable: false }
-      );
-    } catch (error) {
-      console.error('Error updating region:', error);
-      Alert.alert(
-        'Error',
-        'Failed to update location. Please try again.',
-        [{ text: 'OK' }]
-      );
     }
   };
 
