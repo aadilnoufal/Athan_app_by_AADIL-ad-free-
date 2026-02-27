@@ -4,7 +4,6 @@ import RevenueCatPaywall from '../components/RevenueCatPaywall';
 import { createSettingsStyles } from '../components/settings/settingsStyles';
 import { MagicalButton } from '../components/settings/MagicalButton';
 import React, { useState, useEffect } from 'react';
-import { usePurchase } from '../contexts/RevenueCatContext';
 import {
   StyleSheet,
   Text,
@@ -25,7 +24,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
-import Constants from 'expo-constants';
 import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
 import notifee from '@notifee/react-native';
 import * as Device from 'expo-device';
@@ -50,6 +48,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { goldTint, getTimeBasedGradientColors } from '../../utils/colorHelpers';
 import { useSettingsQuranPrefs } from '../../hooks/settings/useSettingsQuranPrefs';
 import { useSettingsLocation } from '../../hooks/settings/useSettingsLocation';
+import { useSettingsDonation } from '../../hooks/settings/useSettingsDonation';
 import { QuranFontFamily } from '../../utils/quranStorage';
 
 // Define interfaces
@@ -575,53 +574,9 @@ export default function SettingsScreen() {
   const toggleSection = (section: string) => {
     setExpandedSection(expandedSection === section ? '' : section);
   };
-  // Open donation dialog with multiple options
-  const [showPaywall, setShowPaywall] = useState(false);
-  const [iapRetryCount, setIapRetryCount] = useState(0);
-  const { loading: iapLoading, fetchOfferings } = usePurchase();
 
-  const openDonation = () => {
-    const extra: any = (Constants.expoConfig?.extra || (Constants as any).manifest?.extra || {});
-    const rciOSKey = process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY || extra?.revenuecat?.iosApiKey;
-    const rcAndroidKey = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY || extra?.revenuecat?.androidApiKey;
-    const shouldUsePaywall = Platform.OS === 'ios' ? !!rciOSKey : (Platform.OS === 'android' ? !!rcAndroidKey : false);
-
-    if (shouldUsePaywall) {
-      // Force refresh if stuck loading and retry count is low
-      if (iapLoading && iapRetryCount < 3) {
-        setIapRetryCount(prev => prev + 1);
-        fetchOfferings();
-        setTimeout(() => setShowPaywall(true), 1000);
-      } else {
-        setShowPaywall(true);
-      }
-      return;
-    }
-    // Fallback – keep existing external links
-    Alert.alert(
-      t('supportTitle'),
-      t('supportMessage'),
-      [
-        { text: t('maybeLater'), style: 'cancel' },
-        {
-          text: t('oneTimeSupport'),
-          onPress: () => {
-            Linking.openURL('https://nas.io/checkout-global?communityId=640f2dbae2d22dff16a554d9&communityCode=AADIL_NOUFAL&requestor=signupRequestor&linkClicked=https%3A%2F%2Fnas.io%2Fportal%2Fproducts%2F67e825d377e3fc39a8ba9b0d%3Ftab%3Dcontent&sourceInfoType=folder&sourceInfoOrigin=67e825d377e3fc39a8ba9b0d').catch((err: Error) =>
-              console.error('An error occurred while opening the link:', err)
-            );
-          }
-        },
-        {
-          text: t('monthlySupport'),
-          onPress: () => {
-            Linking.openURL('https://nas.io/checkout-global?communityId=67e828db202755d3615d3a6b&communityCode=AD_FREE_ATHAN&requestor=signupRequestor&linkClicked=https%3A%2F%2Fnas.io%2Fcheckout-widget%3FcommunityCode%3DAD_FREE_ATHAN%26communitySlug%3D%252Fad-free-athan%26buttonText%3DJoin%2520as%2520member%26buttonTextColorHex%3D%2523000%26buttonBgColorHex%3D%2523fccb1d%26widgetTheme%3Dlight%26backgroundColorHex%3D%2523fff%2522%2520width%3D%2522100%25%2522%2520height%3D%2522320%2522%2520frameborder%3D%25220%2522%2520referrerpolicy%3D%2522no-referrer&fromWidget=1').catch((err: Error) =>
-              console.error('An error occurred while opening the link:', err)
-            );
-          }
-        }
-      ]
-    );
-  };
+  // Donation / paywall (all state and handlers via custom hook)
+  const { showPaywall, setShowPaywall, iapLoading, openDonation } = useSettingsDonation(t);
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       {Platform.OS === 'android' ? (
