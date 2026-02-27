@@ -9,6 +9,10 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SepiaColors } from '../constants/sepiaColors';
+import { goldTint } from '../utils/colorHelpers';
+
+// Splash screen always uses SepiaColors (shown before theme context is loaded)
+const gt = (alpha: number) => goldTint(alpha, SepiaColors);
 
 interface SplashScreenProps {
   onAnimationComplete: () => void;
@@ -41,7 +45,7 @@ export default function SplashScreen({ onAnimationComplete }: SplashScreenProps)
           useNativeDriver: true,
         }),
       ]),
-      
+
       // Phase 2: Slide in the text and add rotation
       Animated.parallel([
         Animated.timing(slideAnim, {
@@ -55,7 +59,7 @@ export default function SplashScreen({ onAnimationComplete }: SplashScreenProps)
           useNativeDriver: true,
         }),
       ]),
-      
+
       // Phase 3: Glow effect
       Animated.loop(
         Animated.sequence([
@@ -99,10 +103,10 @@ export default function SplashScreen({ onAnimationComplete }: SplashScreenProps)
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
-      
+
       {/* Background gradient effect */}
       <View style={styles.backgroundGradient} />
-      
+
       {/* Animated glow effect */}
       <Animated.View
         style={[
@@ -113,7 +117,7 @@ export default function SplashScreen({ onAnimationComplete }: SplashScreenProps)
           },
         ]}
       />
-      
+
       {/* Main content */}
       <Animated.View
         style={[
@@ -139,7 +143,7 @@ export default function SplashScreen({ onAnimationComplete }: SplashScreenProps)
             color={SepiaColors.accent.gold}
           />
         </Animated.View>
-        
+
         {/* App title */}
         <Animated.View
           style={[
@@ -153,7 +157,7 @@ export default function SplashScreen({ onAnimationComplete }: SplashScreenProps)
           <Text style={styles.appSubtitle}>Your Spiritual Companion</Text>
         </Animated.View>
       </Animated.View>
-      
+
       {/* Loading indicator */}
       <Animated.View
         style={[
@@ -196,14 +200,14 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(218, 165, 32, 0.05)',
+    backgroundColor: gt(0.05),
   },
   glowEffect: {
     position: 'absolute',
     width: 200,
     height: 200,
     borderRadius: 100,
-    backgroundColor: 'rgba(218, 165, 32, 0.1)',
+    backgroundColor: gt(0.1),
     shadowColor: 'transparent',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0,
@@ -217,9 +221,9 @@ const styles = StyleSheet.create({
     marginBottom: 30,
     padding: 20,
     borderRadius: 50,
-    backgroundColor: 'rgba(218, 165, 32, 0.1)',
+    backgroundColor: gt(0.1),
     borderWidth: 2,
-    borderColor: 'rgba(218, 165, 32, 0.3)',
+    borderColor: gt(0.3),
   },
   textContainer: {
     alignItems: 'center',
@@ -249,7 +253,7 @@ const styles = StyleSheet.create({
   loadingBar: {
     width: '100%',
     height: 3,
-    backgroundColor: 'rgba(218, 165, 32, 0.2)',
+    backgroundColor: gt(0.2),
     borderRadius: 2,
     overflow: 'hidden',
     marginBottom: 16,

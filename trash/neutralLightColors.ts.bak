@@ -1,0 +1,91 @@
+/**
+ * Neutral & Minimal Light Theme
+ * 
+ * A clean, high-contrast Apple-esque palette with pure whites,
+ * true charcoal text, and refined champagne gold accents.
+ * Perfect for those who prefer maximum clarity and sophistication.
+ */
+
+export const NeutralLightColors = {
+    // Primary background colors - pure white family
+    background: {
+        primary: '#FFFFFF',      // Pure white
+        secondary: '#FAFAFA',    // Barely gray
+        tertiary: '#F5F5F5',     // Light gray
+        overlay: 'rgba(255, 255, 255, 0.96)',
+    },
+
+    // Card and container backgrounds
+    surface: {
+        primary: '#FFFFFF',      // Pure white
+        secondary: '#FAFAFA',    // Subtle off-white
+        elevated: '#FFFFFF',
+        transparent: 'rgba(255, 255, 255, 0.92)',
+    },
+
+    // Text colors - true neutral family
+    text: {
+        primary: '#1A1A1A',      // Near black
+        secondary: '#666666',    // Medium gray
+        tertiary: '#999999',     // Light gray
+        inverse: '#FFFFFF',
+        muted: '#BBBBBB',
+    },
+
+    // Accent colors - champagne gold
+    accent: {
+        gold: '#D4AF37',         // Classic champagne gold
+        darkGold: '#B8962F',     // Rich gold
+        amber: '#E0C04A',        // Bright amber
+        copper: '#C49A6C',       // Rose gold hint
+    },
+
+    // Border colors - ultra clean
+    border: {
+        light: 'rgba(0, 0, 0, 0.05)',
+        medium: 'rgba(0, 0, 0, 0.10)',
+        dark: 'rgba(0, 0, 0, 0.18)',
+        accent: 'rgba(212, 175, 55, 0.28)',
+    },
+
+    // Shadow colors - crisp shadows
+    shadow: {
+        light: 'rgba(0, 0, 0, 0.03)',
+        medium: 'rgba(0, 0, 0, 0.06)',
+        dark: 'rgba(0, 0, 0, 0.12)',
+    },
+
+    // Status colors - vivid but refined
+    status: {
+        success: '#34C759',      // iOS green
+        warning: '#FF9500',      // iOS orange
+        error: '#FF3B30',        // iOS red
+        info: '#007AFF',         // iOS blue
+    },
+
+    // Special elements
+    special: {
+        nextPrayer: '#D4AF37',
+        active: '#B8962F',
+        disabled: '#E0E0E0',
+        highlight: 'rgba(212, 175, 55, 0.12)',
+    },
+
+    // Extended overlay tokens
+    overlay: {
+        subtle: 'rgba(0, 0, 0, 0.02)',
+        medium: 'rgba(0, 0, 0, 0.04)',
+        strong: 'rgba(0, 0, 0, 0.07)',
+        card: 'rgba(255, 255, 255, 0.96)',
+        gold: 'rgba(212, 175, 55, 0.08)',
+    },
+
+    // Prayer-specific notification colors
+    prayer: {
+        fajr: '#007AFF',         // iOS blue
+        sunrise: '#FF9500',      // iOS orange
+        default: '#34C759',      // iOS green
+    },
+};
+
+export default NeutralLightColors;

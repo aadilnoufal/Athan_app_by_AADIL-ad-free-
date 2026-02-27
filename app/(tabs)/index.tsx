@@ -32,6 +32,7 @@ import { applyLocalDataCityAdjustments, extractCityIdFromRegionId } from '../../
 import { getPrayerTimesFromLocalData } from '../../utils/localPrayerData';
 import { SepiaColors } from '../../constants/sepiaColors';
 import { useTheme } from '../../contexts/ThemeContext';
+import { goldTint, withAlpha } from '../../utils/colorHelpers';
 import RevenueCatPaywall from '../components/RevenueCatPaywall';
 import { usePurchase } from '../contexts/RevenueCatContext';
 
@@ -177,6 +178,8 @@ export default function Home() {
   const { colors, isDark } = useTheme();
   // Shorthand alias used during gradual migration from static SepiaColors styles
   const C = colors;
+  // Theme-aware gold tint helper
+  const gt = (alpha: number) => goldTint(alpha, colors);
   // Dynamic themed styles (migrated from static StyleSheet at file end) so dark mode uses proper contrast
   const styles = React.useMemo(() => StyleSheet.create({
     safeArea: {
@@ -294,12 +297,14 @@ export default function Home() {
       marginVertical: 6,
       borderRadius: 16,
       overflow: 'hidden',
-      backgroundColor: `${C.surface.primary}DD`,
+      // Light mode: use warmer background
+      backgroundColor: isDark ? `${C.surface.primary}DD` : `${C.background.secondary}DD`,
     },
     dateInnerContainer: {
       padding: 8,
       alignItems: 'center',
-      backgroundColor: `${C.surface.elevated}BB`,
+      // Light mode: use warmer background
+      backgroundColor: isDark ? `${C.surface.elevated}BB` : `${C.background.tertiary}BB`,
       borderRadius: 16,
       borderWidth: 1,
       borderColor: `${C.border.accent}60`,
@@ -320,7 +325,8 @@ export default function Home() {
     countdownContainer: {
       padding: 12,
       alignItems: 'center',
-      backgroundColor: C.surface.primary,
+      // Light mode: use warmer background
+      backgroundColor: isDark ? C.surface.primary : C.background.secondary,
       margin: 12,
       borderRadius: 16,
       borderWidth: 1,
@@ -355,7 +361,8 @@ export default function Home() {
       alignItems: 'center',
       paddingVertical: 14,
       paddingHorizontal: 16,
-      backgroundColor: `${C.surface.primary}CC`,
+      // Light mode: use warmer background
+      backgroundColor: isDark ? `${C.surface.primary}CC` : `${C.background.secondary}CC`,
       borderRadius: 14,
       borderWidth: 1,
       borderColor: `${C.border.light}80`,
@@ -455,7 +462,7 @@ export default function Home() {
     magicalFooter: {
       position: 'relative', paddingVertical: 15, paddingHorizontal: 20, marginTop: 20, marginBottom: 10, borderRadius: 20,
       backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
-      borderWidth: 0.5, borderColor: isDark ? 'rgba(218,165,32,0.1)' : 'rgba(218,165,32,0.2)', overflow: 'hidden',
+      borderWidth: 0.5, borderColor: isDark ? gt(0.1) : gt(0.2), overflow: 'hidden',
     },
     footerShimmer: { position: 'absolute', top: 0, bottom: 0, width: 100, backgroundColor: 'transparent' },
     footerElement: { position: 'absolute', zIndex: 2 },
@@ -484,10 +491,10 @@ export default function Home() {
       paddingHorizontal: 18,
       marginTop: 0,
       borderWidth: 0.5,
-      borderColor: isDark ? 'rgba(218,165,32,0.2)' : C.border.light,
+      borderColor: isDark ? gt(0.2) : C.border.light,
     },
     locationIconWrapper: {
-      width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(218,165,32,0.1)', alignItems: 'center', justifyContent: 'center', marginRight: 12,
+      width: 36, height: 36, borderRadius: 18, backgroundColor: gt(0.1), alignItems: 'center', justifyContent: 'center', marginRight: 12,
     },
     locationTextWrapper: { flex: 1 },
     locationLabel: { color: C.text.tertiary, fontSize: 12, fontWeight: '500', letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 2 },
@@ -497,14 +504,13 @@ export default function Home() {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      // Dark mode previously used a faint white overlay which appeared like the old light sepia.
-      // Use themed surface color instead for a solid dark surface.
-      backgroundColor: isDark ? C.surface.primary : C.surface.primary,
+      // Light mode: use background.secondary for warmth instead of pure white
+      backgroundColor: isDark ? 'rgba(255,255,255,0.024)' : C.background.secondary,
       borderRadius: 20,
       paddingVertical: 8,
       paddingHorizontal: 16,
       borderWidth: 0.5,
-      borderColor: isDark ? 'rgba(218,165,32,0.15)' : C.border.light,
+      borderColor: isDark ? gt(0.15) : C.border.medium,
     },
     dateDisplayContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20 },
     primaryDateText: { color: C.text.primary, fontSize: 18, fontWeight: '700', letterSpacing: 0.5, textAlign: 'center' },
@@ -514,15 +520,17 @@ export default function Home() {
     enhancedLoadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 60 },
     loadingIconWrapper: {
       backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)', borderRadius: 30, padding: 20, marginBottom: 20,
-      borderWidth: 0.5, borderColor: 'rgba(218,165,32,0.2)',
+      borderWidth: 0.5, borderColor: gt(0.2),
     },
     enhancedLoadingText: { color: C.text.primary, fontSize: 16, fontWeight: '600', textAlign: 'center', marginBottom: 8, letterSpacing: 0.3 },
     loadingSubtext: { color: C.text.secondary, fontSize: 14, textAlign: 'center', opacity: 0.7, letterSpacing: 0.2 },
     enhancedScrollView: { flex: 1 },
     enhancedScrollViewContent: { paddingBottom: 40 },
     enhancedDateContainer: {
-      backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)', borderRadius: 16, marginBottom: 12, borderWidth: 0.5,
-      borderColor: 'rgba(218,165,32,0.15)', overflow: 'hidden',
+      // Light mode: use subtle warm tint instead of black overlay
+      backgroundColor: isDark ? 'rgba(255,255,255,0.048)' : C.background.tertiary,
+      borderRadius: 16, marginBottom: 12, borderWidth: 0.5,
+      borderColor: isDark ? gt(0.15) : C.border.light, overflow: 'hidden',
     },
     dateCardContent: { padding: 12 },
     gregorianDateSection: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
@@ -531,58 +539,58 @@ export default function Home() {
     enhancedHijriDate: { color: C.text.secondary, fontSize: 12, fontWeight: '500', marginLeft: 8, letterSpacing: 0.2, opacity: 0.9 },
     countdownSection: { alignItems: 'center', marginBottom: 15 },
     enhancedTimesContainer: {
-      // Use proper themed elevated surface in dark mode instead of translucent white.
-      backgroundColor: isDark ? C.surface.elevated : C.surface.primary,
+      // Light mode: use background.secondary for warmth instead of pure white
+      backgroundColor: isDark ? 'rgba(255,255,255,0.032)' : C.background.secondary,
       borderRadius: 20,
       padding: 12,
       marginBottom: 12,
       borderWidth: 0.5,
-      borderColor: isDark ? 'rgba(218,165,32,0.15)' : C.border.light,
+      borderColor: isDark ? gt(0.15) : C.border.medium,
     },
     timesHeader: {
       flexDirection: 'row', alignItems: 'center', marginBottom: 10, paddingBottom: 8, borderBottomWidth: 0.5,
-      borderBottomColor: 'rgba(218,165,32,0.15)',
+      borderBottomColor: gt(0.15),
     },
     timesHeaderText: { color: C.text.primary, fontSize: 18, fontWeight: '700', marginLeft: 10, letterSpacing: 0.5 },
     prayerTimesGrid: { gap: 8 },
     enhancedPrayerItem: {
-      // Solid surface color for dark mode to avoid light sepia bleed-through.
-      backgroundColor: isDark ? C.surface.primary : C.surface.secondary,
+      // Light mode: use background.tertiary for subtle card distinction
+      backgroundColor: isDark ? 'rgba(255,255,255,0.024)' : C.background.tertiary,
       borderRadius: 16,
       padding: 10,
       borderWidth: 0.5,
-      borderColor: isDark ? 'rgba(218,165,32,0.1)' : C.border.light,
+      borderColor: isDark ? gt(0.1) : C.border.light,
       position: 'relative',
       overflow: 'hidden',
     },
     enhancedNextPrayerItem: {
-      backgroundColor: isDark ? 'rgba(218,165,32,0.06)' : `${C.special.highlight}CC`,
-      borderColor: isDark ? 'rgba(218,165,32,0.25)' : C.border.accent,
+      backgroundColor: isDark ? gt(0.06) : `${C.special.highlight}CC`,
+      borderColor: isDark ? gt(0.25) : C.border.accent,
     },
     prayerItemHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
     enhancedIconContainer: {
-      width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(218,165,32,0.08)', alignItems: 'center', justifyContent: 'center',
-      marginRight: 12, borderWidth: 0.5, borderColor: 'rgba(218,165,32,0.15)'
+      width: 40, height: 40, borderRadius: 20, backgroundColor: gt(0.08), alignItems: 'center', justifyContent: 'center',
+      marginRight: 12, borderWidth: 0.5, borderColor: gt(0.15)
     },
-    activeEnhancedIconContainer: { backgroundColor: 'rgba(218,165,32,0.15)', borderColor: 'rgba(218,165,32,0.3)' },
+    activeEnhancedIconContainer: { backgroundColor: gt(0.15), borderColor: gt(0.3) },
     enhancedPrayerName: { color: C.text.primary, fontSize: 16, fontWeight: '600', letterSpacing: 0.3, flex: 1 },
     activeEnhancedPrayerName: { color: C.accent.darkGold, fontWeight: '700' },
     prayerTimeWrapper: { alignItems: 'flex-end' },
     enhancedPrayerTime: { color: C.text.primary, fontSize: 18, fontWeight: '600', letterSpacing: 0.5, textAlign: 'right' },
     activeEnhancedPrayerTime: { color: C.accent.amber, fontWeight: '700', fontSize: 20 },
     nextIndicator: {
-      flexDirection: 'row', alignItems: 'center', marginTop: 2, backgroundColor: 'rgba(218,165,32,0.12)',
+      flexDirection: 'row', alignItems: 'center', marginTop: 2, backgroundColor: gt(0.12),
       paddingHorizontal: 8, paddingVertical: 1, borderRadius: 10,
     },
     nextIndicatorText: { color: C.accent.darkGold, fontSize: 10, fontWeight: '600', marginLeft: 4, letterSpacing: 0.5, textTransform: 'uppercase' },
     returnToTodayButton: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
       paddingVertical: 6, paddingHorizontal: 14, marginTop: 6,
-      borderRadius: 16, backgroundColor: 'rgba(218,165,32,0.10)',
+      borderRadius: 16, backgroundColor: gt(0.10),
       alignSelf: 'center',
     },
     returnToTodayText: {
-      color: SepiaColors.accent.gold, fontSize: 12, fontWeight: '600', marginLeft: 5, letterSpacing: 0.3,
+      color: C.accent.gold, fontSize: 12, fontWeight: '600', marginLeft: 5, letterSpacing: 0.3,
     },
     iqamaFooterContainer: {
       flexDirection: 'row', alignItems: 'flex-start', marginTop: 10, marginBottom: 4,
@@ -609,11 +617,11 @@ export default function Home() {
       flexShrink: 1,
       paddingHorizontal: 10,
       paddingVertical: 6,
-      backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : C.surface.secondary,
+      backgroundColor: isDark ? 'rgba(255,255,255,0.044)' : C.surface.secondary,
       borderRadius: 14,
       gap: 6,
       borderWidth: 0.5,
-      borderColor: isDark ? 'rgba(218,165,32,0.2)' : C.border.light,
+      borderColor: isDark ? gt(0.2) : C.border.light,
       minWidth: 120,
       maxWidth: '55%',
     },
@@ -627,12 +635,13 @@ export default function Home() {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : C.surface.primary,
+      // Light mode: use warmer background instead of pure white
+      backgroundColor: isDark ? 'rgba(255,255,255,0.036)' : C.background.secondary,
       borderRadius: 16,
       paddingVertical: 8,
       paddingHorizontal: 10,
       borderWidth: 0.5,
-      borderColor: isDark ? 'rgba(218,165,32,0.15)' : C.border.light,
+      borderColor: isDark ? gt(0.15) : C.border.medium,
       gap: 8,
     },
     compactDateCenter: {
@@ -959,7 +968,7 @@ export default function Home() {
           padding: 8,
           borderRadius: 8,
           borderWidth: 1,
-          borderColor: 'rgba(218,165,32,0.3)',
+          borderColor: gt(0.3),
         },
         // Re-enable passed styles now that we fixed the container issue
         style

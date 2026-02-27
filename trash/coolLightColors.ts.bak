@@ -1,0 +1,91 @@
+/**
+ * Cool & Modern Light Theme
+ * 
+ * A contemporary Scandinavian-inspired palette with soft slate backgrounds,
+ * cool whites, and a sophisticated silver-gold accent. Perfect for those
+ * who prefer a clean, modern aesthetic with blue-gray undertones.
+ */
+
+export const CoolLightColors = {
+    // Primary background colors - cool slate family
+    background: {
+        primary: '#F8F9FA',      // Cool off-white
+        secondary: '#F1F3F5',    // Soft gray
+        tertiary: '#E8EBED',     // Light slate
+        overlay: 'rgba(248, 249, 250, 0.95)',
+    },
+
+    // Card and container backgrounds
+    surface: {
+        primary: '#FFFFFF',      // Pure white
+        secondary: '#FAFBFC',    // Cool white
+        elevated: '#FFFFFF',
+        transparent: 'rgba(250, 251, 252, 0.90)',
+    },
+
+    // Text colors - charcoal family
+    text: {
+        primary: '#2B2D30',      // Deep charcoal
+        secondary: '#5A5D61',    // Medium gray
+        tertiary: '#8A8D91',     // Light gray
+        inverse: '#FFFFFF',
+        muted: '#A8ABAD',
+    },
+
+    // Accent colors - silver-gold family
+    accent: {
+        gold: '#B8A565',         // Silver gold (cooler metallic)
+        darkGold: '#9A8850',     // Aged brass
+        amber: '#C4B070',        // Muted amber
+        copper: '#A8866A',       // Cool copper
+    },
+
+    // Border colors - neutral gray
+    border: {
+        light: 'rgba(43, 45, 48, 0.06)',
+        medium: 'rgba(43, 45, 48, 0.12)',
+        dark: 'rgba(43, 45, 48, 0.20)',
+        accent: 'rgba(184, 165, 101, 0.30)',
+    },
+
+    // Shadow colors - cool shadows
+    shadow: {
+        light: 'rgba(43, 45, 48, 0.04)',
+        medium: 'rgba(43, 45, 48, 0.08)',
+        dark: 'rgba(43, 45, 48, 0.14)',
+    },
+
+    // Status colors - desaturated modern
+    status: {
+        success: '#4A9A6A',      // Teal green
+        warning: '#B8A565',      // Matches gold
+        error: '#B86A6A',        // Muted red
+        info: '#6A8AB8',         // Steel blue
+    },
+
+    // Special elements
+    special: {
+        nextPrayer: '#B8A565',
+        active: '#9A8850',
+        disabled: '#D0D3D7',
+        highlight: 'rgba(184, 165, 101, 0.15)',
+    },
+
+    // Extended overlay tokens
+    overlay: {
+        subtle: 'rgba(43, 45, 48, 0.02)',
+        medium: 'rgba(43, 45, 48, 0.05)',
+        strong: 'rgba(43, 45, 48, 0.08)',
+        card: 'rgba(250, 251, 252, 0.94)',
+        gold: 'rgba(184, 165, 101, 0.10)',
+    },
+
+    // Prayer-specific notification colors
+    prayer: {
+        fajr: '#5A7AAA',         // Cool dawn blue
+        sunrise: '#C4A050',      // Muted sunrise
+        default: '#4A9A6A',      // Teal prayer
+    },
+};
+
+export default CoolLightColors;

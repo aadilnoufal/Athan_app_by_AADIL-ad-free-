@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../../contexts/ThemeContext';
+import { goldTint as centralGoldTint, withAlpha } from '../../utils/colorHelpers';
 import { DUA_CATEGORIES } from '../../constants/duas';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
@@ -115,13 +116,11 @@ export default function DuaScreen() {
     }
   };
 
-  // Helper functions for dynamic colors (matching settings pattern)
-  const goldTint = (opacity: number) => {
-    const gold = colors.accent.gold;
-    return `${gold}${Math.round(opacity * 255).toString(16).padStart(2, '0')}`;
-  };
+  // Helper functions for dynamic colors (using centralized utilities)
+  const goldTint = (opacity: number) => centralGoldTint(opacity, colors);
 
-  const cardBg = isDark ? 'rgba(255, 255, 255, 0.04)' : 'rgba(255, 255, 255, 0.7)';
+  // Keep dark mode cards on soft white overlay to match prior visual tone
+  const cardBg = isDark ? 'rgba(255, 255, 255, 0.035)' : colors.background.secondary;
   const subtleBorder = isDark ? goldTint(0.25) : goldTint(0.15);
 
   const styles = React.useMemo(() => StyleSheet.create({

@@ -1,0 +1,91 @@
+/**
+ * Warm & Natural Light Theme
+ * 
+ * A refined warm palette with ivory backgrounds, rich cream cards,
+ * and antique gold accents. Perfect for those who love the warmth
+ * of sepia but want better consistency and a more polished feel.
+ */
+
+export const WarmLightColors = {
+    // Primary background colors - warm ivory family
+    background: {
+        primary: '#FAF8F3',      // Warm ivory
+        secondary: '#F5F2EA',    // Soft warm cream
+        tertiary: '#EBE7DD',     // Toasted cream
+        overlay: 'rgba(250, 248, 243, 0.95)',
+    },
+
+    // Card and container backgrounds
+    surface: {
+        primary: '#FFFFFF',      // Pure white cards
+        secondary: '#FFFEF9',    // Warm white
+        elevated: '#FFFFFF',
+        transparent: 'rgba(255, 254, 249, 0.88)',
+    },
+
+    // Text colors - warm brown family
+    text: {
+        primary: '#3E2F27',      // Deep walnut
+        secondary: '#6B5C54',    // Warm cocoa
+        tertiary: '#9A8B82',     // Dusty rose tan
+        inverse: '#FFFFFF',
+        muted: '#B5A89E',
+    },
+
+    // Accent colors - antique gold family
+    accent: {
+        gold: '#C8A870',         // Antique gold (softer than classic)
+        darkGold: '#A68B55',     // Deep antique
+        amber: '#D4B87A',        // Warm amber
+        copper: '#B87850',       // Burnished copper
+    },
+
+    // Border colors - warm undertones
+    border: {
+        light: 'rgba(62, 47, 39, 0.06)',
+        medium: 'rgba(62, 47, 39, 0.12)',
+        dark: 'rgba(62, 47, 39, 0.20)',
+        accent: 'rgba(200, 168, 112, 0.35)',
+    },
+
+    // Shadow colors - warm shadows
+    shadow: {
+        light: 'rgba(62, 47, 39, 0.05)',
+        medium: 'rgba(62, 47, 39, 0.10)',
+        dark: 'rgba(62, 47, 39, 0.16)',
+    },
+
+    // Status colors - warm variants
+    status: {
+        success: '#5A9A5A',      // Sage green
+        warning: '#C8A870',      // Matches gold
+        error: '#C47A7A',        // Dusty rose red
+        info: '#7A9AB8',         // Soft steel blue
+    },
+
+    // Special elements
+    special: {
+        nextPrayer: '#C8A870',
+        active: '#A68B55',
+        disabled: '#DCD6CC',
+        highlight: 'rgba(200, 168, 112, 0.18)',
+    },
+
+    // Extended overlay tokens
+    overlay: {
+        subtle: 'rgba(62, 47, 39, 0.03)',
+        medium: 'rgba(62, 47, 39, 0.06)',
+        strong: 'rgba(62, 47, 39, 0.10)',
+        card: 'rgba(255, 254, 249, 0.92)',
+        gold: 'rgba(200, 168, 112, 0.12)',
+    },
+
+    // Prayer-specific notification colors
+    prayer: {
+        fajr: '#5B7FA8',         // Dawn blue
+        sunrise: '#D4A85A',      // Sunrise gold
+        default: '#5A9A5A',      // Prayer green
+    },
+};
+
+export default WarmLightColors;

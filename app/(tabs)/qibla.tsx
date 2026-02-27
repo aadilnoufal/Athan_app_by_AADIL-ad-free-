@@ -21,6 +21,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Svg, { Circle, Line, G, Path, Text as SvgText } from 'react-native-svg';
 import { useTheme } from '../../contexts/ThemeContext';
+import { goldTint as centralGoldTint, withAlpha } from '../../utils/colorHelpers';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useQiblaCompass } from '../../lib/qibla-compass';
 import { CalibrationStatus, CompassAccuracy } from '../../lib/qibla-compass/types';
@@ -427,12 +428,10 @@ export default function QiblaScreen() {
 }
 
 const createStyles = (colors: any, isDark: boolean, language: string, isFacingQibla: boolean) => {
-  // Helper functions for dynamic colors (matching settings pattern)
-  const goldTint = (opacity: number) => {
-    const gold = colors.accent.gold;
-    return `${gold}${Math.round(opacity * 255).toString(16).padStart(2, '0')}`;
-  };
-  const cardBg = isDark ? 'rgba(255, 255, 255, 0.04)' : 'rgba(255, 255, 255, 0.7)';
+  // Use centralized color utilities
+  const goldTint = (opacity: number) => centralGoldTint(opacity, colors);
+  // Keep dark mode cards on soft white overlay to match prior visual tone
+  const cardBg = isDark ? 'rgba(255, 255, 255, 0.035)' : colors.background.secondary;
   const subtleBorder = isDark ? goldTint(0.25) : goldTint(0.15);
 
   return StyleSheet.create({

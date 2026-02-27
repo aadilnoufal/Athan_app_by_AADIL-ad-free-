@@ -66,7 +66,23 @@ export const SepiaColors = {
     active: '#AA8C2C',
     disabled: '#D9D4CC',
     highlight: 'rgba(212, 175, 55, 0.15)',
-  }
+  },
+
+  // Extended overlay tokens
+  overlay: {
+    subtle: 'rgba(45, 40, 36, 0.03)',
+    medium: 'rgba(45, 40, 36, 0.06)',
+    strong: 'rgba(45, 40, 36, 0.10)',
+    card: 'rgba(255, 255, 255, 0.92)',
+    gold: 'rgba(212, 175, 55, 0.12)',
+  },
+
+  // Prayer-specific notification colors
+  prayer: {
+    fajr: '#5C8EB8',         // Dawn blue
+    sunrise: '#E5A840',      // Sunrise orange-gold
+    default: '#4CAF50',      // Prayer green
+  },
 };
 
 export default SepiaColors;

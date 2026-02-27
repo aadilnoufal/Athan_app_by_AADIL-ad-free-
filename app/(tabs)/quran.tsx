@@ -21,6 +21,7 @@ import { Audio } from 'expo-av';
 import { useFocusEffect } from '@react-navigation/native';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useTheme } from '../../contexts/ThemeContext';
+import { goldTint as centralGoldTint, withAlpha } from '../../utils/colorHelpers';
 import { useLanguage } from '../../contexts/LanguageContext';
 import {
     SurahMeta,
@@ -376,9 +377,10 @@ export default function QuranScreen() {
         ? [colors.background.primary, colors.background.secondary, colors.surface.primary]
         : getTimeBasedGradient();
 
-    // ── Colour helpers (gold-tint pattern from other screens) ──────
-    const goldTint = (opacity: number) => `rgba(218, 165, 32, ${opacity})`;
-    const cardBg = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.06)';
+    // ── Colour helpers (using centralized goldTint utility) ──────
+    const goldTint = (opacity: number) => centralGoldTint(opacity, colors);
+    // Goldilocks: slightly darker than last pass, still soft
+    const cardBg = isDark ? 'rgba(255,255,255,0.038)' : colors.background.secondary;
     const subtleBorder = isDark ? goldTint(0.25) : goldTint(0.15);
     const faintBorder = isDark ? goldTint(0.18) : goldTint(0.10);
 

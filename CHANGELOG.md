@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.18.0] - 2026-02-26
+
+### Added
+- **3 New Luxurious Light Themes** – Choose from 5 total color themes in Settings:
+  - **Dark** – Deep backgrounds with muted gold accent, high contrast
+  - **Classic Light (Sepia)** – Warm cream tones with champagne gold, cozy feel
+  - **Warm & Natural** – Ivory backgrounds with antique gold (#C8A870), earthy warmth
+  - **Cool & Modern** – Slate backgrounds with silver-gold (#B8A565), professional look
+  - **Neutral & Minimal** – Pure white backgrounds with clean champagne gold aesthetic
+- **Theme Selector UI** – New visual theme picker in Settings with color preview swatches for each theme
+- **Centralized Color Utilities** – New `utils/colorHelpers.ts` with `goldTint()`, `withAlpha()`, `lighten()`, `darken()` functions for consistent color manipulation
+
+### Changed
+- **Theme Architecture Overhaul** – All hardcoded `rgba(218, 165, 32, X)` gold colors replaced with theme-aware `goldTint()` calls across Home, Settings, Quran, Dua, Qibla, and SplashScreen
+- **Theme Context Extended** – `ThemeContext.js` now exports `ThemeNames`, `ThemeInfo`, `AllThemes` for theme selection UI
+- **Updated ARCHITECTURE.md** – Added comprehensive Color System documentation section
+
+### Fixed
+- **Inconsistent Gold Colors** – Previously used `rgba(218,165,32,...)` which didn't match any theme's actual gold accent. All screens now use the theme's configured gold color.
+- **Light Mode Contrast Issues** – Cards and containers in all light themes now use warmer `background.secondary`/`background.tertiary` colors instead of pure white (`surface.primary`). Fixes harsh white boxes on cream backgrounds affecting Home (date nav, prayer container), Dua, Qibla, Quran, and Settings pages.
+
 ## [3.17.0] - 2026-02-25
 
 ### Added

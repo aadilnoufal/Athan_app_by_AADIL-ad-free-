@@ -4,6 +4,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Appearance } from 'react-native';
 import { SepiaColors } from '../constants/sepiaColors';
 
+// All available themes
+export const ThemeNames = {
+  DARK: 'dark',
+  SEPIA: 'sepia',
+};
+
 // Dark color palette mirroring the structure of SepiaColors
 export const DarkColors = {
   background: {
@@ -53,15 +59,40 @@ export const DarkColors = {
     active: '#D0AC34',
     disabled: '#45525A', // Slightly lighter for legibility if text ends up inside
     highlight: 'rgba(240,214,97,0.18)'
-  }
+  },
+
+  // Extended overlay tokens
+  overlay: {
+    subtle: 'rgba(255, 255, 255, 0.04)',
+    medium: 'rgba(255, 255, 255, 0.08)',
+    strong: 'rgba(255, 255, 255, 0.12)',
+    card: 'rgba(39, 52, 60, 0.90)',
+    gold: 'rgba(240, 214, 97, 0.15)',
+  },
+
+  // Prayer-specific notification colors
+  prayer: {
+    fajr: '#4A90D9',         // Bright dawn blue
+    sunrise: '#F0A030',      // Sunrise orange
+    default: '#3F6E4F',      // Prayer green
+  },
 };
 
-const THEME_KEY = 'app_theme_mode_v1';
+// Map theme names to their color palettes
+const ThemePalettes = {
+  [ThemeNames.DARK]: DarkColors,
+  [ThemeNames.SEPIA]: SepiaColors,
+};
+
+const AllThemes = Object.values(ThemeNames);
+
+const THEME_KEY = 'app_theme_mode_v2'; // Bumped version for new theme system
 
 const ThemeContext = createContext({
-  colors: SepiaColors,
-  isDark: false,
-  mode: 'light',
+  colors: DarkColors,
+  isDark: true,
+  mode: ThemeNames.DARK,
+  themeName: ThemeNames.DARK,
   toggleTheme: () => { },
   setTheme: (_m) => { },
   // transition helpers
@@ -70,7 +101,7 @@ const ThemeContext = createContext({
 
 export const ThemeProvider = ({ children }) => {
   // Default to dark; will be overridden by persisted choice if present
-  const [mode, setMode] = useState('dark');
+  const [mode, setMode] = useState(ThemeNames.DARK);
   const [prevBg, setPrevBg] = useState(null);
   const transitionProgress = useRef(new Animated.Value(0)).current;
 
@@ -79,21 +110,35 @@ export const ThemeProvider = ({ children }) => {
     (async () => {
       try {
         const stored = await AsyncStorage.getItem(THEME_KEY);
-        if (stored === 'light' || stored === 'dark') {
+        // Support both old format ('light'/'dark') and new format
+        if (stored === 'light') {
+          // Migrate old 'light' to 'sepia'
+          setMode(ThemeNames.SEPIA);
+          await AsyncStorage.setItem(THEME_KEY, ThemeNames.SEPIA);
+        } else if (stored === 'warm' || stored === 'cool' || stored === 'minimal') {
+          // Migrate old multi-light themes back to classic light
+          setMode(ThemeNames.SEPIA);
+          await AsyncStorage.setItem(THEME_KEY, ThemeNames.SEPIA);
+        } else if (AllThemes.includes(stored)) {
           setMode(stored);
         } else {
-          // If nothing stored, stay dark by default
-          setMode('dark');
+          // If nothing stored or invalid, default to dark
+          setMode(ThemeNames.DARK);
         }
       } catch {
-        setMode('dark');
+        setMode(ThemeNames.DARK);
       }
     })();
   }, []);
 
   const setTheme = useCallback(async (nextMode) => {
+    // Validate the theme name
+    if (!AllThemes.includes(nextMode)) {
+      console.warn(`Invalid theme: ${nextMode}`);
+      return;
+    }
     // prepare transition
-    const currentColors = mode === 'dark' ? DarkColors : SepiaColors;
+    const currentColors = ThemePalettes[mode] || DarkColors;
     setPrevBg(currentColors.background.primary);
     transitionProgress.setValue(1); // fully visible overlay of old color
     setMode(nextMode);
@@ -110,14 +155,22 @@ export const ThemeProvider = ({ children }) => {
   }, [mode, transitionProgress]);
 
   const toggleTheme = useCallback(() => {
-    setTheme(mode === 'light' ? 'dark' : 'light');
+    // Toggle between dark and the last-used light theme (default to sepia)
+    if (mode === ThemeNames.DARK) {
+      // Switch to sepia (classic light) as the default light theme
+      setTheme(ThemeNames.SEPIA);
+    } else {
+      // Any light theme -> dark
+      setTheme(ThemeNames.DARK);
+    }
   }, [mode, setTheme]);
 
-  const currentColors = mode === 'dark' ? DarkColors : SepiaColors;
+  const currentColors = ThemePalettes[mode] || DarkColors;
   const value = {
     colors: currentColors,
-    isDark: mode === 'dark',
+    isDark: mode === ThemeNames.DARK,
     mode,
+    themeName: mode,
     toggleTheme,
     setTheme,
     transitionProgress

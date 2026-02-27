@@ -52,6 +52,7 @@ import { playTestSound } from '../../utils/audioHelper';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { SepiaColors } from '../../constants/sepiaColors';
 import { useTheme } from '../../contexts/ThemeContext';
+import { goldTint, withAlpha, getTimeBasedGradientColors } from '../../utils/colorHelpers';
 import {
   getEditionPref,
   setEditionPref as saveEditionPref,
@@ -101,6 +102,9 @@ export default function SettingsScreen() {
   const C = colors; // alias
   // Theme-aware dynamic styles
   const styles = React.useMemo(() => createSettingsStyles(colors, isDark), [colors, isDark]);
+
+  // Helper for inline styles - use theme's gold color instead of hardcoded rgba(218,165,32,...)
+  const gt = (alpha: number) => goldTint(alpha, colors);
 
   // Animations removed
 
@@ -155,6 +159,8 @@ export default function SettingsScreen() {
   // Time-based gradient colors for dynamic backgrounds (light mode only)
   const getTimeBasedGradient = () => {
     const hour = new Date().getHours();
+    // Use theme colors for consistent gradients
+    const base = getTimeBasedGradientColors(C, isDark);
 
     if (hour >= 5 && hour < 7) { // Fajr time - ultra soft dawn
       return [C.background.primary, C.background.secondary, C.surface.secondary];
@@ -165,9 +171,9 @@ export default function SettingsScreen() {
     } else if (hour >= 15 && hour < 18) { // Afternoon - light golden sepia
       return [C.background.secondary, C.background.tertiary, C.surface.secondary];
     } else if (hour >= 18 && hour < 20) { // Maghrib - light sunset sepia
-      return [C.background.tertiary, C.surface.secondary, '#F5F1E6'];
+      return [C.background.tertiary, C.surface.secondary, C.background.tertiary];
     } else { // Night/Isha - slightly deeper but still light sepia
-      return [C.surface.secondary, C.surface.secondary, '#F2EEE1'];
+      return [C.surface.secondary, C.surface.secondary, C.background.tertiary];
     }
   };
   const gradientColors = isDark ? [C.background.primary, C.background.secondary, C.surface.primary] : getTimeBasedGradient();
@@ -983,11 +989,11 @@ export default function SettingsScreen() {
               </View>
             </Modal>
           )}
-          {/* Appearance / Theme Section with normal toggle */}
+          {/* Appearance / Theme Section */}
           <View style={styles.enhancedSection}>
             <View style={styles.sectionHeader}>
               <MaterialCommunityIcons
-                name={isDark ? 'weather-night' : 'white-balance-sunny'}
+                name="palette"
                 size={20}
                 color={C.accent.gold}
               />
@@ -1472,7 +1478,7 @@ export default function SettingsScreen() {
             <Text style={styles.enhancedSettingSubtitle}>{t('translationEdition')}</Text>
             <TouchableOpacity
               onPress={() => setShowTranslationPicker(true)}
-              style={[styles.enhancedSettingContainer, { marginBottom: 14, borderWidth: 0.5, borderColor: 'rgba(218,165,32,0.2)', borderRadius: 10, paddingVertical: 10 }]}
+              style={[styles.enhancedSettingContainer, { marginBottom: 14, borderWidth: 0.5, borderColor: gt(0.2), borderRadius: 10, paddingVertical: 10 }]}
             >
               <View style={{ flex: 1 }}>
                 <Text style={[styles.enhancedSettingLabel, { fontWeight: '600' }]}>{t('currentTranslation')}</Text>
@@ -1487,7 +1493,7 @@ export default function SettingsScreen() {
             <Text style={styles.enhancedSettingSubtitle}>{t('reciter')}</Text>
             <TouchableOpacity
               onPress={() => setShowReciterPicker(true)}
-              style={[styles.enhancedSettingContainer, { marginBottom: 14, borderWidth: 0.5, borderColor: 'rgba(218,165,32,0.2)', borderRadius: 10, paddingVertical: 10 }]}
+              style={[styles.enhancedSettingContainer, { marginBottom: 14, borderWidth: 0.5, borderColor: gt(0.2), borderRadius: 10, paddingVertical: 10 }]}
             >
               <View style={{ flex: 1 }}>
                 <Text style={[styles.enhancedSettingLabel, { fontWeight: '600' }]}>{t('selectReciter')}</Text>
@@ -1601,14 +1607,14 @@ export default function SettingsScreen() {
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
           <View style={{ backgroundColor: C.background.primary, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '80%', paddingBottom: 30 }}>
             {/* Modal header */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 0.5, borderBottomColor: 'rgba(218,165,32,0.15)' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 0.5, borderBottomColor: gt(0.15) }}>
               <Text style={{ fontSize: 16, fontWeight: '700', color: C.text.primary }}>{t('selectTranslation')}</Text>
               <TouchableOpacity onPress={() => { setShowTranslationPicker(false); setEditionSearchQuery(''); }}>
                 <MaterialCommunityIcons name="close" size={22} color={C.text.tertiary} />
               </TouchableOpacity>
             </View>
             {/* Search input */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, marginVertical: 8, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)', borderWidth: 0.5, borderColor: 'rgba(218,165,32,0.15)' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, marginVertical: 8, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)', borderWidth: 0.5, borderColor: gt(0.15) }}>
               <MaterialCommunityIcons name="magnify" size={18} color={C.text.tertiary} />
               <TextInput
                 style={{ flex: 1, marginLeft: 8, fontSize: 14, color: C.text.primary, paddingVertical: 0 }}
@@ -1627,7 +1633,7 @@ export default function SettingsScreen() {
               renderItem={({ item }) => (
                 <TouchableOpacity
                   onPress={() => handleTranslationEditionChange(item.identifier)}
-                  style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: 'rgba(218,165,32,0.08)' }}
+                  style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: gt(0.08) }}
                 >
                   <View style={{ flex: 1 }}>
                     <Text style={{ fontSize: 14, fontWeight: '600', color: C.text.primary }}>{item.name}</Text>
@@ -1653,7 +1659,7 @@ export default function SettingsScreen() {
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
           <View style={{ backgroundColor: C.background.primary, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '70%', paddingBottom: 30 }}>
             {/* Modal header */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 0.5, borderBottomColor: 'rgba(218,165,32,0.15)' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 0.5, borderBottomColor: gt(0.15) }}>
               <Text style={{ fontSize: 16, fontWeight: '700', color: C.text.primary }}>{t('selectReciter')}</Text>
               <TouchableOpacity onPress={() => setShowReciterPicker(false)}>
                 <MaterialCommunityIcons name="close" size={22} color={C.text.tertiary} />
@@ -1666,7 +1672,7 @@ export default function SettingsScreen() {
               renderItem={({ item }) => (
                 <TouchableOpacity
                   onPress={() => handleReciterChange(item.identifier)}
-                  style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: 'rgba(218,165,32,0.08)' }}
+                  style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: gt(0.08) }}
                 >
                   <View style={{ flex: 1 }}>
                     <Text style={{ fontSize: 14, fontWeight: '600', color: C.text.primary }}>{item.name}</Text>
@@ -1693,19 +1699,21 @@ export default function SettingsScreen() {
 
 // Factory to create theme-aware styles so dark mode updates instantly
 const createSettingsStyles = (colors: any, isDark: boolean) => {
-  const goldRGB = '218, 165, 32';
-  // Surfaces adapt subtly between themes
-  const cardBg = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.06)';
-  const subCardBg = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.04)';
-  const faintLayer = isDark ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.03)';
-  const optionBg = isDark ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.02)';
-  const goldTint = (alpha: number) => `rgba(${goldRGB}, ${alpha})`;
-  const selectionBg = isDark ? goldTint(0.10) : goldTint(0.08);
-  const selectionBorder = isDark ? goldTint(0.35) : goldTint(0.25);
-  const subtleBorder = isDark ? goldTint(0.25) : goldTint(0.15);
-  const faintBorder = isDark ? goldTint(0.18) : goldTint(0.10);
-  const extraFaintBorder = isDark ? goldTint(0.12) : goldTint(0.08);
-  const translucentGoldLayer = isDark ? goldTint(0.05) : goldTint(0.1);
+  // Use centralized color utilities - no more hardcoded gold RGB!
+  const localGoldTint = (alpha: number) => goldTint(alpha, colors);
+
+  // Keep dark mode overlays soft to preserve original visual tone
+  const cardBg = isDark ? 'rgba(255,255,255,0.038)' : colors.background.secondary;
+  const subCardBg = isDark ? 'rgba(255,255,255,0.030)' : colors.background.tertiary;
+  const faintLayer = isDark ? 'rgba(255,255,255,0.022)' : withAlpha(colors.background.secondary, 0.5);
+  const optionBg = isDark ? 'rgba(255,255,255,0.014)' : withAlpha(colors.background.secondary, 0.3);
+
+  const selectionBg = isDark ? localGoldTint(0.10) : localGoldTint(0.08);
+  const selectionBorder = isDark ? localGoldTint(0.35) : localGoldTint(0.25);
+  const subtleBorder = isDark ? localGoldTint(0.25) : localGoldTint(0.15);
+  const faintBorder = isDark ? localGoldTint(0.18) : localGoldTint(0.10);
+  const extraFaintBorder = isDark ? localGoldTint(0.12) : localGoldTint(0.08);
+  const translucentGoldLayer = isDark ? localGoldTint(0.05) : localGoldTint(0.1);
 
   return StyleSheet.create({
     // ✨ ENHANCED LAYOUT STYLES FROM HOMEPAGE ✨
@@ -1785,6 +1793,86 @@ const createSettingsStyles = (colors: any, isDark: boolean) => {
       fontWeight: '600',
       marginLeft: 8,
       letterSpacing: 0.4,
+    },
+
+    // ✨ THEME SELECTOR STYLES ✨
+    themeGrid: {
+      flexDirection: 'column',
+      gap: 10,
+    },
+    themeOption: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: 12,
+      borderRadius: 12,
+      backgroundColor: subCardBg,
+      borderWidth: 1,
+      borderColor: faintBorder,
+      position: 'relative',
+    },
+    themeOptionSelected: {
+      backgroundColor: selectionBg,
+      borderColor: colors.accent.gold,
+      borderWidth: 1.5,
+    },
+    themeSwatch: {
+      width: 52,
+      height: 44,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.08)',
+      padding: 6,
+      justifyContent: 'flex-start',
+      alignItems: 'flex-start',
+      overflow: 'hidden',
+    },
+    themeAccentBar: {
+      width: '100%',
+      height: 4,
+      borderRadius: 2,
+      marginBottom: 5,
+    },
+    themeTextPreview: {
+      width: '80%',
+      height: 3,
+      borderRadius: 1.5,
+      marginBottom: 3,
+      opacity: 0.7,
+    },
+    themeTextPreviewShort: {
+      width: '50%',
+      height: 3,
+      borderRadius: 1.5,
+      opacity: 0.5,
+    },
+    themeInfo: {
+      flex: 1,
+      marginLeft: 12,
+    },
+    themeNameRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      marginBottom: 2,
+    },
+    themeName: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: colors.text.primary,
+      letterSpacing: 0.3,
+    },
+    themeNameSelected: {
+      color: colors.accent.gold,
+    },
+    themeDescription: {
+      fontSize: 12,
+      color: colors.text.tertiary,
+      letterSpacing: 0.2,
+    },
+    themeCheckmark: {
+      position: 'absolute',
+      top: 8,
+      right: 8,
     },
 
     // Enhanced Language Option Styles
@@ -1872,7 +1960,7 @@ const createSettingsStyles = (colors: any, isDark: boolean) => {
       width: 28,
       height: 28,
       borderRadius: 14,
-      backgroundColor: goldTint(isDark ? 0.12 : 0.10),
+      backgroundColor: localGoldTint(isDark ? 0.12 : 0.10),
       alignItems: 'center',
       justifyContent: 'center',
       marginRight: 10,
@@ -2019,7 +2107,7 @@ const createSettingsStyles = (colors: any, isDark: boolean) => {
     enhancedLocationSummary: {
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: goldTint(isDark ? 0.08 : 0.06),
+      backgroundColor: localGoldTint(isDark ? 0.08 : 0.06),
       borderRadius: 12,
       padding: 14,
       marginTop: 16,
@@ -2132,7 +2220,7 @@ const createSettingsStyles = (colors: any, isDark: boolean) => {
       width: 26,
       height: 26,
       borderRadius: 13,
-      backgroundColor: goldTint(isDark ? 0.10 : 0.08),
+      backgroundColor: localGoldTint(isDark ? 0.10 : 0.08),
       alignItems: 'center',
       justifyContent: 'center',
       marginRight: 6,
@@ -2178,7 +2266,7 @@ const createSettingsStyles = (colors: any, isDark: boolean) => {
       alignItems: 'center',
       paddingVertical: 12, // Reduced from 16
       borderBottomWidth: 0.5, // Thinner border
-      borderBottomColor: 'rgba(218, 165, 32, 0.15)', // Subtle gold border
+      borderBottomColor: subtleBorder, // Subtle gold border
     },
     settingLabel: {
       color: colors.text.primary,
@@ -2199,7 +2287,7 @@ const createSettingsStyles = (colors: any, isDark: boolean) => {
       borderRadius: 16,
       padding: 12,
       borderWidth: 0.5,
-      borderColor: 'rgba(218, 165, 32, 0.1)',
+      borderColor: faintBorder,
     },
     prayerNotificationItem: {
       flexDirection: 'row',
@@ -2207,12 +2295,12 @@ const createSettingsStyles = (colors: any, isDark: boolean) => {
       alignItems: 'center',
       paddingVertical: 10, // Reduced from 12
       borderBottomWidth: 0.5, // Thinner border
-      borderBottomColor: 'rgba(218, 165, 32, 0.15)', // Subtle gold border
+      borderBottomColor: subtleBorder, // Subtle gold border
     },
     prayerLabelContainer: {
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: 'rgba(218, 165, 32, 0.05)', // Add subtle background
+      backgroundColor: translucentGoldLayer, // Add subtle background
       borderRadius: 12,
       paddingHorizontal: 8,
       paddingVertical: 4,
@@ -2228,7 +2316,7 @@ const createSettingsStyles = (colors: any, isDark: boolean) => {
       borderRadius: 16, // Increased for elegant look
       overflow: 'hidden',
       borderWidth: 0.5, // Thinner border
-      borderColor: 'rgba(218, 165, 32, 0.2)', // Subtle gold border
+      borderColor: selectionBorder, // Subtle gold border
     },
     locationSelectorHeader: {
       flexDirection: 'row',
@@ -2246,7 +2334,7 @@ const createSettingsStyles = (colors: any, isDark: boolean) => {
     locationSelection: {
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: 'rgba(218, 165, 32, 0.05)', // Add subtle background
+      backgroundColor: translucentGoldLayer, // Add subtle background
       borderRadius: 12,
       paddingHorizontal: 8,
       paddingVertical: 4,
@@ -2265,7 +2353,7 @@ const createSettingsStyles = (colors: any, isDark: boolean) => {
       paddingVertical: 6, // Reduced from 8
       maxHeight: 200,
       borderWidth: 0.5, // Thinner border
-      borderColor: 'rgba(218, 165, 32, 0.2)', // Subtle gold border
+      borderColor: selectionBorder, // Subtle gold border
     },
     optionItem: {
       flexDirection: 'row',
@@ -2274,10 +2362,10 @@ const createSettingsStyles = (colors: any, isDark: boolean) => {
       paddingVertical: 10, // Reduced from 12
       paddingHorizontal: 16,
       borderBottomWidth: 0.5, // Thinner border
-      borderBottomColor: 'rgba(218, 165, 32, 0.15)', // Subtle gold border
+      borderBottomColor: subtleBorder, // Subtle gold border
     },
     selectedOptionItem: {
-      backgroundColor: 'rgba(218, 165, 32, 0.1)', // Subtle gold highlight
+      backgroundColor: selectionBg, // Subtle gold highlight
     },
     optionName: {
       color: colors.text.primary,
@@ -2298,7 +2386,7 @@ const createSettingsStyles = (colors: any, isDark: boolean) => {
       padding: 14, // Reduced from 16
       borderRadius: 16, // Increased for elegant look
       borderWidth: 0.5, // Thinner border
-      borderColor: 'rgba(218, 165, 32, 0.2)', // Subtle gold border
+      borderColor: selectionBorder, // Subtle gold border
     },
     locationSummaryText: {
       color: colors.text.primary,
@@ -2315,7 +2403,7 @@ const createSettingsStyles = (colors: any, isDark: boolean) => {
       borderRadius: 16,
       padding: 16,
       borderWidth: 0.5,
-      borderColor: 'rgba(218, 165, 32, 0.1)',
+      borderColor: faintBorder,
     },
     appVersion: {
       color: colors.text.primary,
@@ -2368,7 +2456,7 @@ const createSettingsStyles = (colors: any, isDark: boolean) => {
       borderRadius: 16,
       padding: 12,
       borderWidth: 0.5,
-      borderColor: 'rgba(218, 165, 32, 0.1)',
+      borderColor: faintBorder,
     },
     testButton: {
       flexDirection: 'row',
@@ -2397,10 +2485,10 @@ const createSettingsStyles = (colors: any, isDark: boolean) => {
       paddingVertical: 12, // Reduced from 16
       paddingHorizontal: 16, // Reduced from 20
       borderBottomWidth: 0.5, // Thinner border
-      borderBottomColor: 'rgba(218, 165, 32, 0.15)', // Subtle gold border
+      borderBottomColor: subtleBorder, // Subtle gold border
     },
     selectedLanguageOption: {
-      backgroundColor: 'rgba(218, 165, 32, 0.1)', // Subtle gold highlight
+      backgroundColor: selectionBg, // Subtle gold highlight
     },
     languageName: {
       color: colors.text.primary,
@@ -2435,7 +2523,7 @@ const createSettingsStyles = (colors: any, isDark: boolean) => {
       alignItems: 'center',
       paddingVertical: 12, // Reduced from 16
       borderBottomWidth: 0.5, // Thinner border
-      borderBottomColor: 'rgba(218, 165, 32, 0.15)', // Subtle gold border
+      borderBottomColor: subtleBorder, // Subtle gold border
     },
     soundPrefTextContainer: {
       flex: 1,

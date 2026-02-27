@@ -9,10 +9,68 @@ High-level architecture of the Prayer Times app.
 | Framework | React Native 0.79 + Expo SDK 53 |
 | Routing | Expo Router (file-based, tab group) |
 | State | React state + AsyncStorage for persistence |
-| Styling | StyleSheet + theme context (sepia light/dark) |
+| Styling | StyleSheet + theme context (5 themes) |
 | Notifications | Notifee + expo-notifications |
 | Networking | fetch (REST) |
 | Offline Storage | expo-file-system (large content), AsyncStorage (prefs/index), react-native-mmkv (fast KV) |
+
+## Color System
+
+The app supports 5 color themes, managed by `contexts/ThemeContext.js`:
+
+| Theme Name | Key Characteristics |
+|---|---|
+| Dark | Deep backgrounds, muted gold accent (#F0D661), high contrast |
+| Classic Light (Sepia) | Warm cream tones (#F8F5F0), champagne gold (#D4AF37), cozy feel |
+| Warm & Natural | Ivory backgrounds (#FAF8F3), antique gold (#C8A870), earthy warmth |
+| Cool & Modern | Slate backgrounds (#F8F9FA), silver-gold (#B8A565), professional |
+| Neutral & Minimal | Pure white (#FFFFFF), champagne gold (#D4AF37), clean minimalism |
+
+### Theme Palette Structure
+
+Each theme palette (`constants/*Colors.ts`) follows a consistent structure:
+
+```
+palette = {
+  background: { primary, secondary, tertiary, elevated },
+  surface: { primary, secondary, elevated, card, modal },
+  text: { primary, secondary, tertiary, inverse, muted },
+  accent: { gold, amber, copper, emerald, rose },
+  prayer: { fajr, sunrise, dhuhr, asr, maghrib, isha },
+  overlay: { light, medium, dark },
+  semantic: { success, warning, error, info, pending },
+  gradient: { primary: [start, middle, end], secondary: [...] }
+}
+```
+
+### Centralized Color Utilities
+
+`utils/colorHelpers.ts` provides theme-aware color manipulation:
+
+- **`goldTint(alpha, colors)`** – Creates RGBA gold overlay using the theme's gold accent
+- **`withAlpha(hex, alpha)`** – Adds alpha channel to any hex color
+- **`lighten(hex, amount)` / `darken(hex, amount)`** – Adjusts color brightness
+- **`getTimeBasedGradientColors(colors)`** – Returns gradient based on current time
+
+### Usage Pattern
+
+```tsx
+// In components, get colors from theme context
+const { colors, isDark } = useTheme();
+
+// Use centralized helpers for dynamic colors
+import { goldTint, withAlpha } from '../utils/colorHelpers';
+const gt = (alpha: number) => goldTint(alpha, colors);
+
+// Apply in styles
+<View style={{ borderColor: gt(0.2) }}>
+```
+
+### Migration Notes
+
+- All hardcoded `rgba(218, 165, 32, X)` values have been replaced with theme-aware `goldTint()` calls
+- Theme persistence uses AsyncStorage key `app_theme_mode_v2` (migrated from v1)
+- SplashScreen uses fixed SepiaColors (shown before theme context loads)
 
 ## Module Map
 
