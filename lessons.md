@@ -109,3 +109,42 @@ background.secondary - Cards, containers (slightly darker, warm tint)
 background.tertiary - Nested cards, items (darker still)
 surface.primary     - Reserved for pure white elements only (rarely appropriate in light mode)
 ```
+
+---
+
+## 2026-02-27: React act() batching with state setters
+
+### The Mistake
+
+When testing day navigation in `useHomePrayerData`, calling `goToNextDay()` multiple times inside a single `act()` block only increments `currentDay` by 1 instead of N. This is because React batches the `setCurrentDay` calls and each call reads the stale closure value (always 0).
+
+```ts
+// ❌ Bad: all calls read stale `currentDay` = 0, result = 1
+act(() => {
+  result.current.goToNextDay(); // 0 → 1
+  result.current.goToNextDay(); // 0 → 1 (stale!)
+  result.current.goToNextDay(); // 0 → 1 (stale!)
+});
+```
+
+### The Fix
+
+Use separate `act()` calls for each state update so React flushes between them:
+
+```ts
+// ✅ Good: each call sees updated state
+act(() => {
+  result.current.goToNextDay();
+}); // 0 → 1
+act(() => {
+  result.current.goToNextDay();
+}); // 1 → 2
+act(() => {
+  result.current.goToNextDay();
+}); // 2 → 3
+```
+
+### Prevention Strategy
+
+- When testing functions that depend on prior state updates, always use separate `act()` blocks
+- Use `jest.useFakeTimers()` + `jest.clearAllTimers()` in afterEach when hooks have `setInterval`/`setTimeout` to prevent timer leaks and "Cannot log after tests are done" warnings
