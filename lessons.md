@@ -148,3 +148,37 @@ act(() => {
 
 - When testing functions that depend on prior state updates, always use separate `act()` blocks
 - Use `jest.useFakeTimers()` + `jest.clearAllTimers()` in afterEach when hooks have `setInterval`/`setTimeout` to prevent timer leaks and "Cannot log after tests are done" warnings
+
+---
+
+## 2026-02-27: Never jest.mock('react-native') with requireActual Spread
+
+### The Mistake
+
+When writing tests for `useQuranData` and `useQuranAudio`, I used:
+
+```ts
+jest.mock("react-native", () => {
+  const RN = jest.requireActual("react-native");
+  return { ...RN, Keyboard: { dismiss: jest.fn() } };
+});
+```
+
+This triggered `Invariant Violation: TurboModuleRegistry.getEnforcing(...): 'DevMenu' could not be found` because spreading `jest.requireActual('react-native')` forces initialization of all native TurboModules, which fail in the Jest test environment.
+
+### The Fix
+
+Import the needed module normally, then use `jest.spyOn()` at the top level:
+
+```ts
+import { Keyboard, Alert } from "react-native";
+
+jest.spyOn(Keyboard, "dismiss").mockImplementation(() => true as any);
+jest.spyOn(Alert, "alert").mockImplementation(() => {});
+```
+
+### Prevention Strategy
+
+- **NEVER** use `jest.mock('react-native', () => ...)` in this project
+- Always import from `react-native` normally and spy on individual methods
+- Look at existing passing tests (e.g., `useSettingsDonation.test.ts`) for the correct pattern

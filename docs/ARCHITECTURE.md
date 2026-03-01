@@ -79,18 +79,28 @@ app/
   _layout.tsx          Root stack + providers (SafeArea, Theme, Language, RevenueCat)
   (tabs)/
     _layout.tsx        Tab navigator (Prayer Times, Dua, Quran, Qibla, Settings)
-    index.tsx          Home / Prayer Times screen orchestrator (910 lines — wires hooks, inline sub-components, JSX)
+    index.tsx          Home / Prayer Times screen orchestrator (508 lines — wires hooks to extracted sub-components)
     hooks/
       useHomeAppStateSync.ts  Home AppState/date-resume synchronization
     dua.tsx            Duas & Azkar screen
-    quran.tsx          Quran reader screen (surah list → reader → search)
+    quran.tsx          Quran reader orchestrator (652 lines — wires hooks, coordinator fns, inline views)
     qibla.tsx          Qibla compass screen
     settings.tsx       Settings orchestrator (277 lines — wires hooks to section components)
   components/
     home/              Home screen extracted components & types
       homeStyles.ts            Style factory: createHomeStyles(colors, isDark)
-      homeTypes.ts             PrayerData, NextPrayer, RegionItem, NotificationSettings
+      homeTypes.ts             PrayerData, NextPrayer, RegionItem, NotificationSettings, HomeStyles
       AnimatedPrayerIcon.tsx   Animated prayer icon component
+      MagicalButton.tsx        Themed button + arrow variant (shimmer, glow, shared via mbShared)
+      MagicalHeader.tsx        Animated header bar (title, refresh, donate)
+      MagicalFooter.tsx        Animated footer (moon icon, app name, star)
+      EnhancedCircularProgress.tsx  Circular countdown with SVG gradient & prayer info
+      RegionPicker.tsx         Modal for selecting prayer time region
+    quran/             Quran screen extracted components
+      quranStyles.ts           Static StyleSheet (165 lines, theme colors applied inline)
+      SurahListItem.tsx        React.memo surah list row (9 props)
+      FloatingAudioPlayer.tsx  Audio control overlay (18 props)
+      QuranSearchResults.tsx   Search result cards (8 props)
     settings/          Settings section components & modals
       settingsStyles.ts         Style factory: createSettingsStyles(colors, isDark)
       MagicalButton.tsx         Reusable animated theme-aware button
@@ -112,6 +122,10 @@ hooks/
     useHomeNotifications.ts     Notification lifecycle: init, polling, scheduling (308 lines)
     useHomePrayerData.ts        Prayer data engine: CSV fetch, countdown, day nav (709 lines)
     useHomeAnimations.ts        11 Animated.Values + time-based gradient (85 lines)
+  quran/
+    quranTypes.ts               Shared TypeScript interfaces (QuranFontSizes, AyahRefMatch, return types)
+    useQuranData.ts             Surah list/loading/search/prefs/bookmarks/fonts/theme/refs (339 lines)
+    useQuranAudio.ts            Audio playback, download, preload, auto-scroll (420 lines)
   settings/
     useSettingsQuranPrefs.ts     Quran edition/font/scroll/translation/reciter state
     useSettingsLocation.ts       Region cascading pickers + notification cancel on change
@@ -125,6 +139,9 @@ __tests__/
       useHomeAnimations.test.ts         5 tests
       useHomeNotifications.test.ts      10 tests
       useHomePrayerData.test.ts         19 tests
+    quran/
+      useQuranData.test.ts              20 tests
+      useQuranAudio.test.ts             16 tests
     settings/
       useSettingsDonation.test.ts       4 tests
       useSettingsLocation.test.ts       9 tests
@@ -137,6 +154,7 @@ lib/
 
 utils/
   quranStorage.ts      Quran offline download & cache management
+  quranHelpers.ts      Pure helpers: stripBismillah(), formatSize(), bismillah constants
   notifeePrayerService.js   Notification scheduling via Notifee
   prayerNotificationScheduler.ts  High-level notification orchestration
   backgroundTask.js    Expo background fetch registration
@@ -152,6 +170,7 @@ translations/
 constants/
   duas.ts              Dua/azkar data
   sepiaColors.ts       Theme colour palette
+  surahAliases.ts      Surah name alias map (134 entries) + ViewMode type
 
 widgets/
   widgetTaskHandler.ts Android widget bridge
@@ -232,4 +251,5 @@ User clears cached data from Settings
 15. **Iqama offsets** – Hardcoded offsets (Fajr 25, Dhuhr 20, Asr 20, Maghrib 10, Isha 20 min after adhan). Displayed as small text below prayer name; footer explains the convention. Sunrise excluded.
 16. **Home lifecycle isolation** – Foreground-resume date synchronization for Home is isolated in `useHomeAppStateSync` to avoid stale AppState/date closures and reduce crash risk during resume.
 17. **Settings modular architecture** – Settings screen (originally 2538 lines) split into 4 domain hooks + 10 section/modal components + 1 thin orchestrator (277 lines). Each hook owns its own state & persistence; components are pure presentational. The notification hook preserves the dual-library (Notifee + expo-notifications) architecture exactly — do NOT refactor the two-library pattern.
-18. **Home screen modular architecture** – Home/Prayer Times screen (originally 2696 lines) split into 4 domain hooks + 3 component/type files. `index.tsx` (910 lines) remains the orchestrator with inline sub-components (MagicalHeader, MagicalFooter, etc.) and cross-cutting logic (`changeRegion`). Hook dependency direction: `useHomeRegion` → independent; `useHomeNotifications` → uses refs for cross-domain data; `useHomePrayerData` → receives region params + scheduling callback via props. `useSettingsDonation` is shared between Settings and Home.
+18. **Home screen modular architecture** – Home/Prayer Times screen (originally 2696 lines) split into 4 domain hooks + 5 extracted sub-components + type/style files. `index.tsx` (508 lines) orchestrates hooks and renders extracted components. Sub-components receive props via explicit prop drilling; `mbShared` bundles common MagicalButton styling (borderColor, shimmerStyle, shimmerAnimation) to reduce repetition. Hook dependency direction: `useHomeRegion` → independent; `useHomeNotifications` → uses refs for cross-domain data; `useHomePrayerData` → receives region params + scheduling callback via props. `useSettingsDonation` is shared between Settings and Home.
+19. **Quran modular architecture** – Quran screen (originally 1811 lines) split into 2 domain hooks + 3 extracted sub-components + shared types + static styles. `quran.tsx` (652 lines) remains the orchestrator with coordinator functions (`handleReadingScroll`, `openSurah`, `goBack`) that bridge both hooks, plus inline render helpers for views that depend on too many local variables to extract cleanly. `useQuranData` owns all non-audio state; `useQuranAudio` owns playback, downloads, and preloading. `handleReadingScroll` must live in the component because it reads `ayahLayoutsRef` from audio and writes `topVisibleAyahRef` from data.

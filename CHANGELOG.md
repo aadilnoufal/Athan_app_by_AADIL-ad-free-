@@ -6,6 +6,16 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Quran screen refactored** – `quran.tsx` reduced from 1,811 → 652 lines (64% reduction). Extracted into:
+  - 2 domain hooks: `useQuranData` (339 lines) — data/prefs/search/bookmarks/fonts/theme; `useQuranAudio` (420 lines) — audio playback/download/auto-scroll
+  - 3 sub-components: `SurahListItem`, `FloatingAudioPlayer`, `QuranSearchResults`
+  - Static data: `constants/surahAliases.ts`, `utils/quranHelpers.ts`, `app/components/quran/quranStyles.ts`
+- **Home screen further refactored** – `index.tsx` reduced from 910 → 508 lines (44% reduction). Extracted 6 inline sub-components:
+  - `MagicalButton` + `MagicalArrowButton` — themed button with shimmer
+  - `MagicalHeader` — animated header bar
+  - `MagicalFooter` — animated footer with moon/star
+  - `EnhancedCircularProgress` — circular countdown with prayer info
+  - `RegionPicker` — region selection modal
 - **Settings screen refactored** – `settings.tsx` reduced from 2,538 → 277 lines (pure orchestrator). Extracted into:
   - 4 domain hooks: `useSettingsQuranPrefs`, `useSettingsLocation`, `useSettingsDonation`, `useSettingsNotifications`
   - 10 section/modal components in `app/components/settings/`
@@ -18,7 +28,8 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
-- **76 hook unit tests** covering all 8 extracted hooks:
+- **112 hook unit tests** covering all 10 extracted hooks:
+  - Quran: Data (20), Audio (16)
   - Settings: Donation (4), Location (9), Notifications (8), QuranPrefs (12)
   - Home: Region (8), Animations (5), Notifications (10), PrayerData (19)
 - **`@testing-library/react-native`** as dev dependency for hook testing

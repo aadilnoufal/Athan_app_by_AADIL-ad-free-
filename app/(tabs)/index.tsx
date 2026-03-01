@@ -10,13 +10,12 @@ import {
   Alert,
   Animated,
   Modal,
-  FlatList,
   AppState,
   Dimensions,
   Platform
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
+// react-native-svg imported by EnhancedCircularProgress component
 import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { format, addDays } from 'date-fns';
@@ -31,13 +30,19 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import RevenueCatPaywall from '../components/RevenueCatPaywall';
 import { createHomeStyles } from '../components/home/homeStyles';
 import AnimatedPrayerIcon from '../components/home/AnimatedPrayerIcon';
+import { MagicalButton, MagicalArrowButton } from '../components/home/MagicalButton';
+import type { MagicalButtonProps } from '../components/home/MagicalButton';
+import { MagicalHeader } from '../components/home/MagicalHeader';
+import { MagicalFooter } from '../components/home/MagicalFooter';
+import { EnhancedCircularProgress } from '../components/home/EnhancedCircularProgress';
+import { RegionPicker } from '../components/home/RegionPicker';
 import { useHomeAnimations } from '../../hooks/home/useHomeAnimations';
 import { useSettingsDonation } from '../../hooks/settings/useSettingsDonation';
 import { useHomeAppStateSync } from '../../hooks/useHomeAppStateSync';
 import { useHomeNotifications } from '../../hooks/home/useHomeNotifications';
 import { useHomeRegion } from '../../hooks/home/useHomeRegion';
 import { useHomePrayerData } from '../../hooks/home/useHomePrayerData';
-import type { RegionItem } from '../components/home/homeTypes';
+// RegionItem type now used inside RegionPicker component
 
 // Get screen dimensions for magical effects
 const { width: screenWidth } = Dimensions.get('window');
@@ -153,369 +158,17 @@ export default function Home() {
     getTimeBasedGradient,
   } = useHomeAnimations(colors, isDark);
 
-  // ✨ MAGICAL HEADER COMPONENT ✨
-  const MagicalHeader = () => (
-    // Ensure container doesn't eat touches on Android
-    <View
-      style={[styles.magicalHeader]}
-      pointerEvents="box-none"
-    >
-      {/* Header background glow */}
-      <Animated.View
-        style={[
-          styles.headerGlow,
-          {
-            opacity: headerGlowAnimation.interpolate({
-              inputRange: [0, 1],
-              outputRange: [0.2, 0.5]
-            })
-          }
-        ]}
-        pointerEvents="none"
-      />
+  // Shared props for all MagicalButton instances (borderColor, shimmer style + animation)
+  const mbShared: Pick<MagicalButtonProps, 'borderColor' | 'shimmerStyle' | 'shimmerAnimation'> = {
+    borderColor: gt(0.3),
+    shimmerStyle: styles.buttonShimmer,
+    shimmerAnimation: buttonShimmerAnimation,
+  };
 
-      {/* Header content */}
-      <View style={styles.header}>
-        <Animated.Text
-          style={[
-            styles.headerTitle,
-            {
-              transform: [{ scale: breathingAnimation }]
-            }
-          ]}
-        >
-          {t('appName')}
-        </Animated.Text>
-        <View style={styles.headerButtons}>
-          <MagicalButton
-            onPress={handleRefreshPress}
-            disabled={refreshing}
-            style={styles.refreshButton}
-          >
-            <Animated.View
-              style={[
-                {
-                  transform: [{
-                    rotate: refreshing ? refreshSpinAnimation.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: ['0deg', '360deg']
-                    }) : '0deg'
-                  }]
-                }
-              ]}
-            >
-              <MaterialCommunityIcons
-                name="refresh"
-                size={20}
-                color={C.accent.gold}
-              />
-            </Animated.View>
-          </MagicalButton>
+  // ── Inline sub-components removed: MagicalHeader, MagicalFooter,
+  // ── MagicalButton, MagicalArrowButton, EnhancedCircularProgress, RegionPicker
+  // ── (see app/components/home/)
 
-          <MagicalButton
-            onPress={openDonation}
-            style={styles.donateButton}
-            glowColor={C.accent.amber}
-          >
-            <MaterialCommunityIcons name="gift" size={20} color={C.text.inverse} />
-            <Text style={styles.donateText}>{t('supportApp')}</Text>
-          </MagicalButton>
-
-          {/* Language selector removed (moved to Settings screen) */}
-        </View>
-      </View>
-    </View>
-  );
-
-  // ✨ MAGICAL FOOTER COMPONENT ✨
-  const MagicalFooter = () => (
-    <Animated.View style={[
-      styles.magicalFooter,
-      {
-        opacity: footerBreathingAnimation.interpolate({
-          inputRange: [1, 1.05],
-          outputRange: [0.9, 1]
-        })
-      }
-    ]}>
-      {/* Footer background shimmer */}
-      <Animated.View
-        style={[
-          styles.footerShimmer,
-          {
-            opacity: footerShimmerAnimation.interpolate({
-              inputRange: [0, 0.5, 1],
-              outputRange: [0.1, 0.3, 0.1]
-            }),
-            transform: [{
-              translateX: footerShimmerAnimation.interpolate({
-                inputRange: [0, 1],
-                outputRange: [-100, screenWidth + 100]
-              })
-            }]
-          }
-        ]}
-      />
-
-      {/* Footer content */}
-      <View style={styles.footerContent}>
-        <Animated.View
-          style={[
-            styles.footerMoon,
-            {
-              transform: [
-                {
-                  scale: moonPhaseAnimation.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [1, 1.1]
-                  })
-                },
-                {
-                  rotate: moonPhaseAnimation.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: ['0deg', '15deg']
-                  })
-                }
-              ]
-            }
-          ]}
-        >
-          <MaterialCommunityIcons
-            name="moon-waning-crescent"
-            size={24}
-            color={C.accent.amber}
-            style={{ opacity: 0.8 }}
-          />
-        </Animated.View>
-
-        <Text style={styles.footerText}>
-          ✨ {t('appName')} - {new Date().getFullYear()} ✨
-        </Text>
-
-        <Animated.View
-          style={[
-            styles.footerStar,
-            {
-              transform: [
-                {
-                  scale: footerStarAnimation.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0.8, 1.2]
-                  })
-                },
-                {
-                  rotate: footerStarAnimation.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: ['0deg', '360deg']
-                  })
-                }
-              ]
-            }
-          ]}
-        >
-          <MaterialCommunityIcons
-            name="star-four-points"
-            size={20}
-            color={C.accent.gold}
-            style={{ opacity: 0.7 }}
-          />
-        </Animated.View>
-      </View>
-    </Animated.View>
-  );
-
-  // ✨ MAGICAL BUTTON COMPONENT ✨
-  const MagicalButton = ({
-    onPress,
-    onLongPress,
-    disabled = false,
-    style,
-    children,
-    glowColor = C.accent.gold,
-    pulseSize = 1.1
-  }: {
-    onPress?: () => void;
-    onLongPress?: () => void;
-    disabled?: boolean;
-    style?: any;
-    children: React.ReactNode;
-    glowColor?: string;
-    pulseSize?: number;
-  }) => (
-    // Ultra-simplified version
-    <TouchableOpacity
-      onPress={onPress}
-      onLongPress={onLongPress}
-      disabled={disabled}
-      activeOpacity={0.7}
-      style={[
-        {
-          // Basic styling
-          backgroundColor: 'rgba(255,255,255,0.1)',
-          padding: 8,
-          borderRadius: 8,
-          borderWidth: 1,
-          borderColor: gt(0.3),
-        },
-        // Re-enable passed styles now that we fixed the container issue
-        style
-      ]}
-    >
-      {/* Button shimmer effect */}
-      <Animated.View
-        style={[
-          styles.buttonShimmer,
-          {
-            opacity: buttonShimmerAnimation.interpolate({
-              inputRange: [0, 0.5, 1],
-              outputRange: [0, 0.2, 0]
-            }),
-            transform: [{
-              translateX: buttonShimmerAnimation.interpolate({
-                inputRange: [0, 1],
-                outputRange: [-100, 200]
-              })
-            }]
-          }
-        ]}
-        pointerEvents="none"
-      />
-      {children}
-    </TouchableOpacity>
-  );
-
-  // ✨ MAGICAL ARROW BUTTON ✨
-  const MagicalArrowButton = ({
-    direction,
-    onPress,
-    disabled = false,
-    iconName
-  }: {
-    direction: 'left' | 'right';
-    onPress: () => void;
-    disabled?: boolean;
-    iconName: string;
-  }) => (
-    <MagicalButton
-      onPress={onPress}
-      disabled={disabled}
-      style={[
-        styles.navButton,
-        {
-          opacity: disabled ? 0.4 : 1,
-        }
-      ]}
-      glowColor={disabled ? SepiaColors.special.disabled : SepiaColors.accent.gold}
-    // TODO: migrate remaining SepiaColors within styles at bottom to use theme
-    >
-      <Animated.View
-        style={[
-          {
-            transform: [
-              {
-                translateX: arrowBounceAnimation.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: direction === 'left' ? [-2, 2] : [2, -2]
-                })
-              },
-              { scale: breathingAnimation }
-            ]
-          }
-        ]}
-      >
-        <MaterialCommunityIcons
-          name={iconName as any}
-          size={28}
-          color={disabled ? SepiaColors.special.disabled : SepiaColors.accent.gold}
-        />
-      </Animated.View>
-    </MagicalButton>
-  );
-
-  // Enhanced circular progress with magical effects
-  const EnhancedCircularProgress = ({ progress, size, strokeWidth }: { progress: number, size: number, strokeWidth: number }) => (
-    <View style={styles.enhancedCircularContainer}>
-      {/* Magical background glow */}
-      <Animated.View
-        style={[
-          styles.circularGlow,
-          {
-            width: size + 40,
-            height: size + 40,
-            borderRadius: (size + 40) / 2,
-            opacity: glowAnimation.interpolate({
-              inputRange: [0, 1],
-              outputRange: [0.1, 0.2]
-            }),
-          }
-        ]}
-        pointerEvents="none"
-      />
-
-      {/* Main circular progress */}
-      <Svg width={size} height={size} style={styles.circularProgress}>
-        <Defs>
-          <LinearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            <Stop offset="0%" stopColor={SepiaColors.accent.gold} />
-            <Stop offset="50%" stopColor={SepiaColors.accent.amber} />
-            <Stop offset="100%" stopColor={SepiaColors.accent.copper} />
-          </LinearGradient>
-        </Defs>
-
-        {/* Background circle */}
-        <Circle
-          cx={size / 2}
-          cy={size / 2}
-          r={(size - strokeWidth) / 2}
-          stroke={SepiaColors.border.light}
-          strokeWidth={strokeWidth / 2}
-          fill="none"
-          opacity={0.3}
-        />
-
-        {/* Progress circle with gradient */}
-        <Circle
-          cx={size / 2}
-          cy={size / 2}
-          r={(size - strokeWidth) / 2}
-          stroke="url(#progressGradient)"
-          strokeWidth={strokeWidth}
-          strokeLinecap="round"
-          fill="none"
-          strokeDasharray={`${2 * Math.PI * ((size - strokeWidth) / 2)}`}
-          strokeDashoffset={`${2 * Math.PI * ((size - strokeWidth) / 2) * (1 - progress)}`}
-          transform={`rotate(-90 ${size / 2} ${size / 2})`}
-        />
-      </Svg>
-
-      {/* Center content with breathing animation */}
-      <Animated.View
-        style={[
-          styles.circularContent,
-          {
-            transform: [{ scale: breathingAnimation }]
-          }
-        ]}
-      >
-        {nextPrayer && (
-          <>
-            <AnimatedPrayerIcon
-              key={nextPrayer.name}
-              prayer={nextPrayer.name}
-              active={true}
-              size={32}
-              color={SepiaColors.accent.gold}
-              subtle
-            />
-            <Text style={styles.nextPrayerLabel}>{t('nextPrayer')}</Text>
-            <Text style={styles.nextPrayerName}>{t(nextPrayer.name)}</Text>
-            <Text style={styles.nextPrayerTime}>{nextPrayer.time}</Text>
-            <Text style={styles.countdown}>{countdown}</Text>
-          </>
-        )}
-      </Animated.View>
-    </View>
-  );
   // Support / Donation flow — reuses settings donation hook
   const { showPaywall, setShowPaywall, iapLoading, fetchOfferings, openDonation } = useSettingsDonation(t);
 
@@ -542,50 +195,6 @@ export default function Home() {
     const interval = setInterval(check, 1500);
     return () => { clearInterval(interval); if (timer) clearTimeout(timer); };
   }, [iapLoading]);
-
-  // Region selector component
-  const RegionPicker = () => (
-    <Modal
-      transparent={true}
-      visible={showRegionPicker}
-      animationType="fade"
-      onRequestClose={() => toggleModal(setShowRegionPicker)}
-    >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>{t('selectRegion')}</Text>
-            <TouchableOpacity onPress={() => toggleModal(setShowRegionPicker)}>
-              <MaterialCommunityIcons name="close" size={24} color={SepiaColors.text.primary} />
-            </TouchableOpacity>
-          </View>
-          <FlatList
-            data={availableRegions as RegionItem[]}
-            keyExtractor={(item: RegionItem) => item.id}
-            renderItem={({ item }: { item: RegionItem }) => (
-              <TouchableOpacity
-                style={[
-                  styles.regionItem,
-                  regionId === item.id && styles.selectedRegionItem
-                ]}
-                onPress={() => changeRegion(item.id)}
-              >
-                <Text style={[
-                  styles.regionName,
-                  regionId === item.id && styles.selectedRegionName
-                ]}>
-                  {item.name}
-                </Text>
-                {regionId === item.id && (
-                  <MaterialCommunityIcons name="check" size={20} color={SepiaColors.accent.gold} />
-                )}
-              </TouchableOpacity>
-            )}
-          />
-        </View>
-      </View>
-    </Modal>
-  );
 
   const changeRegion = async (newRegionId: string): Promise<void> => {
     try {
@@ -684,7 +293,16 @@ export default function Home() {
       <View style={styles.container}>
 
         {/* Region Picker Modal */}
-        <RegionPicker />
+        <RegionPicker
+          styles={styles}
+          t={t}
+          showRegionPicker={showRegionPicker}
+          setShowRegionPicker={setShowRegionPicker}
+          toggleModal={toggleModal}
+          availableRegions={availableRegions as any}
+          regionId={regionId}
+          changeRegion={changeRegion}
+        />
 
         {/* Support Paywall Modal */}
         {showPaywall && (
@@ -697,7 +315,18 @@ export default function Home() {
 
         {/* Reverted: separate header + location + date nav (tightened spacing) */}
         <View style={[styles.headerSection, { marginBottom: 4 }]}>
-          <MagicalHeader />
+          <MagicalHeader
+            styles={styles}
+            C={C}
+            t={t}
+            headerGlowAnimation={headerGlowAnimation}
+            breathingAnimation={breathingAnimation}
+            refreshSpinAnimation={refreshSpinAnimation}
+            handleRefreshPress={handleRefreshPress}
+            refreshing={refreshing}
+            openDonation={openDonation}
+            mbShared={mbShared}
+          />
           <MagicalButton
             style={[styles.enhancedLocationContainer, { paddingVertical: 8, marginTop: 4 }]}
             onPress={() => {
@@ -705,6 +334,7 @@ export default function Home() {
             }}
             disabled={regionChanging}
             glowColor={SepiaColors.accent.amber}
+            {...mbShared}
           >
             <View style={styles.locationIconWrapper}>
               <MaterialCommunityIcons name="map-marker" size={20} color={SepiaColors.accent.gold} />
@@ -726,7 +356,7 @@ export default function Home() {
         </View>
         <View style={[styles.dateNavigationSection, { marginBottom: 8 }]}>
           <View style={[styles.enhancedDateNav, { paddingVertical: 6 }]}>
-            <MagicalArrowButton direction="left" onPress={goToPreviousDay} disabled={currentDay === 0} iconName="chevron-left" />
+            <MagicalArrowButton direction="left" onPress={goToPreviousDay} disabled={currentDay === 0} iconName="chevron-left" arrowBounceAnimation={arrowBounceAnimation} breathingAnimation={breathingAnimation} navButtonStyle={styles.navButton} mbShared={mbShared} />
             <View style={styles.dateDisplayContainer}>
               <Text style={styles.primaryDateText}>
                 {currentDay === 0 ? t('today') : currentDay === 1 ? t('tomorrow') : `+${currentDay} ${t('days')}`}
@@ -735,7 +365,7 @@ export default function Home() {
                 <Text style={styles.secondaryDateText}>{format(addDays(new Date(), currentDay), 'MMM dd, yyyy')}</Text>
               )}
             </View>
-            <MagicalArrowButton direction="right" onPress={goToNextDay} disabled={currentDay === 9} iconName="chevron-right" />
+            <MagicalArrowButton direction="right" onPress={goToNextDay} disabled={currentDay === 9} iconName="chevron-right" arrowBounceAnimation={arrowBounceAnimation} breathingAnimation={breathingAnimation} navButtonStyle={styles.navButton} mbShared={mbShared} />
           </View>
           {currentDay > 1 && (
             <TouchableOpacity
@@ -778,6 +408,12 @@ export default function Home() {
                     progress={progressPercent}
                     size={Math.min(260, screenWidth * 0.75)}
                     strokeWidth={14}
+                    styles={styles}
+                    t={t}
+                    glowAnimation={glowAnimation}
+                    breathingAnimation={breathingAnimation}
+                    nextPrayer={nextPrayer}
+                    countdown={countdown}
                   />
                 </View>
               )}
@@ -898,7 +534,15 @@ export default function Home() {
               )}
 
               {/* ✨ MAGICAL FOOTER ✨ */}
-              <MagicalFooter />
+              <MagicalFooter
+                styles={styles}
+                C={C}
+                t={t}
+                footerBreathingAnimation={footerBreathingAnimation}
+                footerShimmerAnimation={footerShimmerAnimation}
+                moonPhaseAnimation={moonPhaseAnimation}
+                footerStarAnimation={footerStarAnimation}
+              />
             </ScrollView>
           )}
         </View>

@@ -1,6 +1,10 @@
 /**
  * Shared type definitions for the Home screen and its sub-components / hooks.
  */
+import type { createHomeStyles } from './homeStyles';
+
+/** Return type of createHomeStyles — shared across extracted sub-components */
+export type HomeStyles = ReturnType<typeof createHomeStyles>;
 
 /** Prayer times data for a single day */
 export interface PrayerData {
