@@ -79,7 +79,7 @@ app/
   _layout.tsx          Root stack + providers (SafeArea, Theme, Language, RevenueCat)
   (tabs)/
     _layout.tsx        Tab navigator (Prayer Times, Dua, Quran, Qibla, Settings)
-    index.tsx          Home / Prayer Times screen
+    index.tsx          Home / Prayer Times screen orchestrator (910 lines — wires hooks, inline sub-components, JSX)
     hooks/
       useHomeAppStateSync.ts  Home AppState/date-resume synchronization
     dua.tsx            Duas & Azkar screen
@@ -87,6 +87,10 @@ app/
     qibla.tsx          Qibla compass screen
     settings.tsx       Settings orchestrator (277 lines — wires hooks to section components)
   components/
+    home/              Home screen extracted components & types
+      homeStyles.ts            Style factory: createHomeStyles(colors, isDark)
+      homeTypes.ts             PrayerData, NextPrayer, RegionItem, NotificationSettings
+      AnimatedPrayerIcon.tsx   Animated prayer icon component
     settings/          Settings section components & modals
       settingsStyles.ts         Style factory: createSettingsStyles(colors, isDark)
       MagicalButton.tsx         Reusable animated theme-aware button
@@ -103,14 +107,24 @@ app/
   contexts/            React contexts (Theme, Language, RevenueCat)
 
 hooks/
+  home/
+    useHomeRegion.ts            Self-contained region state (130 lines)
+    useHomeNotifications.ts     Notification lifecycle: init, polling, scheduling (308 lines)
+    useHomePrayerData.ts        Prayer data engine: CSV fetch, countdown, day nav (709 lines)
+    useHomeAnimations.ts        11 Animated.Values + time-based gradient (85 lines)
   settings/
     useSettingsQuranPrefs.ts     Quran edition/font/scroll/translation/reciter state
     useSettingsLocation.ts       Region cascading pickers + notification cancel on change
-    useSettingsDonation.ts       RevenueCat paywall + fallback URL
+    useSettingsDonation.ts       RevenueCat paywall + fallback URL (shared with Home)
     useSettingsNotifications.ts  ⚠️ Dual-library (Notifee + expo-notifications) state & handlers
 
 __tests__/
   hooks/
+    home/
+      useHomeRegion.test.ts             8 tests
+      useHomeAnimations.test.ts         5 tests
+      useHomeNotifications.test.ts      10 tests
+      useHomePrayerData.test.ts         19 tests
     settings/
       useSettingsDonation.test.ts       4 tests
       useSettingsLocation.test.ts       9 tests
@@ -218,3 +232,4 @@ User clears cached data from Settings
 15. **Iqama offsets** – Hardcoded offsets (Fajr 25, Dhuhr 20, Asr 20, Maghrib 10, Isha 20 min after adhan). Displayed as small text below prayer name; footer explains the convention. Sunrise excluded.
 16. **Home lifecycle isolation** – Foreground-resume date synchronization for Home is isolated in `useHomeAppStateSync` to avoid stale AppState/date closures and reduce crash risk during resume.
 17. **Settings modular architecture** – Settings screen (originally 2538 lines) split into 4 domain hooks + 10 section/modal components + 1 thin orchestrator (277 lines). Each hook owns its own state & persistence; components are pure presentational. The notification hook preserves the dual-library (Notifee + expo-notifications) architecture exactly — do NOT refactor the two-library pattern.
+18. **Home screen modular architecture** – Home/Prayer Times screen (originally 2696 lines) split into 4 domain hooks + 3 component/type files. `index.tsx` (910 lines) remains the orchestrator with inline sub-components (MagicalHeader, MagicalFooter, etc.) and cross-cutting logic (`changeRegion`). Hook dependency direction: `useHomeRegion` → independent; `useHomeNotifications` → uses refs for cross-domain data; `useHomePrayerData` → receives region params + scheduling callback via props. `useSettingsDonation` is shared between Settings and Home.

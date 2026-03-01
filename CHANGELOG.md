@@ -10,11 +10,17 @@ All notable changes to this project will be documented in this file.
   - 4 domain hooks: `useSettingsQuranPrefs`, `useSettingsLocation`, `useSettingsDonation`, `useSettingsNotifications`
   - 10 section/modal components in `app/components/settings/`
   - Shared style factory `settingsStyles.ts` (838 lines)
-- **Updated ARCHITECTURE.md** – Added settings module map, hook/component inventory, and design decision #17
+- **Home screen refactored** – `index.tsx` reduced from 2,696 → 910 lines (orchestrator + inline sub-components). Extracted into:
+  - 4 domain hooks: `useHomeRegion` (130 lines), `useHomeNotifications` (308 lines), `useHomePrayerData` (709 lines), `useHomeAnimations` (85 lines)
+  - 3 component/type files: `homeStyles.ts`, `homeTypes.ts`, `AnimatedPrayerIcon.tsx`
+  - `useSettingsDonation` shared between Settings and Home (added `fetchOfferings`)
+- **Updated ARCHITECTURE.md** – Added settings module map, home module map, hook/component inventories, and design decisions #17–18
 
 ### Added
 
-- **33 hook unit tests** covering all 4 extracted settings hooks (Donation 4, Location 9, Notifications 8, QuranPrefs 12)
+- **76 hook unit tests** covering all 8 extracted hooks:
+  - Settings: Donation (4), Location (9), Notifications (8), QuranPrefs (12)
+  - Home: Region (8), Animations (5), Notifications (10), PrayerData (19)
 - **`@testing-library/react-native`** as dev dependency for hook testing
 
 ## [3.18.0] - 2026-02-26
