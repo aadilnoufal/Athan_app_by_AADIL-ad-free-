@@ -65,6 +65,7 @@ export function useSettingsDonation(t: TFunc) {
     showPaywall,
     setShowPaywall,
     iapLoading,
+    fetchOfferings,
     openDonation,
   };
 }
