@@ -311,7 +311,7 @@ export default {
   // ── Support / Paywall ──────────────────────────
   supportTitle: 'Support This App',
   supportSubtitle: 'This app is free — no ads, no tracking. If you find it useful, a small contribution helps cover yearly fees and future improvements.',
-  supportFreeForever: 'This app will always be completely free — no ads, no paywalls, no catch. Any support is entirely optional and simply helps cover the yearly developer account fees and fund future improvements. There is absolutely no pressure.',
+  supportFreeForever: 'This app will always be completely free — no ads, no paywalls, no catch. Any support is entirely optional and simply helps cover the yearly developer account fees and fund future improvements.',
   supportNoThanks: 'Maybe later',
   supportClose: 'Close',
   supportLoading: 'Loading options…',
