@@ -20,6 +20,7 @@ import { goldTint } from '../utils/colorHelpers';
 import { getRegionConfig, DEFAULT_REGION } from '../app/config/prayerTimeConfig';
 import type { Country } from '../app/config/prayerTimeConfig';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import notifee from '@notifee/react-native';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -61,6 +62,33 @@ export default function WelcomeSlides({ onComplete }: WelcomeSlidesProps) {
 
   // Setup state (slide 3)
   const [enableNotifs, setEnableNotifs] = useState(true);
+  const [batteryOptEnabled, setBatteryOptEnabled] = useState(false);
+  const [batteryCheckDone, setBatteryCheckDone] = useState(false);
+
+  // Detect battery optimization status on Android
+  useEffect(() => {
+    if (Platform.OS === 'android') {
+      notifee.isBatteryOptimizationEnabled()
+        .then((enabled) => {
+          setBatteryOptEnabled(enabled);
+          setBatteryCheckDone(true);
+        })
+        .catch(() => setBatteryCheckDone(true));
+    } else {
+      setBatteryCheckDone(true);
+    }
+  }, []);
+
+  const handleDisableBatteryOpt = useCallback(async () => {
+    try {
+      await notifee.openBatteryOptimizationSettings();
+      // Re-check after returning
+      const stillEnabled = await notifee.isBatteryOptimizationEnabled();
+      setBatteryOptEnabled(stillEnabled);
+    } catch (_) {
+      // Non-critical
+    }
+  }, []);
 
   // Entrance animation
   useEffect(() => {
@@ -286,6 +314,49 @@ export default function WelcomeSlides({ onComplete }: WelcomeSlidesProps) {
           </View>
         </View>
 
+        {/* Battery optimization card (Android only) */}
+        {Platform.OS === 'android' && batteryCheckDone && batteryOptEnabled && (
+          <TouchableOpacity
+            onPress={handleDisableBatteryOpt}
+            style={[
+              localStyles.setupCard,
+              { backgroundColor: surfaceBg, borderColor: gt(0.25) },
+            ]}
+            activeOpacity={0.7}
+          >
+            <View style={localStyles.setupCardRow}>
+              <MaterialCommunityIcons name="battery-alert-variant-outline" size={24} color={gold} />
+              <View style={{ flex: 1 }}>
+                <Text style={[localStyles.setupCardLabel, { color: textPrimary }]}>
+                  {t('onboardingBatteryOptTitle')}
+                </Text>
+                <Text style={[localStyles.batteryHint, { color: textSecondary }]}>
+                  {t('onboardingBatteryOptDesc')}
+                </Text>
+              </View>
+              <MaterialCommunityIcons name="chevron-right" size={22} color={gold} />
+            </View>
+          </TouchableOpacity>
+        )}
+
+        {/* Battery optimization disabled confirmation */}
+        {Platform.OS === 'android' && batteryCheckDone && !batteryOptEnabled && (
+          <View
+            style={[
+              localStyles.setupCard,
+              { backgroundColor: surfaceBg, borderColor: gt(0.15) },
+            ]}
+          >
+            <View style={localStyles.setupCardRow}>
+              <MaterialCommunityIcons name="battery-check-outline" size={24} color={gold} />
+              <Text style={[localStyles.setupCardLabel, { color: textPrimary }]}>
+                {t('onboardingBatteryOptDone')}
+              </Text>
+              <MaterialCommunityIcons name="check-circle" size={20} color={gold} />
+            </View>
+          </View>
+        )}
+
         {/* Hint text */}
         <Text style={[localStyles.setupHint, { color: textSecondary }]}>
           {t('tooltipSettingsLocation')}
@@ -510,7 +581,7 @@ const localStyles = StyleSheet.create({
     padding: 16,
     borderRadius: 14,
     borderWidth: 1,
-    marginTop: 24,
+    marginTop: 16,
   },
   setupCardRow: {
     flexDirection: 'row',
@@ -521,6 +592,11 @@ const localStyles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     fontWeight: '500',
+  },
+  batteryHint: {
+    fontSize: 12,
+    lineHeight: 16,
+    marginTop: 2,
   },
   setupHint: {
     fontSize: 13,

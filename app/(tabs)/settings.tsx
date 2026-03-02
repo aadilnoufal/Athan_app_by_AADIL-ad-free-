@@ -11,7 +11,7 @@ import {
   TranslationPickerModal,
   ReciterPickerModal,
 } from '../components/settings';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   StyleSheet,
   Text,
@@ -45,12 +45,28 @@ export default function SettingsScreen() {
   // Onboarding tooltips
   const { shouldShowTooltip, completeTooltip } = useOnboarding();
   const [showSettingsTooltips, setShowSettingsTooltips] = useState(false);
+  const settingsScrollRef = useRef<ScrollView>(null);
+  // Y-positions of sections: [Location, Notification, QuranSettings]
+  const sectionYPositions = useRef<number[]>([0, 0, 0]);
+
   useEffect(() => {
     if (shouldShowTooltip('settings')) {
       const timer = setTimeout(() => setShowSettingsTooltips(true), 600);
       return () => clearTimeout(timer);
     }
   }, [shouldShowTooltip]);
+
+  /**
+   * Before each settings tooltip is shown, scroll to the corresponding section.
+   * Index 0 → Location, Index 1 → Notification, Index 2 → Quran Settings.
+   */
+  const handleSettingsBeforeShow = useCallback(async (index: number) => {
+    const y = sectionYPositions.current[index] || 0;
+    settingsScrollRef.current?.scrollTo({ y, animated: true });
+    // Give the scroll animation time to settle
+    await new Promise<void>(resolve => setTimeout(resolve, 400));
+  }, []);
+
 
   // Notifications (all state, loading, and handlers via custom hook — DO NOT INLINE)
   const {
@@ -186,6 +202,7 @@ export default function SettingsScreen() {
         <StandardHeader />
 
         <ScrollView
+          ref={settingsScrollRef}
           style={styles.enhancedScrollView}
           contentContainerStyle={styles.enhancedScrollViewContent}
           showsVerticalScrollIndicator={false}
@@ -215,6 +232,7 @@ export default function SettingsScreen() {
             t={t}
           />
 
+          <View onLayout={(e) => { sectionYPositions.current[1] = e.nativeEvent.layout.y; }}>
           <NotificationSection
             colors={C}
             notificationsEnabled={notificationsEnabled}
@@ -228,7 +246,9 @@ export default function SettingsScreen() {
             styles={styles}
             t={t}
           />
+          </View>
 
+          <View onLayout={(e) => { sectionYPositions.current[0] = e.nativeEvent.layout.y; }}>
           <LocationSection
             colors={C}
             countries={countries}
@@ -244,7 +264,9 @@ export default function SettingsScreen() {
             styles={styles}
             t={t}
           />
+          </View>
 
+          <View onLayout={(e) => { sectionYPositions.current[2] = e.nativeEvent.layout.y; }}>
           <QuranSettingsSection
             colors={C}
             isDark={isDark}
@@ -270,6 +292,7 @@ export default function SettingsScreen() {
             styles={styles}
             t={t}
           />
+          </View>
 
           <AboutSection
             colors={C}
@@ -311,6 +334,7 @@ export default function SettingsScreen() {
       {showSettingsTooltips && (
         <OnboardingTooltips
           tooltips={SETTINGS_TOOLTIPS}
+          onBeforeShow={handleSettingsBeforeShow}
           onComplete={() => {
             setShowSettingsTooltips(false);
             completeTooltip('settings');

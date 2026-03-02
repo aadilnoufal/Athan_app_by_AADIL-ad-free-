@@ -31,11 +31,18 @@ interface OnboardingTooltipsProps {
   tooltips: TooltipItem[];
   /** Called when all tooltips have been dismissed */
   onComplete: () => void;
+  /**
+   * Optional callback fired before each tooltip is shown.
+   * Receives the tooltip index — use it for scrolling to the relevant section.
+   * Return a promise if the scroll/animation needs to finish before the tooltip appears.
+   */
+  onBeforeShow?: (index: number) => void | Promise<void>;
 }
 
 export default function OnboardingTooltips({
   tooltips,
   onComplete,
+  onBeforeShow,
 }: OnboardingTooltipsProps) {
   const { colors, isDark } = useTheme();
   const { t } = useLanguage();
@@ -49,23 +56,29 @@ export default function OnboardingTooltips({
   const textPrimary = colors.text.primary;
   const textSecondary = colors.text.secondary;
 
-  // Animate in when index changes
+  // Animate in when index changes, calling onBeforeShow first
   useEffect(() => {
-    fadeAnim.setValue(0);
-    scaleAnim.setValue(0.85);
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        tension: 60,
-        friction: 8,
-        useNativeDriver: true,
-      }),
-    ]).start();
+    const show = async () => {
+      if (onBeforeShow) {
+        await onBeforeShow(currentIndex);
+      }
+      fadeAnim.setValue(0);
+      scaleAnim.setValue(0.85);
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          tension: 60,
+          friction: 8,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    };
+    show();
   }, [currentIndex]);
 
   const handleNext = useCallback(() => {
@@ -213,14 +226,14 @@ export const QURAN_TOOLTIPS: TooltipItem[] = [
     position: 'top',
   },
   {
-    messageKey: 'tooltipQuranTapAyah',
-    icon: 'play-circle-outline',
+    messageKey: 'tooltipQuranAudioPlayer',
+    icon: 'music-box-outline',
     position: 'center',
   },
   {
-    messageKey: 'tooltipQuranSettings',
-    icon: 'cog-outline',
-    position: 'bottom',
+    messageKey: 'tooltipQuranBookmark',
+    icon: 'bookmark-outline',
+    position: 'center',
   },
 ];
 
@@ -236,7 +249,7 @@ export const SETTINGS_TOOLTIPS: TooltipItem[] = [
   {
     messageKey: 'tooltipSettingsLocation',
     icon: 'map-marker-outline',
-    position: 'top',
+    position: 'center',
   },
   {
     messageKey: 'tooltipSettingsNotifications',
@@ -246,7 +259,7 @@ export const SETTINGS_TOOLTIPS: TooltipItem[] = [
   {
     messageKey: 'tooltipSettingsQuran',
     icon: 'book-open-page-variant',
-    position: 'bottom',
+    position: 'center',
   },
 ];
 
