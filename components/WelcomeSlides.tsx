@@ -21,6 +21,7 @@ import { getRegionConfig, DEFAULT_REGION } from '../app/config/prayerTimeConfig'
 import type { Country } from '../app/config/prayerTimeConfig';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import notifee from '@notifee/react-native';
+import { getAllTranslations } from '../translations';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -46,9 +47,17 @@ interface WelcomeSlidesProps {
 
 export default function WelcomeSlides({ onComplete }: WelcomeSlidesProps) {
   const { colors, isDark } = useTheme();
-  const { t } = useLanguage();
+  const { t, changeLanguage, language } = useLanguage();
   const insets = useSafeAreaInsets();
   const gt = (alpha: number) => goldTint(alpha, colors);
+
+  // Track selected language for visual highlight (initialise from context)
+  const [selectedLang, setSelectedLang] = useState<'en' | 'ar'>(language === 'ar' ? 'ar' : 'en');
+
+  const handleLanguageSelect = useCallback((lang: 'en' | 'ar') => {
+    setSelectedLang(lang);
+    changeLanguage(lang);
+  }, [changeLanguage]);
 
   const scrollRef = useRef<ScrollView>(null);
   const [currentPage, setCurrentPage] = useState(0);
@@ -203,6 +212,51 @@ export default function WelcomeSlides({ onComplete }: WelcomeSlidesProps) {
         <Text style={[localStyles.desc, { color: textSecondary }]}>
           {t('onboardingWelcomeDesc')}
         </Text>
+
+        {/* Language picker */}
+        <View style={localStyles.langRow}>
+          <TouchableOpacity
+            onPress={() => handleLanguageSelect('en')}
+            style={[
+              localStyles.langBtn,
+              {
+                backgroundColor: selectedLang === 'en' ? gold : surfaceBg,
+                borderColor: selectedLang === 'en' ? gold : gt(0.2),
+              },
+            ]}
+            activeOpacity={0.7}
+          >
+            <Text
+              style={[
+                localStyles.langBtnText,
+                { color: selectedLang === 'en' ? colors.text.inverse : textPrimary },
+              ]}
+            >
+              English
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => handleLanguageSelect('ar')}
+            style={[
+              localStyles.langBtn,
+              {
+                backgroundColor: selectedLang === 'ar' ? gold : surfaceBg,
+                borderColor: selectedLang === 'ar' ? gold : gt(0.2),
+              },
+            ]}
+            activeOpacity={0.7}
+          >
+            <Text
+              style={[
+                localStyles.langBtnText,
+                { color: selectedLang === 'ar' ? colors.text.inverse : textPrimary },
+              ]}
+            >
+              العربية
+            </Text>
+          </TouchableOpacity>
+        </View>
 
         {/* Decorative crescent */}
         <View style={localStyles.crescentRow}>
@@ -508,6 +562,22 @@ const localStyles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     marginTop: 8,
+  },
+  langRow: {
+    flexDirection: 'row',
+    gap: 14,
+    marginTop: 4,
+    marginBottom: 20,
+  },
+  langBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 24,
+    borderRadius: 22,
+    borderWidth: 1.5,
+  },
+  langBtnText: {
+    fontSize: 15,
+    fontWeight: '600',
   },
   dividerLine: {
     width: 40,

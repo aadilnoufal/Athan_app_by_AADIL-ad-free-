@@ -309,4 +309,20 @@ export default {
   tooltipSettingsQuran: 'اختر الخط والترجمة والقارئ المفضل لديك',
   tooltipGotIt: 'فهمت',
   tooltipDuaCategories: 'اضغط على فئة لتوسيعها وقراءة الأدعية بداخلها',
+
+  // ── الدعم / صفحة التبرع ──────────────────────────
+  supportTitle: 'ادعم هذا التطبيق',
+  supportSubtitle: 'هذا التطبيق مجاني — بدون إعلانات أو تتبع. إذا وجدته مفيدًا، فإن مساهمة صغيرة تساعد في تغطية الرسوم السنوية والتحسينات المستقبلية.',
+  supportFreeForever: 'التطبيق سيبقى مجانيًا للأبد — الدعم اختياري تمامًا.',
+  supportNoThanks: 'لا شكرًا',
+  supportClose: 'إغلاق',
+  supportLoading: 'جاري التحميل…',
+  supportNoProducts: 'لا توجد خيارات متاحة حاليًا. يرجى المحاولة لاحقًا.',
+  supportRetry: 'إعادة المحاولة',
+  supportNotMobile: 'عمليات الشراء داخل التطبيق متاحة فقط على الأجهزة المحمولة.',
+  supportThankYou: 'شكرًا لدعمك الكريم!',
+  supportSecure: 'يتم التعامل بأمان عبر {store}.',
+  supportRestore: 'استعادة المشتريات',
+  supportPolicy: 'الشروط وسياسة الخصوصية',
+  supportProcessing: 'جارٍ المعالجة…',
 };

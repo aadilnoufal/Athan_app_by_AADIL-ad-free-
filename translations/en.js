@@ -307,4 +307,20 @@ export default {
   tooltipSettingsQuran: 'Choose your preferred font, translation & reciter',
   tooltipGotIt: 'Got it',
   tooltipDuaCategories: 'Tap a category to expand and read the duas inside',
+
+  // ── Support / Paywall ──────────────────────────
+  supportTitle: 'Support This App',
+  supportSubtitle: 'This app is free — no ads, no tracking. If you find it useful, a small contribution helps cover yearly fees and future improvements.',
+  supportFreeForever: 'The app stays free forever — support is entirely optional.',
+  supportNoThanks: 'No thanks',
+  supportClose: 'Close',
+  supportLoading: 'Loading options…',
+  supportNoProducts: 'No options available right now. Please try again later.',
+  supportRetry: 'Retry',
+  supportNotMobile: 'In-app purchases are only available on mobile devices.',
+  supportThankYou: 'Thank you for your generous support!',
+  supportSecure: 'Handled securely by {store}.',
+  supportRestore: 'Restore Purchases',
+  supportPolicy: 'Terms & Privacy Policy',
+  supportProcessing: 'Processing…',
 };
