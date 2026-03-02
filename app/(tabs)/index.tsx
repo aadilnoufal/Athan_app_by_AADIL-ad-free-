@@ -320,8 +320,8 @@ export default function Home() {
 
         {/* Support Paywall Modal */}
         {showPaywall && (
-          <Modal animationType="slide" transparent visible={showPaywall} onRequestClose={() => setShowPaywall(false)}>
-            <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.85)' }}>
+          <Modal animationType="fade" transparent visible={showPaywall} onRequestClose={() => setShowPaywall(false)}>
+            <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }}>
               <RevenueCatPaywall onClose={() => setShowPaywall(false)} />
             </View>
           </Modal>

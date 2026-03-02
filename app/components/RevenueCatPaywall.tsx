@@ -7,9 +7,7 @@ import {
   Platform,
   ActivityIndicator,
   Linking,
-  ScrollView,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { usePurchase } from '../contexts/RevenueCatContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -21,7 +19,7 @@ interface RevenueCatPaywallProps {
 }
 
 const RevenueCatPaywall: React.FC<RevenueCatPaywallProps> = ({ onClose }) => {
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
   const { t } = useLanguage();
   const gt = (alpha: number) => goldTint(alpha, colors);
   const {
@@ -45,361 +43,253 @@ const RevenueCatPaywall: React.FC<RevenueCatPaywallProps> = ({ onClose }) => {
   const isMobile = isIOS || isAndroid;
 
   const gold = colors.accent.gold;
-  const textPrimary = colors.text.primary;
-  const textSecondary = colors.text.secondary;
+  const txt = colors.text.primary;
+  const txt2 = colors.text.secondary;
   const surface = colors.surface.primary;
   const bg = colors.background.primary;
 
-  // ── Non-mobile fallback ───────────────────────────
+  // ── Shared card wrapper ────────────────────────────
+  const CardWrap = ({ children }: { children: React.ReactNode }) => (
+    <View style={s.backdrop}>
+      <View style={[s.card, { backgroundColor: bg, borderColor: gt(0.12) }]}>
+        {children}
+      </View>
+    </View>
+  );
+
+  // ── Non-mobile fallback ────────────────────────────
   if (!isMobile) {
     return (
-      <View style={[s.centered, { backgroundColor: bg }]}>
-        <MaterialCommunityIcons name="heart-outline" size={48} color={gt(0.5)} />
-        <Text style={[s.title, { color: textPrimary }]}>{t('supportTitle')}</Text>
-        <Text style={[s.body, { color: textSecondary }]}>{t('supportNotMobile')}</Text>
+      <CardWrap>
+        <Text style={[s.title, { color: txt }]}>{t('supportTitle')}</Text>
+        <Text style={[s.sub, { color: txt2 }]}>{t('supportNotMobile')}</Text>
         {onClose && (
-          <TouchableOpacity onPress={onClose} style={[s.closeBar, { backgroundColor: surface, borderColor: gt(0.15) }]}>
-            <Text style={[s.closeBtnText, { color: textPrimary }]}>{t('supportClose')}</Text>
+          <TouchableOpacity onPress={onClose} style={[s.noThanks, { borderColor: gt(0.15) }]}>
+            <Text style={[s.noThanksText, { color: txt2 }]}>{t('supportClose')}</Text>
           </TouchableOpacity>
         )}
-      </View>
+      </CardWrap>
     );
   }
 
-  // ── Loading state ──────────────────────────────────
+  // ── Loading ────────────────────────────────────────
   if (loading) {
     return (
-      <View style={[s.centered, { backgroundColor: bg }]}>
-        <ActivityIndicator size="large" color={gold} />
-        <Text style={[s.body, { color: textSecondary, marginTop: 12 }]}>{t('supportLoading')}</Text>
-      </View>
+      <CardWrap>
+        <ActivityIndicator size="small" color={gold} />
+        <Text style={[s.sub, { color: txt2, marginTop: 8 }]}>{t('supportLoading')}</Text>
+      </CardWrap>
     );
   }
 
-  // ── No packages available ──────────────────────────
+  // ── No products ────────────────────────────────────
   if (packages.length === 0 && products.length === 0) {
     return (
-      <View style={[s.centered, { backgroundColor: bg }]}>
-        <MaterialCommunityIcons name="heart-outline" size={48} color={gt(0.5)} />
-        <Text style={[s.title, { color: textPrimary }]}>{t('supportTitle')}</Text>
-        <Text style={[s.body, { color: textSecondary }]}>{t('supportNoProducts')}</Text>
+      <CardWrap>
+        <Text style={[s.title, { color: txt }]}>{t('supportTitle')}</Text>
+        <Text style={[s.sub, { color: txt2 }]}>{t('supportNoProducts')}</Text>
         <TouchableOpacity
-          style={[s.secondaryBtn, { borderColor: gt(0.2) }]}
+          style={[s.retryBtn, { borderColor: gt(0.2) }]}
           onPress={() => { fetchOfferings(); fetchProducts(); }}
         >
-          <Text style={[s.secondaryBtnText, { color: gold }]}>{t('supportRetry')}</Text>
+          <Text style={[s.retryText, { color: gold }]}>{t('supportRetry')}</Text>
         </TouchableOpacity>
         {onClose && (
-          <TouchableOpacity onPress={onClose} style={[s.closeBar, { backgroundColor: surface, borderColor: gt(0.15) }]}>
-            <Text style={[s.closeBtnText, { color: textPrimary }]}>{t('supportClose')}</Text>
+          <TouchableOpacity onPress={onClose} style={[s.noThanks, { borderColor: gt(0.15) }]}>
+            <Text style={[s.noThanksText, { color: txt2 }]}>{t('supportClose')}</Text>
           </TouchableOpacity>
         )}
-      </View>
+      </CardWrap>
     );
   }
 
-  // ── Main paywall ───────────────────────────────────
+  // ── Main paywall (compact card) ────────────────────
   return (
-    <SafeAreaView style={[s.safeArea, { backgroundColor: bg }]} edges={['top', 'bottom']}>
-      {/* ── Prominent dismiss bar at the top ── */}
-      {onClose && (
-        <TouchableOpacity
-          onPress={onClose}
-          style={[s.dismissRow, { borderBottomColor: gt(0.1) }]}
-          activeOpacity={0.6}
-        >
-          <MaterialCommunityIcons name="close" size={22} color={textSecondary} />
-          <Text style={[s.dismissText, { color: textSecondary }]}>{t('supportNoThanks')}</Text>
-        </TouchableOpacity>
-      )}
+    <View style={s.backdrop}>
+      <View style={[s.card, { backgroundColor: bg, borderColor: gt(0.12) }]}>
+        {/* Close X — top right */}
+        {onClose && (
+          <TouchableOpacity onPress={onClose} style={s.closeX} activeOpacity={0.6} hitSlop={12}>
+            <MaterialCommunityIcons name="close" size={20} color={txt2} />
+          </TouchableOpacity>
+        )}
 
-      <ScrollView
-        contentContainerStyle={s.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Heart icon */}
-        <View style={[s.iconCircle, { backgroundColor: gt(0.08) }]}>
-          <MaterialCommunityIcons name="hand-heart-outline" size={40} color={gold} />
-        </View>
-
-        <Text style={[s.title, { color: textPrimary }]}>{t('supportTitle')}</Text>
-        <Text style={[s.subtitle, { color: textSecondary }]}>{t('supportSubtitle')}</Text>
-
-        {/* Core promise */}
-        <View style={[s.promiseCard, { backgroundColor: surface, borderColor: gt(0.1) }]}>
-          <MaterialCommunityIcons name="infinity" size={18} color={gold} style={{ marginRight: 8 }} />
-          <Text style={[s.promiseText, { color: textSecondary }]}>{t('supportFreeForever')}</Text>
-        </View>
+        {/* Icon + title */}
+        <MaterialCommunityIcons name="hand-heart-outline" size={30} color={gold} style={{ marginBottom: 6 }} />
+        <Text style={[s.title, { color: txt }]}>{t('supportTitle')}</Text>
+        <Text style={[s.sub, { color: txt2 }]}>{t('supportFreeForever')}</Text>
 
         {hasActiveEntitlements && (
-          <View style={[s.successCard, { backgroundColor: gt(0.08), borderColor: gt(0.2) }]}>
-            <MaterialCommunityIcons name="check-circle" size={20} color={gold} />
-            <Text style={[s.successText, { color: textPrimary }]}>{t('supportThankYou')}</Text>
+          <View style={[s.successRow, { backgroundColor: gt(0.08) }]}>
+            <MaterialCommunityIcons name="check-circle" size={16} color={gold} />
+            <Text style={[s.successText, { color: txt }]}>{t('supportThankYou')}</Text>
           </View>
         )}
 
-        {/* Purchase options — subtler cards */}
+        {/* Product rows */}
         {packages.map((pkg) => (
           <TouchableOpacity
             key={pkg.identifier}
-            style={[s.productCard, { backgroundColor: surface, borderColor: gt(0.15) }, isPurchasing && s.disabledCard]}
+            style={[s.row, { backgroundColor: surface, borderColor: gt(0.12) }, isPurchasing && s.disabled]}
             disabled={isPurchasing}
             onPress={() => purchase(pkg)}
             activeOpacity={0.7}
           >
-            <View style={s.productInfo}>
-              <Text style={[s.productTitle, { color: textPrimary }]}>
-                {pkg.product.title || pkg.identifier}
-              </Text>
-              {!!pkg.product.description && (
-                <Text style={[s.productDesc, { color: textSecondary }]} numberOfLines={2}>
-                  {pkg.product.description}
-                </Text>
-              )}
-            </View>
-            <View style={[s.priceChip, { backgroundColor: gt(0.1), borderColor: gt(0.2) }]}>
-              <Text style={[s.priceText, { color: gold }]}>{pkg.product.priceString}</Text>
-            </View>
+            <Text style={[s.rowTitle, { color: txt }]} numberOfLines={1}>
+              {pkg.product.title || pkg.identifier}
+            </Text>
+            <Text style={[s.rowPrice, { color: gold }]}>{pkg.product.priceString}</Text>
           </TouchableOpacity>
         ))}
 
         {products.map((p) => (
           <TouchableOpacity
             key={p.identifier}
-            style={[s.productCard, { backgroundColor: surface, borderColor: gt(0.15) }, isPurchasing && s.disabledCard]}
+            style={[s.row, { backgroundColor: surface, borderColor: gt(0.12) }, isPurchasing && s.disabled]}
             disabled={isPurchasing}
             onPress={() => purchaseProductById(p.identifier)}
             activeOpacity={0.7}
           >
-            <View style={s.productInfo}>
-              <Text style={[s.productTitle, { color: textPrimary }]}>
-                {p.title || p.identifier}
-              </Text>
-              {!!p.description && (
-                <Text style={[s.productDesc, { color: textSecondary }]} numberOfLines={2}>
-                  {p.description}
-                </Text>
-              )}
-            </View>
-            <View style={[s.priceChip, { backgroundColor: gt(0.1), borderColor: gt(0.2) }]}>
-              <Text style={[s.priceText, { color: gold }]}>{p.priceString}</Text>
-            </View>
+            <Text style={[s.rowTitle, { color: txt }]} numberOfLines={1}>
+              {p.title || p.identifier}
+            </Text>
+            <Text style={[s.rowPrice, { color: gold }]}>{p.priceString}</Text>
           </TouchableOpacity>
         ))}
 
-        {/* Footer text */}
-        <Text style={[s.footerText, { color: textSecondary }]}>
-          {t('supportSecure').replace('{store}', isIOS ? 'Apple' : 'Google Play')}
-        </Text>
+        {/* Inline links: Restore · Privacy */}
+        <View style={s.linksRow}>
+          <TouchableOpacity onPress={restorePurchases} activeOpacity={0.6}>
+            <Text style={[s.link, { color: gold }]}>{t('supportRestore')}</Text>
+          </TouchableOpacity>
+          <Text style={[s.dot, { color: txt2 }]}>·</Text>
+          <TouchableOpacity
+            onPress={() => Linking.openURL('https://sites.google.com/view/privacy-policy-athan-app?usp=sharing')}
+            activeOpacity={0.6}
+          >
+            <Text style={[s.link, { color: txt2 }]}>{t('supportPolicy')}</Text>
+          </TouchableOpacity>
+        </View>
 
-        {/* Restore + policy */}
-        <TouchableOpacity onPress={restorePurchases} style={s.linkBtn} activeOpacity={0.6}>
-          <Text style={[s.linkText, { color: gold }]}>{t('supportRestore')}</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={() => Linking.openURL('https://sites.google.com/view/privacy-policy-athan-app?usp=sharing')}
-          style={s.linkBtn}
-          activeOpacity={0.6}
-        >
-          <Text style={[s.linkText, { color: textSecondary }]}>{t('supportPolicy')}</Text>
-        </TouchableOpacity>
-
-        {/* Bottom close */}
+        {/* No thanks */}
         {onClose && (
-          <TouchableOpacity onPress={onClose} style={[s.closeBar, { backgroundColor: surface, borderColor: gt(0.15) }]}>
-            <Text style={[s.closeBtnText, { color: textPrimary }]}>{t('supportClose')}</Text>
+          <TouchableOpacity onPress={onClose} style={[s.noThanks, { borderColor: gt(0.15) }]} activeOpacity={0.6}>
+            <Text style={[s.noThanksText, { color: txt2 }]}>{t('supportNoThanks')}</Text>
           </TouchableOpacity>
         )}
-      </ScrollView>
+      </View>
 
       {/* Purchasing overlay */}
       {isPurchasing && (
         <View style={s.overlay} pointerEvents="auto">
-          <View style={[s.overlayCard, { backgroundColor: surface, borderColor: gt(0.2) }]}>
-            <ActivityIndicator size="large" color={gold} />
-            <Text style={[s.overlayText, { color: textPrimary }]}>{t('supportProcessing')}</Text>
+          <View style={[s.overlayCard, { backgroundColor: surface }]}>
+            <ActivityIndicator size="small" color={gold} />
+            <Text style={[s.overlayText, { color: txt }]}>{t('supportProcessing')}</Text>
           </View>
         </View>
       )}
-    </SafeAreaView>
+    </View>
   );
 };
 
 // ── Styles ────────────────────────────────────────────
 const s = StyleSheet.create({
-  safeArea: { flex: 1 },
-  centered: {
+  backdrop: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
+    paddingHorizontal: 28,
   },
-  scrollContent: {
-    paddingHorizontal: 24,
-    paddingTop: 16,
-    paddingBottom: 40,
+  card: {
+    width: '100%',
+    borderRadius: 18,
+    borderWidth: 1,
+    paddingHorizontal: 20,
+    paddingTop: 24,
+    paddingBottom: 16,
     alignItems: 'center',
   },
-
-  // Top dismiss row
-  dismissRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    borderBottomWidth: 1,
-    gap: 8,
-  },
-  dismissText: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-
-  // Heart icon circle
-  iconCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
-    marginTop: 8,
+  closeX: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    zIndex: 2,
+    padding: 4,
   },
 
   title: {
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: '700',
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: 4,
   },
-  subtitle: {
-    fontSize: 14,
-    lineHeight: 20,
-    textAlign: 'center',
-    marginBottom: 20,
-    paddingHorizontal: 8,
-  },
-  body: {
-    fontSize: 14,
-    lineHeight: 20,
-    textAlign: 'center',
-    marginTop: 12,
-    paddingHorizontal: 16,
-  },
-
-  // "Free forever" promise card
-  promiseCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    marginBottom: 24,
-  },
-  promiseText: {
-    fontSize: 13,
-    fontWeight: '500',
-    flex: 1,
-  },
-
-  // Success card
-  successCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    marginBottom: 16,
-    gap: 8,
-    width: '100%',
-  },
-  successText: {
-    fontSize: 14,
-    fontWeight: '600',
-    flex: 1,
-  },
-
-  // Product cards
-  productCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 14,
-    borderRadius: 14,
-    borderWidth: 1,
-    marginBottom: 10,
-    width: '100%',
-  },
-  disabledCard: { opacity: 0.5 },
-  productInfo: { flex: 1, marginRight: 12 },
-  productTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 2,
-  },
-  productDesc: {
+  sub: {
     fontSize: 12,
-    lineHeight: 16,
+    lineHeight: 17,
+    textAlign: 'center',
+    marginBottom: 14,
+    paddingHorizontal: 4,
   },
-  priceChip: {
+
+  // Success badge
+  successRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 8,
     paddingVertical: 6,
-    paddingHorizontal: 14,
-    borderRadius: 16,
-    borderWidth: 1,
+    paddingHorizontal: 10,
+    marginBottom: 10,
   },
-  priceText: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
+  successText: { fontSize: 12, fontWeight: '600' },
 
-  // Footer
-  footerText: {
-    fontSize: 11,
-    lineHeight: 16,
-    textAlign: 'center',
-    marginTop: 20,
-    marginBottom: 8,
-  },
-
-  // Link buttons
-  linkBtn: {
-    paddingVertical: 8,
-  },
-  linkText: {
-    fontSize: 13,
-    fontWeight: '500',
-    textAlign: 'center',
-  },
-
-  // Secondary action button
-  secondaryBtn: {
+  // Product rows (compact single-line)
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingVertical: 10,
-    paddingHorizontal: 20,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginBottom: 6,
+    width: '100%',
+  },
+  disabled: { opacity: 0.5 },
+  rowTitle: { fontSize: 13, fontWeight: '500', flex: 1, marginRight: 8 },
+  rowPrice: { fontSize: 13, fontWeight: '700' },
+
+  // Inline links
+  linksRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 10,
+    marginBottom: 10,
+  },
+  link: { fontSize: 12, fontWeight: '500' },
+  dot: { fontSize: 14 },
+
+  // No thanks button
+  noThanks: {
+    paddingVertical: 10,
+    paddingHorizontal: 28,
     borderRadius: 20,
     borderWidth: 1,
-    marginTop: 16,
-  },
-  secondaryBtnText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-
-  // Close bar (bottom)
-  closeBar: {
-    marginTop: 20,
-    paddingVertical: 14,
-    paddingHorizontal: 32,
-    borderRadius: 24,
-    borderWidth: 1,
     alignItems: 'center',
     width: '100%',
   },
-  closeBtnText: {
-    fontSize: 16,
-    fontWeight: '600',
+  noThanksText: { fontSize: 14, fontWeight: '600' },
+
+  // Retry button
+  retryBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 18,
+    borderRadius: 16,
+    borderWidth: 1,
+    marginBottom: 10,
   },
+  retryText: { fontSize: 13, fontWeight: '600' },
 
   // Purchasing overlay
   overlay: {
@@ -408,22 +298,21 @@ const s = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.35)',
+    backgroundColor: 'rgba(0,0,0,0.3)',
     alignItems: 'center',
     justifyContent: 'center',
+    borderRadius: 18,
     zIndex: 10,
   },
   overlayCard: {
-    paddingVertical: 20,
-    paddingHorizontal: 24,
-    borderRadius: 16,
-    borderWidth: 1,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: 12,
     alignItems: 'center',
-    minWidth: 200,
   },
   overlayText: {
-    marginTop: 12,
-    fontSize: 14,
+    marginTop: 8,
+    fontSize: 13,
     textAlign: 'center',
   },
 });
