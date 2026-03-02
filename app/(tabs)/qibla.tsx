@@ -26,6 +26,8 @@ import { useLanguage } from '../../contexts/LanguageContext';
 import { useQiblaCompass } from '../../lib/qibla-compass';
 import { CalibrationStatus, CompassAccuracy } from '../../lib/qibla-compass/types';
 import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
+import { useOnboarding } from '../../contexts/OnboardingContext';
+import OnboardingTooltips, { QIBLA_TOOLTIPS } from '../../components/OnboardingTooltips';
 
 const { width: screenWidth } = Dimensions.get('window');
 const COMPASS_SIZE = Math.min(screenWidth * 0.78, 320);
@@ -33,6 +35,16 @@ const COMPASS_SIZE = Math.min(screenWidth * 0.78, 320);
 export default function QiblaScreen() {
   const { colors, isDark } = useTheme();
   const { t, language } = useLanguage();
+
+  // Onboarding tooltips
+  const { shouldShowTooltip, completeTooltip } = useOnboarding();
+  const [showTooltips, setShowTooltips] = useState(false);
+  useEffect(() => {
+    if (shouldShowTooltip('qibla')) {
+      const timer = setTimeout(() => setShowTooltips(true), 600);
+      return () => clearTimeout(timer);
+    }
+  }, [shouldShowTooltip]);
 
   const compassRotateAnim = useRef(new Animated.Value(0)).current;
   const qiblaRotateAnim = useRef(new Animated.Value(0)).current;
@@ -423,6 +435,17 @@ export default function QiblaScreen() {
           </View>
         </ScrollView>
       </View>
+
+      {/* Onboarding tooltips overlay */}
+      {showTooltips && (
+        <OnboardingTooltips
+          tooltips={QIBLA_TOOLTIPS}
+          onComplete={() => {
+            setShowTooltips(false);
+            completeTooltip('qibla');
+          }}
+        />
+      )}
     </SafeAreaView>
   );
 }

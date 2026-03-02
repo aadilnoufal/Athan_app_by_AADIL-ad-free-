@@ -10,8 +10,10 @@ import { playPrayerSound, preloadSounds, unloadSounds } from '../utils/audioHelp
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { LanguageProvider } from '../contexts/LanguageContext';
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
+import { OnboardingProvider, useOnboarding } from '../contexts/OnboardingContext';
 import { PurchaseProvider } from './contexts/RevenueCatContext';
 import Purchases, { LOG_LEVEL } from 'react-native-purchases';
+import WelcomeSlides from '../components/WelcomeSlides';
 
 // Minimal global type augmentation for our support paywall helper
 declare global {
@@ -381,6 +383,30 @@ function InnerLayout() {
   
   // (No startup animation / blocking screen anymore)
   
+  // Onboarding state
+  const { isReady: onboardingReady, welcomeComplete, completeWelcome } = useOnboarding();
+
+  // Don't render anything until onboarding state is loaded from storage
+  if (!onboardingReady) {
+    return null;
+  }
+
+  // Show welcome slides on first launch
+  if (!welcomeComplete) {
+    return (
+      <LanguageProvider>
+        <SafeAreaProvider>
+          <StatusBar
+            style={isDark ? 'light' : 'dark'}
+            backgroundColor={Platform.OS === 'android' ? 'transparent' : undefined}
+            translucent={true}
+          />
+          <WelcomeSlides onComplete={completeWelcome} />
+        </SafeAreaProvider>
+      </LanguageProvider>
+    );
+  }
+
   return (
     <LanguageProvider>
       <SafeAreaProvider>
@@ -423,7 +449,9 @@ export default function RootLayout() {
   return (
     <ThemeProvider>
       <PurchaseProvider>
-        <InnerLayout />
+        <OnboardingProvider>
+          <InnerLayout />
+        </OnboardingProvider>
       </PurchaseProvider>
     </ThemeProvider>
   );

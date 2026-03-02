@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased] - 2026-02-27
 
+### Added
+
+- **Onboarding flow (Phase 1: Welcome Slides)** – 3 swipeable welcome pages shown on first launch:
+  - Welcome page: Mosque icon, bismillah, app name, description
+  - Features page: 5 animated feature rows (Prayer Times, Dua, Quran, Qibla, Settings)
+  - Quick Setup page: Notification enable toggle with explanation
+  - Animated entrance (fade, slide, scale), page indicator dots, Skip/Next/Let's Begin buttons
+  - Theme-aware and bilingual (English + Arabic)
+- **Onboarding flow (Phase 2: Contextual Tooltips)** – Per-tab sequential tooltip overlays on first visit:
+  - Home: 3 tooltips (countdown, day arrows, region selector)
+  - Dua: 1 tooltip (category browsing)
+  - Quran: 3 tooltips (search, tap ayah, settings)
+  - Qibla: 1 tooltip (compass usage)
+  - Settings: 3 tooltips (location, notifications, Quran settings)
+  - Animated cards with progress dots, auto-dismissed after completion
+- **OnboardingContext** – AsyncStorage-persisted state management for welcome completion + per-tab tooltip flags
+- **Translation keys** – ~30 new keys in en.js + ar.js for onboarding content
+
 ### Changed
 
 - **Quran screen refactored** – `quran.tsx` reduced from 1,811 → 652 lines (64% reduction). Extracted into:

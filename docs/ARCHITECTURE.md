@@ -76,7 +76,7 @@ const gt = (alpha: number) => goldTint(alpha, colors);
 
 ```
 app/
-  _layout.tsx          Root stack + providers (SafeArea, Theme, Language, RevenueCat)
+  _layout.tsx          Root stack + providers (SafeArea, Theme, Language, RevenueCat, Onboarding)
   (tabs)/
     _layout.tsx        Tab navigator (Prayer Times, Dua, Quran, Qibla, Settings)
     index.tsx          Home / Prayer Times screen orchestrator (508 lines — wires hooks to extracted sub-components)
@@ -115,6 +115,17 @@ app/
       index.ts                  Barrel export of all settings components
   config/              Static config (prayer time regions, etc.)
   contexts/            React contexts (Theme, Language, RevenueCat)
+
+components/            Root-level shared components
+  WelcomeSlides.tsx    Phase 1 onboarding: 3 swipeable welcome pages (Welcome, Features, Setup)
+  OnboardingTooltips.tsx Phase 2 onboarding: sequential tooltip overlay cards per tab
+  SplashScreen.tsx     App splash screen
+  ParticleBackground.tsx Background particle effect
+
+contexts/
+  OnboardingContext.tsx  Onboarding state management (AsyncStorage-persisted welcome + per-tab tooltip flags)
+  ThemeContext.js       Theme provider (dark/sepia)
+  LanguageContext.js    i18n provider (en/ar)
 
 hooks/
   home/
@@ -253,3 +264,4 @@ User clears cached data from Settings
 17. **Settings modular architecture** – Settings screen (originally 2538 lines) split into 4 domain hooks + 10 section/modal components + 1 thin orchestrator (277 lines). Each hook owns its own state & persistence; components are pure presentational. The notification hook preserves the dual-library (Notifee + expo-notifications) architecture exactly — do NOT refactor the two-library pattern.
 18. **Home screen modular architecture** – Home/Prayer Times screen (originally 2696 lines) split into 4 domain hooks + 5 extracted sub-components + type/style files. `index.tsx` (508 lines) orchestrates hooks and renders extracted components. Sub-components receive props via explicit prop drilling; `mbShared` bundles common MagicalButton styling (borderColor, shimmerStyle, shimmerAnimation) to reduce repetition. Hook dependency direction: `useHomeRegion` → independent; `useHomeNotifications` → uses refs for cross-domain data; `useHomePrayerData` → receives region params + scheduling callback via props. `useSettingsDonation` is shared between Settings and Home.
 19. **Quran modular architecture** – Quran screen (originally 1811 lines) split into 2 domain hooks + 3 extracted sub-components + shared types + static styles. `quran.tsx` (652 lines) remains the orchestrator with coordinator functions (`handleReadingScroll`, `openSurah`, `goBack`) that bridge both hooks, plus inline render helpers for views that depend on too many local variables to extract cleanly. `useQuranData` owns all non-audio state; `useQuranAudio` owns playback, downloads, and preloading. `handleReadingScroll` must live in the component because it reads `ayahLayoutsRef` from audio and writes `topVisibleAyahRef` from data.
+20. **Two-phase onboarding** – Phase 1: `WelcomeSlides` (3 swipeable pages — Welcome, Features, Quick Setup with notification toggle) shown as a gate in `_layout.tsx` before the main Stack renders. Phase 2: `OnboardingTooltips` are per-tab sequential tooltip overlays (Modal + semi-transparent backdrop) triggered 600ms after first visit to each tab. `OnboardingContext` manages state with AsyncStorage persistence per tab (`onboarding_tooltip_{home,dua,quran,qibla,settings}`) and welcome completion (`onboarding_welcome_complete`). Tooltips never re-show after dismissal; `resetOnboarding()` available for testing.

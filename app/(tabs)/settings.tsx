@@ -11,7 +11,7 @@ import {
   TranslationPickerModal,
   ReciterPickerModal,
 } from '../components/settings';
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -32,6 +32,8 @@ import { useSettingsQuranPrefs } from '../../hooks/settings/useSettingsQuranPref
 import { useSettingsLocation } from '../../hooks/settings/useSettingsLocation';
 import { useSettingsDonation } from '../../hooks/settings/useSettingsDonation';
 import { useSettingsNotifications } from '../../hooks/settings/useSettingsNotifications';
+import { useOnboarding } from '../../contexts/OnboardingContext';
+import OnboardingTooltips, { SETTINGS_TOOLTIPS } from '../../components/OnboardingTooltips';
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -39,6 +41,16 @@ export default function SettingsScreen() {
   const { isDark, toggleTheme, colors } = useTheme();
   const C = colors;
   const styles = React.useMemo(() => createSettingsStyles(colors, isDark), [colors, isDark]);
+
+  // Onboarding tooltips
+  const { shouldShowTooltip, completeTooltip } = useOnboarding();
+  const [showSettingsTooltips, setShowSettingsTooltips] = useState(false);
+  useEffect(() => {
+    if (shouldShowTooltip('settings')) {
+      const timer = setTimeout(() => setShowSettingsTooltips(true), 600);
+      return () => clearTimeout(timer);
+    }
+  }, [shouldShowTooltip]);
 
   // Notifications (all state, loading, and handlers via custom hook — DO NOT INLINE)
   const {
@@ -294,6 +306,17 @@ export default function SettingsScreen() {
         handleReciterChange={handleReciterChange}
         onClose={() => setShowReciterPicker(false)}
       />
+
+      {/* Onboarding tooltips overlay */}
+      {showSettingsTooltips && (
+        <OnboardingTooltips
+          tooltips={SETTINGS_TOOLTIPS}
+          onComplete={() => {
+            setShowSettingsTooltips(false);
+            completeTooltip('settings');
+          }}
+        />
+      )}
     </SafeAreaView>
   );
 }

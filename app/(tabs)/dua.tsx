@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -17,6 +17,8 @@ import { goldTint as centralGoldTint, withAlpha } from '../../utils/colorHelpers
 import { DUA_CATEGORIES } from '../../constants/duas';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
+import { useOnboarding } from '../../contexts/OnboardingContext';
+import OnboardingTooltips, { DUA_TOOLTIPS } from '../../components/OnboardingTooltips';
 
 // Enable LayoutAnimation for Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -76,6 +78,16 @@ export default function DuaScreen() {
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   const scrollRef = useRef<ScrollView | null>(null);
   const categoryPositions = useRef<Record<string, number>>({});
+
+  // Onboarding tooltips
+  const { shouldShowTooltip, completeTooltip } = useOnboarding();
+  const [showTooltips, setShowTooltips] = useState(false);
+  useEffect(() => {
+    if (shouldShowTooltip('dua')) {
+      const timer = setTimeout(() => setShowTooltips(true), 600);
+      return () => clearTimeout(timer);
+    }
+  }, [shouldShowTooltip]);
 
   // Time-based gradient colors for dynamic backgrounds (matching settings)
   const getTimeBasedGradient = (): [string, string, string] => {
@@ -344,6 +356,17 @@ export default function DuaScreen() {
           })}
         </ScrollView>
       </View>
+
+      {/* Onboarding tooltips overlay */}
+      {showTooltips && (
+        <OnboardingTooltips
+          tooltips={DUA_TOOLTIPS}
+          onComplete={() => {
+            setShowTooltips(false);
+            completeTooltip('dua');
+          }}
+        />
+      )}
     </SafeAreaView>
   );
 }

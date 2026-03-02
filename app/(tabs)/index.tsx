@@ -42,6 +42,8 @@ import { useHomeAppStateSync } from '../../hooks/useHomeAppStateSync';
 import { useHomeNotifications } from '../../hooks/home/useHomeNotifications';
 import { useHomeRegion } from '../../hooks/home/useHomeRegion';
 import { useHomePrayerData } from '../../hooks/home/useHomePrayerData';
+import { useOnboarding } from '../../contexts/OnboardingContext';
+import OnboardingTooltips, { HOME_TOOLTIPS } from '../../components/OnboardingTooltips';
 // RegionItem type now used inside RegionPicker component
 
 // Get screen dimensions for magical effects
@@ -58,6 +60,18 @@ export default function Home() {
   const styles = React.useMemo(() => createHomeStyles(C, isDark), [C, isDark]);
   const router = useRouter();
   const { t } = useLanguage();
+
+  // Onboarding tooltips (shown once on first visit to Home tab)
+  const { shouldShowTooltip, completeTooltip } = useOnboarding();
+  const [showTooltips, setShowTooltips] = useState(false);
+
+  // Trigger tooltips after a short delay so the screen has rendered
+  useEffect(() => {
+    if (shouldShowTooltip('home')) {
+      const timer = setTimeout(() => setShowTooltips(true), 800);
+      return () => clearTimeout(timer);
+    }
+  }, [shouldShowTooltip]);
 
   // ── Region hook (self-contained, called first) ─────
   const {
@@ -547,6 +561,17 @@ export default function Home() {
           )}
         </View>
       </View>
+
+      {/* Onboarding tooltips overlay */}
+      {showTooltips && (
+        <OnboardingTooltips
+          tooltips={HOME_TOOLTIPS}
+          onComplete={() => {
+            setShowTooltips(false);
+            completeTooltip('home');
+          }}
+        />
+      )}
     </SafeAreaView>
   );
 }

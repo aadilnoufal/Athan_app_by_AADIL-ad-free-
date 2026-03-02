@@ -38,10 +38,22 @@ import { useQuranAudio } from '../../hooks/quran/useQuranAudio';
 import SurahListItem from '../components/quran/SurahListItem';
 import FloatingAudioPlayer from '../components/quran/FloatingAudioPlayer';
 import QuranSearchResults from '../components/quran/QuranSearchResults';
+import { useOnboarding } from '../../contexts/OnboardingContext';
+import OnboardingTooltips, { QURAN_TOOLTIPS } from '../../components/OnboardingTooltips';
 
 export default function QuranScreen() {
     const tabBarHeight = useBottomTabBarHeight();
     const scrollRef = useRef<ScrollView>(null);
+
+    // Onboarding tooltips
+    const { shouldShowTooltip, completeTooltip } = useOnboarding();
+    const [showQuranTooltips, setShowQuranTooltips] = React.useState(false);
+    React.useEffect(() => {
+        if (shouldShowTooltip('quran')) {
+            const timer = setTimeout(() => setShowQuranTooltips(true), 600);
+            return () => clearTimeout(timer);
+        }
+    }, [shouldShowTooltip]);
 
     // ── Data hook (prefs, search, bookmarks, theme, fonts) ──────
     const {
@@ -688,6 +700,17 @@ export default function QuranScreen() {
                     />
                 )}
             </View>
+
+            {/* Onboarding tooltips overlay */}
+            {showQuranTooltips && (
+                <OnboardingTooltips
+                    tooltips={QURAN_TOOLTIPS}
+                    onComplete={() => {
+                        setShowQuranTooltips(false);
+                        completeTooltip('quran');
+                    }}
+                />
+            )}
         </SafeAreaView>
     );
 }
