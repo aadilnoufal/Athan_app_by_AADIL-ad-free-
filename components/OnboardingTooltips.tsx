@@ -23,6 +23,14 @@ export interface TooltipItem {
   icon: string;
   /** Vertical position hint: 'top' | 'center' | 'bottom' */
   position: 'top' | 'center' | 'bottom';
+  /** Optional custom content renderer — replaces the default icon + message */
+  customContent?: (params: {
+    colors: any;
+    gold: string;
+    t: (key: string) => string;
+    isDark: boolean;
+    gt: (alpha: number) => string;
+  }) => React.ReactNode;
 }
 
 // ── Props ─────────────────────────────────────────────
@@ -139,19 +147,25 @@ export default function OnboardingTooltips({
             },
           ]}
         >
-          {/* Icon */}
-          <View style={[styles.tooltipIconBg, { backgroundColor: gt(0.12) }]}>
-            <MaterialCommunityIcons
-              name={tip.icon as any}
-              size={28}
-              color={gold}
-            />
-          </View>
+          {tip.customContent
+            ? tip.customContent({ colors, gold, t, isDark, gt })
+            : (
+              <>
+                {/* Icon */}
+                <View style={[styles.tooltipIconBg, { backgroundColor: gt(0.12) }]}>
+                  <MaterialCommunityIcons
+                    name={tip.icon as any}
+                    size={28}
+                    color={gold}
+                  />
+                </View>
 
-          {/* Message */}
-          <Text style={[styles.tooltipMessage, { color: textPrimary }]}>
-            {t(tip.messageKey)}
-          </Text>
+                {/* Message */}
+                <Text style={[styles.tooltipMessage, { color: textPrimary }]}>
+                  {t(tip.messageKey)}
+                </Text>
+              </>
+            )}
 
           {/* Progress dots */}
           {tooltips.length > 1 && (
@@ -219,6 +233,124 @@ export const DUA_TOOLTIPS: TooltipItem[] = [
   },
 ];
 
+/** Renders a visual replica of the audio player with labelled controls. */
+function renderAudioPlayerVisual({
+  colors,
+  gold,
+  t,
+  isDark,
+  gt,
+}: {
+  colors: any;
+  gold: string;
+  t: (key: string) => string;
+  isDark: boolean;
+  gt: (alpha: number) => string;
+}): React.ReactNode {
+  const lbl = colors.text.secondary;
+  const pri = colors.text.primary;
+  const barBg = isDark ? 'rgba(30,30,30,0.9)' : 'rgba(240,240,240,0.95)';
+
+  // Legend data: [iconName, label, isHighlighted?]
+  const legend: [string, string, boolean?][] = [
+    ['download-outline', t('tooltipLabelDownload')],
+    ['stop-circle-outline', t('tooltipLabelStop')],
+    ['skip-previous', t('tooltipLabelPrev')],
+    ['play', t('tooltipLabelPlayPause'), true],
+    ['skip-next', t('tooltipLabelNext')],
+    ['crosshairs-gps', t('tooltipLabelScrollTo')],
+  ];
+
+  return (
+    <>
+      {/* Title row */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
+        <View style={{
+          width: 44, height: 44, borderRadius: 14,
+          justifyContent: 'center', alignItems: 'center',
+          backgroundColor: gt(0.12), marginRight: 10,
+        }}>
+          <MaterialCommunityIcons name="music-box-outline" size={22} color={gold} />
+        </View>
+        <Text style={{ fontSize: 17, fontWeight: '700', color: pri }}>
+          {t('tooltipAudioPlayerTitle')}
+        </Text>
+      </View>
+
+      {/* ── Mini Player Replica ─────────────── */}
+      <View style={{
+        width: '100%' as any,
+        borderRadius: 14,
+        borderWidth: 1,
+        borderColor: gt(0.3),
+        backgroundColor: barBg,
+        paddingHorizontal: 12,
+        paddingTop: 6,
+        paddingBottom: 8,
+        marginBottom: 14,
+      }}>
+        {/* Now-playing row */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+          <MaterialCommunityIcons name="music-note" size={12} color={gold} />
+          <Text style={{ flex: 1, fontSize: 10, color: lbl, marginLeft: 4, fontWeight: '500' }}>
+            {t('nowPlaying')} · 3 / 286
+          </Text>
+          <MaterialCommunityIcons name="close" size={14} color={lbl} />
+        </View>
+
+        {/* Controls row */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+          <MaterialCommunityIcons name="download-outline" size={16} color={lbl} style={{ marginHorizontal: 3 }} />
+          <MaterialCommunityIcons name="stop-circle-outline" size={18} color={pri} style={{ marginHorizontal: 3 }} />
+          <MaterialCommunityIcons name="skip-previous" size={22} color={pri} style={{ marginHorizontal: 2 }} />
+          <View style={{
+            width: 34, height: 34, borderRadius: 17, backgroundColor: gold,
+            alignItems: 'center', justifyContent: 'center', marginHorizontal: 6,
+          }}>
+            <MaterialCommunityIcons name="play" size={22} color={colors.text.inverse} />
+          </View>
+          <MaterialCommunityIcons name="skip-next" size={22} color={pri} style={{ marginHorizontal: 2 }} />
+          <Text style={{ fontSize: 10, fontWeight: '600', color: lbl, marginHorizontal: 4 }}>3/286</Text>
+          <MaterialCommunityIcons name="crosshairs-gps" size={16} color={gold} style={{ marginHorizontal: 3 }} />
+        </View>
+      </View>
+
+      {/* ── Legend: 2×3 grid ────────────────── */}
+      <View style={{ width: '100%' as any, marginBottom: 10 }}>
+        {[0, 1, 2].map(row => (
+          <View key={row} style={{ flexDirection: 'row', marginBottom: 8 }}>
+            {[0, 1].map(col => {
+              const [icon, label, hi] = legend[row * 2 + col];
+              return (
+                <View key={col} style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
+                  <MaterialCommunityIcons
+                    name={icon as any}
+                    size={15}
+                    color={hi ? gold : lbl}
+                    style={{ marginRight: 6 }}
+                  />
+                  <Text style={{
+                    fontSize: 12,
+                    color: hi ? pri : lbl,
+                    fontWeight: hi ? '600' : '400',
+                  }}>
+                    {label}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+        ))}
+      </View>
+
+      {/* Hint */}
+      <Text style={{ fontSize: 13, color: lbl, fontStyle: 'italic', textAlign: 'center', marginBottom: 4 }}>
+        {t('tooltipAudioHint')}
+      </Text>
+    </>
+  );
+}
+
 export const QURAN_TOOLTIPS: TooltipItem[] = [
   {
     messageKey: 'tooltipQuranSearch',
@@ -229,6 +361,7 @@ export const QURAN_TOOLTIPS: TooltipItem[] = [
     messageKey: 'tooltipQuranAudioPlayer',
     icon: 'music-box-outline',
     position: 'center',
+    customContent: renderAudioPlayerVisual,
   },
   {
     messageKey: 'tooltipQuranBookmark',
