@@ -93,7 +93,7 @@ export default {
 
   // About section
   about: 'About',
-  appVersion: 'Prayer Times v1.1.1',
+  appVersion: 'Prayer Times v4.0',
   aboutText: 'Get accurate prayer times customized for your location. While we strive for the highest precision, please note that actual timings may slightly differ.',
   supportApp: 'Support the App',
   supportDeveloper: 'Support Developer',
@@ -311,8 +311,8 @@ export default {
   // ── Support / Paywall ──────────────────────────
   supportTitle: 'Support This App',
   supportSubtitle: 'This app is free — no ads, no tracking. If you find it useful, a small contribution helps cover yearly fees and future improvements.',
-  supportFreeForever: 'The app stays free forever — support is entirely optional.',
-  supportNoThanks: 'No thanks',
+  supportFreeForever: 'This app will always be completely free — no ads, no paywalls, no catch. Any support is entirely optional and simply helps cover the yearly developer account fees and fund future improvements. There is absolutely no pressure.',
+  supportNoThanks: 'Maybe later',
   supportClose: 'Close',
   supportLoading: 'Loading options…',
   supportNoProducts: 'No options available right now. Please try again later.',
