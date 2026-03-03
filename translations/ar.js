@@ -11,6 +11,18 @@ export default {
   iqamaPrefix: 'إقامة +',
   iqamaSuffix: ' د',
   iqamaExplanation: 'أوقات الإقامة تقريبية: الفجر +25 د، الظهر +20 د، العصر +20 د، المغرب +10 د، العشاء +20 د بعد الأذان.',
+  iqamaCountdown: 'الإقامة',
+  iqamaIn: 'الإقامة خلال',
+
+  // إعدادات إشعار الإقامة
+  iqamaNotifications: 'تنبيهات الإقامة',
+  iqamaNotifDesc: 'احصل على إشعار قبل الإقامة',
+  iqamaCountdown: 'العد التنازلي للإقامة',
+  iqamaCountdownDesc: 'عرض العد التنازلي للإقامة على الشاشة الرئيسية بعد الأذان',
+  iqamaMinsBefore: 'دقائق قبل الإقامة',
+  iqamaNotifMin: '{mins} د قبل',
+  iqamaNotifMessage: 'إقامة {prayer} خلال {mins} دقائق',
+  iqamaNotifTitle: '🕌 تذكير الإقامة',
 
   // Prayer names
   Fajr: 'الفجر',
@@ -268,7 +280,7 @@ export default {
   ayahOutOfRange: 'رقم الآية خارج النطاق',
 
   // Onboarding - Welcome slides
-  onboardingWelcomeTitle: 'بِسْمِ ٱللَّهِ',
+  onboardingWelcomeTitle: 'بِسْمِ اللهِ الرَّحْمَنِ الرَّحِيمِ',
   onboardingWelcomeSubtitle: 'مواقيت الصلاة',
   onboardingWelcomeDesc: 'رفيقك الإسلامي الشامل — أوقات الصلاة، القرآن الكريم، الأدعية، واتجاه القبلة، كل ذلك في تطبيق واحد جميل.',
   onboardingFeaturesTitle: 'كل ما تحتاجه',
@@ -321,6 +333,9 @@ export default {
   supportRetry: 'إعادة المحاولة',
   supportNotMobile: 'عمليات الشراء داخل التطبيق متاحة فقط على الأجهزة المحمولة.',
   supportThankYou: 'شكرًا لدعمك الكريم!',
+  supportThankYouTitle: 'جزاك الله خيرًا! 🤲',
+  supportThankYouMessage: 'كرمك يعني لنا الكثير.\nجزاك الله خيرًا على دعمك لهذا التطبيق ومساعدته في الوصول إلى المزيد من المسلمين حول العالم.',
+  supportThankYouClose: 'آمين',
   supportSecure: 'يتم التعامل بأمان عبر {store}.',
   supportRestore: 'استعادة المشتريات',
   supportPolicy: 'الشروط وسياسة الخصوصية',

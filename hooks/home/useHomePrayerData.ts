@@ -20,7 +20,9 @@ import { format, addDays, differenceInSeconds } from 'date-fns';
 import { getRegionConfig, DEFAULT_REGION } from '../../app/config/prayerTimeConfig';
 import { applyLocalDataCityAdjustments, extractCityIdFromRegionId } from '../../utils/prayerTimeTuner';
 import { getPrayerTimesFromLocalData } from '../../utils/localPrayerData';
+import { updateWidgetData, type WidgetData } from '../../utils/widgetDataBridge';
 import { findNextPrayer, isSamePrayerTime } from '../../utils/timeUtils';
+import { getIqamaTime, hasIqama } from '../../utils/iqamaConfig';
 import type { PrayerData, NextPrayer } from '../../app/components/home/homeTypes';
 
 type TFunc = (key: string) => string;
@@ -66,10 +68,35 @@ export function useHomePrayerData(params: UseHomePrayerDataParams) {
   const [progressPercent, setProgressPercent] = useState(0);
   const [lastRefreshDate, setLastRefreshDate] = useState('');
   const [lastDateCheckTime, setLastDateCheckTime] = useState(0);
+  // Iqama countdown state: 'prayer' = counting to next prayer, 'iqama' = counting to iqama
+  const [countdownMode, setCountdownMode] = useState<'prayer' | 'iqama'>('prayer');
+  // The prayer name whose iqama we're counting down to (only set when countdownMode is 'iqama')
+  const [iqamaPrayerName, setIqamaPrayerName] = useState<string | null>(null);
+  // The iqama target time (only set when countdownMode is 'iqama')
+  const [iqamaTargetTime, setIqamaTargetTime] = useState<Date | null>(null);
+  // Whether the iqama countdown is enabled in settings (default false)
+  const [iqamaCountdownEnabled, setIqamaCountdownEnabled] = useState(false);
 
   // ── Refs ────────────────────────────────────────────
   const lastCountdownLog = useRef<string>('');
   const countdownTriggeredRefresh = useRef<string>('');
+
+  // ── Load iqama countdown setting + listen for changes ──────────
+  useEffect(() => {
+    const loadIqamaSetting = async () => {
+      try {
+        const val = await AsyncStorage.getItem('iqama_countdown_enabled');
+        setIqamaCountdownEnabled(val === 'true');
+      } catch { }
+    };
+    loadIqamaSetting();
+
+    // Re-check when app returns to foreground (user may have changed setting)
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') loadIqamaSetting();
+    });
+    return () => sub.remove();
+  }, []);
 
   // ── convertTo12HourFormat ───────────────────────────
   const convertTo12HourFormat = (timeStr: string): string => {
@@ -117,6 +144,23 @@ export function useHomePrayerData(params: UseHomePrayerDataParams) {
         setPrayerTimes(formattedTimes);
         updateNextPrayer(formattedTimes);
         setLoading(false);
+
+        // Push today's city-tuned prayer times to native widgets
+        if (currentDay === 0) {
+          try {
+            const widgetPayload: WidgetData = {
+              times: timings,
+              times12h: formattedTimes.times12h as any,
+              date: format(fetchDate, 'dd-MM'),
+              cityId,
+              themeMode: 'dark', // Will be updated by ThemeContext
+              lastUpdated: Date.now(),
+            };
+            updateWidgetData(widgetPayload);
+          } catch (widgetErr) {
+            console.log('⚠️ Widget data sync failed (non-critical):', widgetErr);
+          }
+        }
 
         if (currentDay === 0 && notificationsEnabled) {
           setTimeout(async () => {
@@ -321,6 +365,39 @@ export function useHomePrayerData(params: UseHomePrayerDataParams) {
     return lastPrayer;
   };
 
+  // ── findLastPassedPrayerWithIqama ───────────────────
+  // Returns the most recently passed prayer that has iqama, plus its iqama time.
+  // Used to determine if we should show iqama countdown vs next prayer countdown.
+  const findLastPassedPrayerWithIqama = (times: any): { prayerName: string; adhanTime: Date; iqamaTime: Date } | null => {
+    if (!times) return null;
+
+    const now = new Date();
+    const prayerNames = ['Fajr', 'Sunrise', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
+    let result: { prayerName: string; adhanTime: Date; iqamaTime: Date } | null = null;
+
+    for (const prayerName of prayerNames) {
+      if (!hasIqama(prayerName)) continue;
+      const timeStr = times[prayerName];
+      if (!timeStr || timeStr === '--:--') continue;
+
+      const [hour, minute] = timeStr.split(':').map(Number);
+      if (isNaN(hour) || isNaN(minute)) continue;
+
+      const adhanDate = new Date();
+      adhanDate.setHours(hour, minute, 0, 0);
+
+      // Only consider prayers that have passed
+      if (adhanDate <= now) {
+        const iqamaDate = getIqamaTime(prayerName, adhanDate);
+        if (iqamaDate) {
+          result = { prayerName, adhanTime: adhanDate, iqamaTime: iqamaDate };
+        }
+      }
+    }
+
+    return result;
+  };
+
   // ── updateCountdown ─────────────────────────────────
   const updateCountdown = useCallback(() => {
     if (!nextPrayer) return;
@@ -329,6 +406,66 @@ export function useHomePrayerData(params: UseHomePrayerDataParams) {
     const prayerTime = new Date(nextPrayer.date);
     const diffSeconds = Math.max(0, differenceInSeconds(prayerTime, now));
 
+    // ── Iqama countdown check ──────────────────────────
+    // After a prayer's adhan passes, show countdown to iqama first.
+    // Once iqama passes, switch back to counting down to the next prayer.
+    // Only active when the user has enabled the iqama countdown setting.
+    if (iqamaCountdownEnabled && currentDay === 0 && prayerTimes?.times) {
+      const lastPassed = findLastPassedPrayerWithIqama(prayerTimes.times);
+      if (lastPassed && lastPassed.iqamaTime > now) {
+        // We are between adhan and iqama — show iqama countdown
+        const iqamaDiff = Math.max(0, differenceInSeconds(lastPassed.iqamaTime, now));
+
+        if (iqamaDiff > 0) {
+          const minutesRemaining = Math.floor(iqamaDiff / 60);
+          const secondsRemaining = iqamaDiff % 60;
+          const iqamaDisplay = `${minutesRemaining}m ${secondsRemaining}s`;
+
+          if (countdown !== iqamaDisplay) {
+            setCountdown(iqamaDisplay);
+          }
+
+          // Update mode to iqama
+          if (countdownMode !== 'iqama' || iqamaPrayerName !== lastPassed.prayerName) {
+            setCountdownMode('iqama');
+            setIqamaPrayerName(lastPassed.prayerName);
+            setIqamaTargetTime(lastPassed.iqamaTime);
+          }
+
+          // Progress: how much of the iqama wait has elapsed
+          const iqamaTotalSpan = differenceInSeconds(lastPassed.iqamaTime, lastPassed.adhanTime);
+          const iqamaElapsed = differenceInSeconds(now, lastPassed.adhanTime);
+          const iqamaProgress = Math.max(0, Math.min(1, iqamaElapsed / iqamaTotalSpan));
+
+          if (Math.abs(iqamaProgress - progressPercent) > 0.01) {
+            setProgressPercent(iqamaProgress);
+            Animated.timing(progressAnimation, {
+              toValue: iqamaProgress,
+              duration: 300,
+              useNativeDriver: false,
+              easing: Easing.out(Easing.ease),
+            }).start();
+          }
+
+          if (countdownLoading) {
+            setCountdownLoading(false);
+          }
+          return;
+        }
+      }
+
+      // If we were in iqama mode but iqama has now passed, switch back to prayer mode
+      if (countdownMode === 'iqama') {
+        setCountdownMode('prayer');
+        setIqamaPrayerName(null);
+        setIqamaTargetTime(null);
+        // Reset progress for the next prayer countdown
+        progressAnimation.setValue(0);
+        setProgressPercent(0);
+      }
+    }
+
+    // ── Normal next-prayer countdown ──────────────────
     if (diffSeconds <= 0) {
       const logKey = `${nextPrayer.name}-passed`;
       if (lastCountdownLog.current !== logKey) {
@@ -362,6 +499,13 @@ export function useHomePrayerData(params: UseHomePrayerDataParams) {
     const activeLogKey = `${nextPrayer.name}-active`;
     if (lastCountdownLog.current !== activeLogKey) {
       lastCountdownLog.current = activeLogKey;
+    }
+
+    // Ensure we are in prayer countdown mode
+    if (countdownMode !== 'prayer') {
+      setCountdownMode('prayer');
+      setIqamaPrayerName(null);
+      setIqamaTargetTime(null);
     }
 
     // ✨ ENHANCED COUNTDOWN LOGIC ✨
@@ -478,6 +622,9 @@ export function useHomePrayerData(params: UseHomePrayerDataParams) {
     prayerTimes,
     lastPrayerTime,
     countdownLoading,
+    countdownMode,
+    iqamaPrayerName,
+    iqamaCountdownEnabled,
     updateNextPrayer,
   ]);
 
@@ -695,6 +842,8 @@ export function useHomePrayerData(params: UseHomePrayerDataParams) {
     progressPercent,
     lastRefreshDate,
     setLastRefreshDate,
+    countdownMode,
+    iqamaPrayerName,
     convertTo12HourFormat,
     fetchPrayerTimes,
     fetchAndCachePrayerTimes,

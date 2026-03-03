@@ -6,6 +6,26 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- **Iqama Countdown Setting** – The iqama countdown on the home screen is now optional. A new "Iqama Countdown" toggle in Settings > Notifications controls visibility. Off by default; persisted via AsyncStorage (`iqama_countdown_enabled`).
+- **Iqama Countdown** – After a prayer's adhan time, the home screen countdown now shows time remaining to iqama before switching to the next prayer countdown.
+  - Hardcoded offsets: Fajr +25, Dhuhr +20, Asr +20, Maghrib +10, Isha +20 minutes
+  - Amber-themed circular progress in iqama mode with distinct label
+  - New utility `utils/iqamaConfig.ts` for centralized iqama offset configuration
+- **Iqama Notification Alerts** – Optional notifications before iqama time.
+  - Off by default; per-prayer toggles with compact pill UI in settings
+  - Adjustable 0–5 minutes before iqama (default: 3 min)
+  - Scheduled via Notifee with AlarmManager exact timing (same reliability as prayer notifications)
+  - Settings persisted in AsyncStorage (`iqama_notifications_enabled`, `iqama_notification_settings`, `iqama_notification_minutes`)
+- **Thank You Screen** – After a successful in-app purchase, the paywall closes and a heartfelt thank-you screen appears with "JazakAllahu Khairan" message and "Ameen" close button. Replaces the previous plain Alert dialog.
+
+### Changed
+
+- **Onboarding first page title** – Changed to full "بِسْمِ اللهِ الرَّحْمَنِ الرَّحِيمِ" using standard Arabic characters (no Alef Wasla) for reliable Android rendering.
+- **Quran translation auto-reload** – Changing the translation language in settings now automatically reloads the translation for any currently open surah, without needing to close and reopen it.
+- **Revenue Cat purchase flow** – Successful purchases no longer show an Alert; instead, a `purchaseSucceeded` state flag triggers the dedicated thank-you screen in the paywall component.
+
+### Added (previous)
+
 - **Onboarding flow (Phase 1: Welcome Slides)** – 3 swipeable welcome pages shown on first launch:
   - Welcome page: Mosque icon, bismillah, app name, description
   - Features page: 5 animated feature rows (Prayer Times, Dua, Quran, Qibla, Settings)

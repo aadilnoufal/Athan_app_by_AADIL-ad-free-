@@ -11,6 +11,18 @@ export default {
   iqamaPrefix: 'Iqama +',
   iqamaSuffix: ' min',
   iqamaExplanation: 'Iqama times are approximate: Fajr +25 min, Dhuhr +20 min, Asr +20 min, Maghrib +10 min, Isha +20 min after Adhan.',
+  iqamaCountdown: 'Iqama',
+  iqamaIn: 'Iqama in',
+
+  // Iqama notification settings
+  iqamaNotifications: 'Iqama Alerts',
+  iqamaNotifDesc: 'Get notified before iqama',
+  iqamaCountdown: 'Iqama Countdown',
+  iqamaCountdownDesc: 'Show iqama countdown on home screen after adhan',
+  iqamaMinsBefore: 'Minutes before iqama',
+  iqamaNotifMin: '{mins} min before',
+  iqamaNotifMessage: 'Iqama for {prayer} in {mins} minutes',
+  iqamaNotifTitle: '🕌 Iqama Reminder',
 
   // Prayer names
   Fajr: 'Fajr',
@@ -266,7 +278,7 @@ export default {
   ayahOutOfRange: 'Ayah number out of range',
 
   // Onboarding - Welcome slides
-  onboardingWelcomeTitle: 'بِسْمِ ٱللَّهِ',
+  onboardingWelcomeTitle: 'بِسْمِ اللهِ الرَّحْمَنِ الرَّحِيمِ',
   onboardingWelcomeSubtitle: 'Prayer Times',
   onboardingWelcomeDesc: 'Your complete Islamic companion — prayer times, Quran, duas, and Qibla direction, all in one beautiful app.',
   onboardingFeaturesTitle: 'Everything You Need',
@@ -319,6 +331,9 @@ export default {
   supportRetry: 'Retry',
   supportNotMobile: 'In-app purchases are only available on mobile devices.',
   supportThankYou: 'Thank you for your generous support!',
+  supportThankYouTitle: 'JazakAllahu Khairan! 🤲',
+  supportThankYouMessage: 'Your generosity means the world to us.\nMay Allah reward you for supporting this app and helping it reach more Muslims around the world.',
+  supportThankYouClose: 'Ameen',
   supportSecure: 'Handled securely by {store}.',
   supportRestore: 'Restore Purchases',
   supportPolicy: 'Terms & Privacy Policy',

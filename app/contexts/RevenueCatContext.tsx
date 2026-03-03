@@ -15,6 +15,7 @@ interface PurchaseContextType {
   packages: PurchasesPackage[];
   products: StoreProduct[];
   isPurchasing: boolean;
+  purchaseSucceeded: boolean;
   customerInfo: CustomerInfo | null;
   purchase: (purchasePackage: PurchasesPackage) => Promise<void>;
   purchaseProductById: (productId: string) => Promise<void>;
@@ -22,6 +23,7 @@ interface PurchaseContextType {
   fetchProducts: () => Promise<void>;
   checkEntitlements: () => Promise<void>;
   restorePurchases: () => Promise<void>;
+  resetPurchaseSuccess: () => void;
 }
 
 const PurchaseContext = createContext<PurchaseContextType | undefined>(undefined);
@@ -40,6 +42,9 @@ export const PurchaseProvider: React.FC<PurchaseProviderProps> = ({ children }) 
   const [products, setProducts] = useState<StoreProduct[]>([]);
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo | null>(null);
   const [isPurchasing, setIsPurchasing] = useState(false);
+  const [purchaseSucceeded, setPurchaseSucceeded] = useState(false);
+
+  const resetPurchaseSuccess = () => setPurchaseSucceeded(false);
 
   // Gate logs/calls - now supports both iOS and Android
   const IS_MOBILE = Platform.OS === 'ios' || Platform.OS === 'android';
@@ -196,10 +201,7 @@ export const PurchaseProvider: React.FC<PurchaseProviderProps> = ({ children }) 
     try {
       const { customerInfo }: MakePurchaseResult = await Purchases.purchasePackage(purchasePackage);
       setCustomerInfo(customerInfo);
-      const active = Object.keys(customerInfo.entitlements.active);
-      if (active.length > 0) {
-        Alert.alert('🙏 Thank You!', 'Thanks for supporting our app!', [{ text: "You're Welcome! 😊" }]);
-      }
+      setPurchaseSucceeded(true);
     } catch (e: any) {
       if (e?.userCancelled) return;
       if (__DEV__) {
@@ -252,13 +254,7 @@ export const PurchaseProvider: React.FC<PurchaseProviderProps> = ({ children }) 
           // Use purchaseStoreProduct for proper Android billing
           const { customerInfo }: MakePurchaseResult = await Purchases.purchaseStoreProduct(storeProduct);
           setCustomerInfo(customerInfo);
-          const active = Object.keys(customerInfo.entitlements.active);
-          if (active.length > 0) {
-            Alert.alert('🙏 Thank You!', 'Thank you for supporting our app!', [{ text: "You're Welcome! 😊" }]);
-          } else {
-            // Success but no entitlement (maybe consumption pending or just donation)
-            Alert.alert('🙏 Thank You!', 'Your purchase was successful!', [{ text: "You're Welcome! 😊" }]);
-          }
+          setPurchaseSucceeded(true);
         } else {
           console.log('[RevenueCat] Product not found in either category:', productId);
           // Fallback check: try legacy purchase if strictly necessary, 
@@ -269,10 +265,7 @@ export const PurchaseProvider: React.FC<PurchaseProviderProps> = ({ children }) 
         // iOS - original method works fine
         const { customerInfo }: MakePurchaseResult = await (Purchases as any).purchaseProduct(productId);
         setCustomerInfo(customerInfo);
-        const active = Object.keys(customerInfo.entitlements.active);
-        if (active.length > 0) {
-          Alert.alert('🙏 Thank You!', 'Thank you for supporting our app!', [{ text: "You're Welcome! 😊" }]);
-        }
+        setPurchaseSucceeded(true);
       }
     } catch (e: any) {
       console.log('[RevenueCat] Purchase error:', e?.code, e?.message, e);
@@ -312,6 +305,7 @@ export const PurchaseProvider: React.FC<PurchaseProviderProps> = ({ children }) 
     packages,
     products,
     isPurchasing,
+    purchaseSucceeded,
     customerInfo,
     purchase,
     purchaseProductById,
@@ -319,6 +313,7 @@ export const PurchaseProvider: React.FC<PurchaseProviderProps> = ({ children }) 
     fetchProducts,
     checkEntitlements,
     restorePurchases,
+    resetPurchaseSuccess,
   };
 
   return (

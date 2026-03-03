@@ -538,8 +538,8 @@ const localStyles = StyleSheet.create({
     alignItems: 'center',
   },
   bismillah: {
-    fontSize: 28,
-    fontWeight: '300',
+    fontSize: 24,
+    fontWeight: '400',
     marginBottom: 8,
     textAlign: 'center',
   },

@@ -83,6 +83,14 @@ export default function SettingsScreen() {
     testInAppNotification,
     checkNotificationStatus,
     resetNotifications,
+    iqamaNotificationsEnabled,
+    iqamaNotificationSettings,
+    iqamaMinutesBefore,
+    toggleIqamaNotifications,
+    toggleIqamaPrayerNotification,
+    setIqamaMinutes,
+    iqamaCountdownEnabled,
+    toggleIqamaCountdown,
   } = useSettingsNotifications();
 
   // Location (all state, loading, and handlers via custom hook)
@@ -243,6 +251,14 @@ export default function SettingsScreen() {
             toggleSoundPreference={toggleSoundPreference}
             testNotification={testNotification}
             checkNotificationStatus={checkNotificationStatus}
+            iqamaNotificationsEnabled={iqamaNotificationsEnabled}
+            iqamaNotificationSettings={iqamaNotificationSettings}
+            iqamaMinutesBefore={iqamaMinutesBefore}
+            toggleIqamaNotifications={toggleIqamaNotifications}
+            toggleIqamaPrayerNotification={toggleIqamaPrayerNotification}
+            setIqamaMinutes={setIqamaMinutes}
+            iqamaCountdownEnabled={iqamaCountdownEnabled}
+            toggleIqamaCountdown={toggleIqamaCountdown}
             styles={styles}
             t={t}
           />

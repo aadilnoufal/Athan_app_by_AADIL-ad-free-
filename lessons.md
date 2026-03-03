@@ -182,3 +182,51 @@ jest.spyOn(Alert, "alert").mockImplementation(() => {});
 - **NEVER** use `jest.mock('react-native', () => ...)` in this project
 - Always import from `react-native` normally and spy on individual methods
 - Look at existing passing tests (e.g., `useSettingsDonation.test.ts`) for the correct pattern
+
+---
+
+## 2026-02-27: Multi-Feature Implementation — Careful Prop Drilling
+
+### The Lesson
+
+When adding new features that span multiple layers (hook → screen → component), always:
+
+1. Update the hook to expose new state/handlers
+2. Update the component's interface/props
+3. Update the screen that connects them to pass the new props
+
+Missing any layer silently fails — TypeScript may not catch missing optional props.
+
+### Example: Iqama Notification Settings
+
+- Hook (`useSettingsNotifications.ts`): Added `iqamaNotificationsEnabled`, `iqamaNotificationSettings`, etc.
+- Component (`NotificationSection.tsx`): Updated interface + JSX
+- Screen (`settings.tsx`): Must destructure from hook AND pass to component — easy to forget one
+
+---
+
+## 2026-02-28: Alef Wasla (ٱ) Renders Incorrectly on Android
+
+### The Mistake
+
+Using the Unicode character Alef Wasla (ٱ, U+0671) in Arabic text strings. Android's default font (or many Arabic fonts) truncates or fails to render text containing this character. The string "بِسْمِ ٱللَّهِ" was rendering as just "بسم" on Android devices, making it appear as though only the first word was shown.
+
+This was initially misdiagnosed as a cache/build issue across multiple sessions, wasting significant debugging time.
+
+### The Fix
+
+Replace Alef Wasla (ٱ) with standard Alif (ا) in all user-facing Arabic strings:
+
+```
+// ❌ Bad: Uses Alef Wasla (ٱ) — breaks on Android
+'بِسْمِ ٱللَّهِ'
+
+// ✅ Good: Uses standard Alif (ا) — works everywhere
+'بِسْمِ اللهِ الرَّحْمَنِ الرَّحِيمِ'
+```
+
+### Prevention
+
+- Always test Arabic text rendering on actual Android devices
+- Avoid Unicode characters that look identical in editors but differ in font support (ٱ vs ا)
+- If Arabic text appears truncated on Android, inspect for unusual Unicode codepoints first

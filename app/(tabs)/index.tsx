@@ -98,6 +98,7 @@ export default function Home() {
     nextPrayer, setNextPrayer, countdown, setCountdown,
     countdownLoading, lastPrayerTime, refreshing,
     progressAnimation, progressPercent, lastRefreshDate, setLastRefreshDate,
+    countdownMode, iqamaPrayerName,
     convertTo12HourFormat, fetchPrayerTimes, fetchAndCachePrayerTimes,
     clearCache, goToPreviousDay, goToNextDay, goToToday,
     handleRefreshPress, updateNextPrayer,
@@ -428,6 +429,8 @@ export default function Home() {
                     breathingAnimation={breathingAnimation}
                     nextPrayer={nextPrayer}
                     countdown={countdown}
+                    countdownMode={countdownMode}
+                    iqamaPrayerName={iqamaPrayerName}
                   />
                 </View>
               )}

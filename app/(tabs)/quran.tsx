@@ -245,6 +245,45 @@ export default function QuranScreen() {
         }
     }, [surahLoading, mode]);
 
+    // ── Auto-reload translation when edition changes while reading ──
+    // When the user changes the translation language in settings and comes
+    // back to the Quran tab, useFocusEffect updates `translationEdition`.
+    // This effect re-fetches the translation for the currently open surah
+    // so the user doesn't have to close and re-open it.
+    const prevTranslationEdition = useRef(translationEdition);
+    useEffect(() => {
+        if (prevTranslationEdition.current === translationEdition) return;
+        prevTranslationEdition.current = translationEdition;
+
+        if (mode !== 'read' || !currentSurahAr) return;
+
+        const surahNumber = currentSurahAr.number;
+        (async () => {
+            try {
+                let trData: SurahData | null = null;
+                if (translationEdition === EDITIONS.ENGLISH) {
+                    trData = await readOfflineSurah(surahNumber, 'en');
+                } else {
+                    try {
+                        trData = await fetchSurah(surahNumber, translationEdition);
+                    } catch {
+                        // Fallback to bundled English if network fails
+                        trData = await readOfflineSurah(surahNumber, 'en');
+                    }
+                }
+                setCurrentSurahTr(trData);
+
+                // Update bismillah ref for the new translation
+                const needsBismillah = surahNumber !== 1 && surahNumber !== 9;
+                if (needsBismillah) {
+                    trBismillahRef.current = await getBismillahText(translationEdition).catch(() => null);
+                }
+            } catch {
+                // Silently keep old translation on failure
+            }
+        })();
+    }, [translationEdition, mode, currentSurahAr]);
+
     // ================================================================
     //  SUB-COMPONENTS
     // ================================================================

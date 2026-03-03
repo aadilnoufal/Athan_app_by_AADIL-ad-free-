@@ -43,18 +43,31 @@ class PrayerWidget : AppWidgetProvider() {
 
         fun updateAppWidget(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int) {
             val prayerInfo = PrayerTimeRepository.getNextPrayer(context)
+            val colors = WidgetThemeHelper.getWidgetColors(context)
             val views = RemoteViews(context.packageName, R.layout.widget_prayer_times)
 
+            // Apply theme-aware background
+            views.setInt(R.id.widget_root, "setBackgroundResource", colors.backgroundRes)
+
             if (prayerInfo != null) {
-                views.setTextViewText(R.id.widget_next_prayer_name, prayerInfo.name)
+                views.setTextViewText(R.id.widget_next_prayer_name, prayerInfo.name.uppercase())
                 views.setTextViewText(R.id.widget_next_prayer_time, prayerInfo.time)
                 views.setTextViewText(R.id.widget_time_remaining, prayerInfo.timeRemaining)
                 views.setProgressBar(R.id.widget_progress_bar, 100, prayerInfo.progress, false)
+
+                // Theme-aware text colors
+                views.setTextColor(R.id.widget_next_prayer_name, colors.textSecondary)
+                views.setTextColor(R.id.widget_time_remaining, colors.textPrimary)
+                views.setTextColor(R.id.widget_next_prayer_time, colors.accentGold)
             } else {
                 views.setTextViewText(R.id.widget_next_prayer_name, "PRAYER")
                 views.setTextViewText(R.id.widget_next_prayer_time, "--:--")
                 views.setTextViewText(R.id.widget_time_remaining, "No Data")
                 views.setProgressBar(R.id.widget_progress_bar, 100, 0, false)
+
+                views.setTextColor(R.id.widget_next_prayer_name, colors.textSecondary)
+                views.setTextColor(R.id.widget_time_remaining, colors.textPrimary)
+                views.setTextColor(R.id.widget_next_prayer_time, colors.accentGold)
             }
 
             appWidgetManager.updateAppWidget(appWidgetId, views)

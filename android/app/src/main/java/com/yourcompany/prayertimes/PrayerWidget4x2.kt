@@ -45,9 +45,18 @@ class PrayerWidget4x2 : AppWidgetProvider() {
             try {
                 val todaysPrayers = PrayerTimeRepository.getTodaysPrayers(context)
                 val views = RemoteViews(context.packageName, R.layout.widget_prayer_times_4x2)
+                val colors = WidgetThemeHelper.getWidgetColors(context)
+
+                // Apply theme-aware background
+                views.setInt(R.id.widget_4x2_root, "setBackgroundResource", colors.backgroundRes)
+
+                // Theme the separator line
+                views.setInt(R.id.widget_separator, "setBackgroundColor", colors.separatorColor)
+
+                // Theme the static "Next Prayer: " label
+                views.setTextColor(R.id.widget_next_label, colors.textSecondary)
 
                 if (todaysPrayers != null) {
-                    // Update List
                     val prayers = todaysPrayers.prayers
                     val nextIndex = todaysPrayers.nextPrayerIndex
 
@@ -63,55 +72,33 @@ class PrayerWidget4x2 : AppWidgetProvider() {
                     for (i in 0 until 6) {
                         if (i < prayers.size) {
                             val prayer = prayers[i]
-                            val nameId = nameIds[i]
-                            val timeId = timeIds[i]
+                            views.setTextViewText(nameIds[i], prayer.name)
 
-                            views.setTextViewText(nameId, prayer.name)
-                            
                             val shortTime = prayer.time.replace(" AM", "").replace(" PM", "")
-                            views.setTextViewText(timeId, shortTime)
+                            views.setTextViewText(timeIds[i], shortTime)
 
-                            // Highlight Logic
-                            // Use a safe color retrieval method
-                            val goldColor = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                                context.resources.getColor(R.color.midnight_accent_gold, null)
-                            } else {
-                                @Suppress("DEPRECATION")
-                                context.resources.getColor(R.color.midnight_accent_gold)
-                            }
-                            
-                            val secondaryColor = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                                context.resources.getColor(R.color.midnight_text_secondary, null)
-                            } else {
-                                @Suppress("DEPRECATION")
-                                context.resources.getColor(R.color.midnight_text_secondary)
-                            }
-                            
-                            val primaryColor = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                                context.resources.getColor(R.color.midnight_text_primary, null)
-                            } else {
-                                @Suppress("DEPRECATION")
-                                context.resources.getColor(R.color.midnight_text_primary)
-                            }
-
+                            // Highlight next prayer in gold, others in theme-appropriate colors
                             if (i == nextIndex) {
-                                views.setTextColor(nameId, goldColor)
-                                views.setTextColor(timeId, goldColor)
+                                views.setTextColor(nameIds[i], colors.accentGold)
+                                views.setTextColor(timeIds[i], colors.accentGold)
                             } else {
-                                views.setTextColor(nameId, secondaryColor)
-                                views.setTextColor(timeId, primaryColor)
+                                views.setTextColor(nameIds[i], colors.textSecondary)
+                                views.setTextColor(timeIds[i], colors.textPrimary)
                             }
                         }
                     }
 
-                    // Update Bottom Section
+                    // Bottom section: next prayer name + countdown
                     val nextPrayer = todaysPrayers.nextPrayer
                     views.setTextViewText(R.id.widget_next_prayer_name_bottom, nextPrayer.name)
                     views.setTextViewText(R.id.widget_countdown_bottom, nextPrayer.timeRemaining)
-
+                    views.setTextColor(R.id.widget_next_prayer_name_bottom, colors.accentGold)
+                    views.setTextColor(R.id.widget_countdown_bottom, colors.textPrimary)
                 } else {
                     views.setTextViewText(R.id.widget_next_prayer_name_bottom, "Error")
                     views.setTextViewText(R.id.widget_countdown_bottom, "--:--")
+                    views.setTextColor(R.id.widget_next_prayer_name_bottom, colors.accentGold)
+                    views.setTextColor(R.id.widget_countdown_bottom, colors.textPrimary)
                 }
 
                 appWidgetManager.updateAppWidget(appWidgetId, views)

@@ -67,6 +67,20 @@ export function useSettingsNotifications() {
   const [useAzanSound, setUseAzanSound] = useState(true);
   const [notificationStatus, setNotificationStatus] = useState<any>(null);
 
+  // ── Iqama notification state ─────────────────────────────────────────
+  const [iqamaNotificationsEnabled, setIqamaNotificationsEnabled] = useState(false);
+  const [iqamaNotificationSettings, setIqamaNotificationSettings] = useState<Record<string, boolean>>({
+    Fajr: true,
+    Dhuhr: true,
+    Asr: true,
+    Maghrib: true,
+    Isha: true,
+  });
+  const [iqamaMinutesBefore, setIqamaMinutesBefore] = useState(3);
+
+  // ── Iqama countdown visibility state ──────────────────────────────────
+  const [iqamaCountdownEnabled, setIqamaCountdownEnabled] = useState(false);
+
   // ── Load + initialise on mount ───────────────────────────────────────
   useEffect(() => {
     const initializeNotifications = async () => {
@@ -97,6 +111,28 @@ export function useSettingsNotifications() {
       const soundPref = await AsyncStorage.getItem('use_azan_sound');
       if (soundPref !== null) {
         setUseAzanSound(soundPref === 'true');
+      }
+
+      // Load iqama notification settings
+      const iqamaEnabled = await AsyncStorage.getItem('iqama_notifications_enabled');
+      if (iqamaEnabled !== null) {
+        setIqamaNotificationsEnabled(iqamaEnabled === 'true');
+      }
+
+      const iqamaSettings = await AsyncStorage.getItem('iqama_notification_settings');
+      if (iqamaSettings !== null) {
+        setIqamaNotificationSettings(JSON.parse(iqamaSettings));
+      }
+
+      const iqamaMins = await AsyncStorage.getItem('iqama_notification_minutes');
+      if (iqamaMins !== null) {
+        setIqamaMinutesBefore(parseInt(iqamaMins, 10));
+      }
+
+      // Load iqama countdown visibility setting
+      const iqamaCountdown = await AsyncStorage.getItem('iqama_countdown_enabled');
+      if (iqamaCountdown !== null) {
+        setIqamaCountdownEnabled(iqamaCountdown === 'true');
       }
     } catch (error) {
       console.error('Error loading notification settings:', error);
@@ -422,6 +458,52 @@ export function useSettingsNotifications() {
     }
   };
 
+  // ── Iqama notification handlers ───────────────────────────────────────
+
+  const toggleIqamaNotifications = async (value: boolean) => {
+    try {
+      setIqamaNotificationsEnabled(value);
+      await AsyncStorage.setItem('iqama_notifications_enabled', value ? 'true' : 'false');
+
+      if (notificationsEnabled) {
+        console.log(`🕌 Iqama notifications ${value ? 'enabled' : 'disabled'}, rescheduling...`);
+        await forceRescheduleAllNotifications();
+      }
+    } catch (error) {
+      console.error('Error toggling iqama notifications:', error);
+    }
+  };
+
+  const toggleIqamaPrayerNotification = async (prayer: string, value: boolean) => {
+    try {
+      const updated = { ...iqamaNotificationSettings, [prayer]: value };
+      setIqamaNotificationSettings(updated);
+      await AsyncStorage.setItem('iqama_notification_settings', JSON.stringify(updated));
+
+      if (notificationsEnabled && iqamaNotificationsEnabled) {
+        console.log(`🕌 Iqama ${prayer} toggled to ${value}, rescheduling...`);
+        await forceRescheduleAllNotifications();
+      }
+    } catch (error) {
+      console.error('Error toggling iqama prayer notification:', error);
+    }
+  };
+
+  const setIqamaMinutes = async (minutes: number) => {
+    try {
+      const clamped = Math.max(0, Math.min(5, minutes));
+      setIqamaMinutesBefore(clamped);
+      await AsyncStorage.setItem('iqama_notification_minutes', clamped.toString());
+
+      if (notificationsEnabled && iqamaNotificationsEnabled) {
+        console.log(`🕌 Iqama minutes before changed to ${clamped}, rescheduling...`);
+        await forceRescheduleAllNotifications();
+      }
+    } catch (error) {
+      console.error('Error setting iqama minutes:', error);
+    }
+  };
+
   // ── Public API ───────────────────────────────────────────────────────
   return {
     // State
@@ -429,6 +511,11 @@ export function useSettingsNotifications() {
     notificationSettings,
     useAzanSound,
     notificationStatus,
+
+    // Iqama state
+    iqamaNotificationsEnabled,
+    iqamaNotificationSettings,
+    iqamaMinutesBefore,
 
     // Handlers
     toggleNotifications,
@@ -440,5 +527,17 @@ export function useSettingsNotifications() {
     testInAppNotification,
     checkNotificationStatus,
     resetNotifications,
+
+    // Iqama handlers
+    toggleIqamaNotifications,
+    toggleIqamaPrayerNotification,
+    setIqamaMinutes,
+
+    // Iqama countdown
+    iqamaCountdownEnabled,
+    toggleIqamaCountdown: async (value: boolean) => {
+      setIqamaCountdownEnabled(value);
+      await AsyncStorage.setItem('iqama_countdown_enabled', value.toString());
+    },
   };
 }

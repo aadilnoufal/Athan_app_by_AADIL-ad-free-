@@ -3,6 +3,7 @@ import { Animated, Easing } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Appearance } from 'react-native';
 import { SepiaColors } from '../constants/sepiaColors';
+import { updateWidgetTheme } from '../utils/widgetDataBridge';
 
 // All available themes
 export const ThemeNames = {
@@ -143,6 +144,8 @@ export const ThemeProvider = ({ children }) => {
     transitionProgress.setValue(1); // fully visible overlay of old color
     setMode(nextMode);
     try { await AsyncStorage.setItem(THEME_KEY, nextMode); } catch { }
+    // Sync theme to home screen widgets
+    updateWidgetTheme(nextMode);
     // animate fade of previous color
     Animated.timing(transitionProgress, {
       toValue: 0,

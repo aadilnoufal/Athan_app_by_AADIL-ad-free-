@@ -1,14 +1,11 @@
-// Widget task handler stub - prevents crash if widget module is not available
-// This is a placeholder for Android widget integration
+// Widget Data Bridge Placeholder
+// ================================
+// Both Android and iOS widgets are implemented natively (Kotlin / Swift).
+// They do NOT use react-native-android-widget or any JS widget library.
+//
+// Data flow: React Native app → SharedPreferences (Android) / App Group UserDefaults (iOS) → Native widgets
+// See utils/widgetDataBridge.ts for the JS-side data writing implementation.
+//
+// This file is intentionally kept as a stub for future extensibility.
 
-import type { WidgetTaskHandlerProps } from 'react-native-android-widget';
-
-export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
-  // Safe no-op handler
-  console.log('Widget task handler invoked:', props.widgetAction);
-  
-  // Return empty to prevent crashes
-  return;
-}
-
-export default widgetTaskHandler;
+export {};

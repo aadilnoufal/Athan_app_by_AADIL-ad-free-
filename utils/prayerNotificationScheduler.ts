@@ -12,6 +12,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState } from 'react-native';
 import { getPrayerTimesFromLocalData } from './localPrayerData';
 import { scheduleNotifeePrayerNotifications, cancelAllNotifeePrayerNotifications } from './notifeePrayerService';
+import { IQAMA_OFFSETS } from './iqamaConfig';
 
 // Config
 const WINDOW_DAYS = 10; // days forward to keep scheduled
@@ -147,6 +148,96 @@ async function scheduleDay(date: Date, settings: any) {
       console.log(`⚠️ Failed scheduling ${prayer} ${isoDate(date)}:`, e?.message);
     }
   }
+
+  // ── Iqama Notifications ──
+  let iqamaEnabled = false;
+  let iqamaSettings: any = {};
+  let iqamaMinutes = 3;
+  try {
+    const iqamaEnabledRaw = await AsyncStorage.getItem('iqama_notifications_enabled');
+    iqamaEnabled = iqamaEnabledRaw === 'true';
+    if (iqamaEnabled) {
+      const iqamaSettingsRaw = await AsyncStorage.getItem('iqama_notification_settings');
+      iqamaSettings = iqamaSettingsRaw ? JSON.parse(iqamaSettingsRaw) : {};
+      const iqamaMinRaw = await AsyncStorage.getItem('iqama_notification_minutes');
+      iqamaMinutes = iqamaMinRaw ? parseInt(iqamaMinRaw, 10) : 3;
+    }
+  } catch {}
+
+  if (iqamaEnabled) {
+    const iqamaPrayers = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
+    for (const prayer of iqamaPrayers) {
+      try {
+        if (iqamaSettings[prayer] === false) continue;
+        const time = (pt as any)[prayer];
+        if (!time) continue;
+        const offset = IQAMA_OFFSETS[prayer];
+        if (!offset) continue;
+
+        const [h, m] = time.split(':').map(Number);
+        if (isNaN(h) || isNaN(m)) continue;
+
+        // Calculate iqama time (prayer time + offset)
+        const iqamaTime = new Date(date);
+        iqamaTime.setHours(h, m, 0, 0);
+        iqamaTime.setMinutes(iqamaTime.getMinutes() + offset);
+
+        // Calculate notification time (iqama time - minutesBefore)
+        const notifTime = new Date(iqamaTime.getTime() - iqamaMinutes * 60 * 1000);
+        if (notifTime.getTime() < Date.now()) continue; // skip past
+
+        const id = `iqama-${prayer.toLowerCase()}-${isoDate(date)}`;
+
+        const android: any = {
+          channelId: 'prayer-times-default',
+          category: AndroidCategory.REMINDER,
+          smallIcon: 'ic_launcher_foreground',
+          vibrationPattern: [200, 300, 200, 300],
+          pressAction: { id: 'default' },
+          color: '#d4a017',
+        };
+
+        const ios: any = {
+          categoryId: 'prayer-category',
+          sound: 'beep.wav',
+          interruptionLevel: 'active',
+          badge: 1,
+        };
+
+        const minuteText = iqamaMinutes === 0 ? 'now' : `in ${iqamaMinutes} min`;
+        const notifTitle = `🕌 Iqama – ${prayer}`;
+        const notifBody = iqamaMinutes === 0
+          ? `Iqama for ${prayer} prayer is now`
+          : `Iqama for ${prayer} prayer ${minuteText}`;
+
+        const trigger: any = {
+          type: TriggerType.TIMESTAMP,
+          timestamp: notifTime.getTime(),
+          alarmManager: {
+            allowWhileIdle: true,
+            exact: true,
+          },
+        };
+
+        await notifee.createTriggerNotification(
+          {
+            id,
+            title: notifTitle,
+            body: notifBody,
+            data: { type: 'iqama-reminder', prayerName: prayer },
+            android,
+            ios,
+          },
+          trigger
+        );
+        created.push(id);
+        console.log(`✅ Iqama scheduled ${prayer} ${isoDate(date)} (${minuteText}) [id=${id}]`);
+      } catch (e: any) {
+        console.log(`⚠️ Failed scheduling iqama ${prayer} ${isoDate(date)}:`, e?.message);
+      }
+    }
+  }
+
   return created;
 }
 
@@ -277,7 +368,7 @@ export async function ensurePrayerNotificationWindow() {
 export async function cancelAll() {
   const ids = await notifee.getTriggerNotificationIds();
   for (const id of ids) {
-    if (id.startsWith('prayer-')) {
+    if (id.startsWith('prayer-') || id.startsWith('iqama-')) {
       await notifee.cancelTriggerNotification(id);
     }
   }

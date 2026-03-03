@@ -24,6 +24,10 @@ export interface EnhancedCircularProgressProps {
     nextPrayer: NextPrayer | null;
     /** Countdown string */
     countdown: string;
+    /** Whether we're counting down to iqama or next prayer */
+    countdownMode?: 'prayer' | 'iqama';
+    /** The prayer name for which iqama countdown is shown */
+    iqamaPrayerName?: string | null;
 }
 
 export const EnhancedCircularProgress = ({
@@ -36,7 +40,14 @@ export const EnhancedCircularProgress = ({
     breathingAnimation,
     nextPrayer,
     countdown,
-}: EnhancedCircularProgressProps) => (
+    countdownMode = 'prayer',
+    iqamaPrayerName = null,
+}: EnhancedCircularProgressProps) => {
+    const isIqamaMode = countdownMode === 'iqama' && iqamaPrayerName;
+    const displayLabel = isIqamaMode ? t('iqamaCountdown') : t('nextPrayer');
+    const displayPrayerName = isIqamaMode ? t(iqamaPrayerName!) : (nextPrayer ? t(nextPrayer.name) : '');
+
+    return (
     <View style={styles.enhancedCircularContainer}>
         {/* Magical background glow */}
         <Animated.View
@@ -101,19 +112,22 @@ export const EnhancedCircularProgress = ({
             {nextPrayer && (
                 <>
                     <AnimatedPrayerIcon
-                        key={nextPrayer.name}
-                        prayer={nextPrayer.name}
+                        key={isIqamaMode ? `iqama-${iqamaPrayerName}` : nextPrayer.name}
+                        prayer={isIqamaMode ? iqamaPrayerName! : nextPrayer.name}
                         active={true}
                         size={32}
-                        color={SepiaColors.accent.gold}
+                        color={isIqamaMode ? SepiaColors.accent.amber : SepiaColors.accent.gold}
                         subtle
                     />
-                    <Text style={styles.nextPrayerLabel}>{t('nextPrayer')}</Text>
-                    <Text style={styles.nextPrayerName}>{t(nextPrayer.name)}</Text>
-                    <Text style={styles.nextPrayerTime}>{nextPrayer.time}</Text>
+                    <Text style={styles.nextPrayerLabel}>{displayLabel}</Text>
+                    <Text style={styles.nextPrayerName}>{displayPrayerName}</Text>
+                    {!isIqamaMode && (
+                        <Text style={styles.nextPrayerTime}>{nextPrayer.time}</Text>
+                    )}
                     <Text style={styles.countdown}>{countdown}</Text>
                 </>
             )}
         </Animated.View>
     </View>
 );
+};

@@ -1,8 +1,5 @@
 import 'expo-router/entry';
-import { registerWidgetTaskHandler } from 'react-native-android-widget';
 import notifee, { EventType } from '@notifee/react-native';
-
-import { widgetTaskHandler } from './widgets/widgetTaskHandler';
 
 // ============================================================================
 // CRITICAL: Register Notifee background event handler at TOP LEVEL
@@ -40,11 +37,4 @@ try {
   });
 } catch (e) {
   console.log('⚠️ Failed to register background event handler:', e);
-}
-
-// Register the widget task handler safely
-try {
-  registerWidgetTaskHandler(widgetTaskHandler);
-} catch (e) {
-  console.log('⚠️ Failed to register widget task handler:', e);
 }

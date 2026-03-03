@@ -27,12 +27,14 @@ const RevenueCatPaywall: React.FC<RevenueCatPaywallProps> = ({ onClose }) => {
     packages,
     products,
     isPurchasing,
+    purchaseSucceeded,
     customerInfo,
     purchase,
     purchaseProductById,
     fetchOfferings,
     restorePurchases,
     fetchProducts,
+    resetPurchaseSuccess,
   } = usePurchase();
 
   const hasActiveEntitlements =
@@ -56,6 +58,36 @@ const RevenueCatPaywall: React.FC<RevenueCatPaywallProps> = ({ onClose }) => {
       </View>
     </View>
   );
+
+  // ── Thank You screen (shown after successful purchase) ──
+  if (purchaseSucceeded) {
+    const handleThankYouClose = () => {
+      resetPurchaseSuccess();
+      onClose?.();
+    };
+    return (
+      <View style={s.backdrop}>
+        <View style={[s.card, { backgroundColor: bg, borderColor: gt(0.12) }]}>
+          <Text style={{ fontSize: 48, marginBottom: 12 }}>🤲</Text>
+          <Text style={[s.title, { color: gold, fontSize: 22, marginBottom: 8 }]}>
+            {t('supportThankYouTitle')}
+          </Text>
+          <Text style={[s.sub, { color: txt2, fontSize: 14, lineHeight: 22, marginBottom: 20, paddingHorizontal: 8 }]}>
+            {t('supportThankYouMessage')}
+          </Text>
+          <TouchableOpacity
+            onPress={handleThankYouClose}
+            style={[s.noThanks, { borderColor: gt(0.25), backgroundColor: gt(0.06) }]}
+            activeOpacity={0.7}
+          >
+            <Text style={[s.noThanksText, { color: gold, fontSize: 16 }]}>
+              {t('supportThankYouClose')}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
 
   // ── Non-mobile fallback ────────────────────────────
   if (!isMobile) {
