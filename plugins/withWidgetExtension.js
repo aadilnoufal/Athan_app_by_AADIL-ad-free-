@@ -39,12 +39,16 @@ function withWidgetExtension(config) {
     const projectRoot = modConfig.modRequest.projectRoot;
     const platformProjectRoot = modConfig.modRequest.platformProjectRoot; // ios/
     const bundleId = modConfig.ios?.bundleIdentifier || 'com.aadilnoufal.prayertimes';
+    const appVersion = modConfig.version || '1.0';
+    const buildNumber = modConfig.ios?.buildNumber || '1';
 
     await addWidgetExtension(
       xcodeProject,
       projectRoot,
       platformProjectRoot,
-      bundleId
+      bundleId,
+      appVersion,
+      buildNumber
     );
 
     // Step 3: Copy and register native module files in the main app target
@@ -67,7 +71,9 @@ async function addWidgetExtension(
   xcodeProject,
   projectRoot,
   platformProjectRoot,
-  mainBundleId
+  mainBundleId,
+  appVersion = '1.0',
+  buildNumber = '1'
 ) {
   const widgetBundleId = mainBundleId + WIDGET_BUNDLE_ID_SUFFIX;
   const widgetDir = path.join(platformProjectRoot, WIDGET_EXTENSION_NAME);
@@ -197,8 +203,8 @@ async function addWidgetExtension(
       config.buildSettings.TARGETED_DEVICE_FAMILY = '"1,2"';
       config.buildSettings.CODE_SIGN_ENTITLEMENTS = `"${WIDGET_EXTENSION_NAME}/${WIDGET_EXTENSION_NAME}.entitlements"`;
       config.buildSettings.PRODUCT_BUNDLE_IDENTIFIER = `"${widgetBundleId}"`;
-      config.buildSettings.MARKETING_VERSION = '"4.0"';
-      config.buildSettings.CURRENT_PROJECT_VERSION = '"1"';
+      config.buildSettings.MARKETING_VERSION = `"${appVersion}"`;
+      config.buildSettings.CURRENT_PROJECT_VERSION = `"${buildNumber}"`;
       config.buildSettings.GENERATE_INFOPLIST_FILE = 'NO';
       config.buildSettings.INFOPLIST_FILE = `"${WIDGET_EXTENSION_NAME}/Info.plist"`;
       config.buildSettings.ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = '"AccentColor"';
@@ -220,25 +226,28 @@ async function addWidgetExtension(
   if (embedExtPhase) {
     embedExtPhase.buildPhase.dstSubfolderSpec = 13; // PlugIns folder
 
-    // Add the .appex product reference to the embed phase so it actually gets bundled
-    const productFile = xcodeProject.addFile(
-      `${WIDGET_EXTENSION_NAME}.appex`,
-      undefined,
-      { target: mainTarget.uuid, explicitFileType: 'wrapper.app-extension' }
-    );
-    if (productFile) {
+    // Use the product reference already created by addTarget() for the .appex
+    // (avoids xcodeProject.addFile() crash when group is undefined in newer xcode package versions)
+    const productRefUuid = target.pbxNativeTarget?.productReference;
+    if (productRefUuid) {
       const buildFileUuid = xcodeProject.generateUuid();
-      xcodeProject.addToPbxBuildFileSection({
-        uuid: buildFileUuid,
+      const pbxBuildFileSection = xcodeProject.hash.project.objects['PBXBuildFile'];
+      pbxBuildFileSection[buildFileUuid] = {
         isa: 'PBXBuildFile',
-        fileRef: productFile.fileRef || productFile.uuid,
+        fileRef: productRefUuid,
+        fileRef_comment: `${WIDGET_EXTENSION_NAME}.appex`,
         settings: { ATTRIBUTES: ['RemoveHeadersOnCopy'] },
-      });
+      };
+      pbxBuildFileSection[buildFileUuid + '_comment'] =
+        `${WIDGET_EXTENSION_NAME}.appex in Embed App Extensions`;
+
       embedExtPhase.buildPhase.files = embedExtPhase.buildPhase.files || [];
       embedExtPhase.buildPhase.files.push({
         value: buildFileUuid,
         comment: `${WIDGET_EXTENSION_NAME}.appex in Embed App Extensions`,
       });
+    } else {
+      console.warn('[withWidgetExtension] Could not find product reference for widget target — .appex will not be embedded');
     }
   }
 }
