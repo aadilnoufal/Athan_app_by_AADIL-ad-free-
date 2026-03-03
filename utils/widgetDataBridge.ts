@@ -115,8 +115,16 @@ export async function getWidgetData(): Promise<string | null> {
       console.log('⚠️ Failed to read widget data:', error);
       return null;
     }
+  } else if (Platform.OS === 'ios') {
+    try {
+      const { WidgetDataModuleIOS } = NativeModules;
+      if (WidgetDataModuleIOS) {
+        return await WidgetDataModuleIOS.getWidgetData();
+      }
+    } catch (error) {
+      console.log('⚠️ Failed to read iOS widget data:', error);
+    }
   }
-  // iOS: will be implemented when iOS native module is added
   return null;
 }
 

@@ -68,7 +68,8 @@
             "./assets/sounds/beep.wav"
           ]
         }
-      ]
+      ],
+      "./plugins/withWidgetExtension"
     ],
     "extra": {
       "eas": {
