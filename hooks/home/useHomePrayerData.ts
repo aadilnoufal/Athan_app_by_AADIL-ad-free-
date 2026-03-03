@@ -154,6 +154,22 @@ export function useHomePrayerData(params: UseHomePrayerDataParams) {
           try {
             // Read current theme mode from AsyncStorage for widget payload
             const currentTheme = await AsyncStorage.getItem('app_theme_mode_v2') || 'dark';
+
+            // Fetch tomorrow's Fajr for accurate post-Isha countdown
+            let tomorrowFajrMinutes: number | undefined;
+            try {
+              const tomorrowDate = addDays(new Date(), 1);
+              const tomorrowData = getPrayerTimesFromLocalData(tomorrowDate) as PrayerData | null;
+              if (tomorrowData) {
+                let tomorrowTimings = { ...tomorrowData.times } as any;
+                tomorrowTimings = applyLocalDataCityAdjustments(tomorrowTimings, cityId, true);
+                const [h, m] = tomorrowTimings.Fajr.split(':').map(Number);
+                tomorrowFajrMinutes = h * 60 + m;
+              }
+            } catch (e) {
+              console.log('ℹ️ Could not fetch tomorrow Fajr for widget (non-critical)');
+            }
+
             const widgetPayload: WidgetData = {
               times: timings,
               times12h: formattedTimes.times12h as any,
@@ -161,6 +177,7 @@ export function useHomePrayerData(params: UseHomePrayerDataParams) {
               cityId,
               themeMode: currentTheme,
               lastUpdated: Date.now(),
+              tomorrowFajrMinutes,
             };
             // Use immediate update on first load, debounced for subsequent updates
             if (isFirstFetchRef.current) {

@@ -14,8 +14,6 @@
 const {
   withXcodeProject,
   withEntitlementsPlist,
-  withInfoPlist,
-  withDangerousMod,
 } = require('@expo/config-plugins');
 const path = require('path');
 const fs = require('fs');
@@ -35,7 +33,7 @@ function withWidgetExtension(config) {
     return modConfig;
   });
 
-  // Step 2: Add WidgetKit extension to Xcode project
+  // Step 2: Add WidgetKit extension + native module to Xcode project
   config = withXcodeProject(config, async (modConfig) => {
     const xcodeProject = modConfig.modResults;
     const projectRoot = modConfig.modRequest.projectRoot;
@@ -49,19 +47,15 @@ function withWidgetExtension(config) {
       bundleId
     );
 
+    // Step 3: Copy and register native module files in the main app target
+    await copyAndRegisterNativeModule(
+      xcodeProject,
+      projectRoot,
+      platformProjectRoot
+    );
+
     return modConfig;
   });
-
-  // Step 3: Copy the iOS native module files into the main app
-  config = withDangerousMod(config, [
-    'ios',
-    async (modConfig) => {
-      const projectRoot = modConfig.modRequest.projectRoot;
-      const platformProjectRoot = modConfig.modRequest.platformProjectRoot;
-      await copyNativeModuleFiles(projectRoot, platformProjectRoot);
-      return modConfig;
-    },
-  ]);
 
   return config;
 }
@@ -215,23 +209,49 @@ async function addWidgetExtension(
 
   // Add the widget extension to the main app's embed extensions build phase
   // This ensures the .appex is included in the final app bundle
+  const mainTarget = xcodeProject.getFirstTarget();
   const embedExtPhase = xcodeProject.addBuildPhase(
     [],
     'PBXCopyFilesBuildPhase',
     'Embed App Extensions',
-    xcodeProject.getFirstTarget().uuid,
+    mainTarget.uuid,
     'app_extension'
   );
   if (embedExtPhase) {
     embedExtPhase.buildPhase.dstSubfolderSpec = 13; // PlugIns folder
-    embedExtPhase.buildPhase.files = embedExtPhase.buildPhase.files || [];
+
+    // Add the .appex product reference to the embed phase so it actually gets bundled
+    const productFile = xcodeProject.addFile(
+      `${WIDGET_EXTENSION_NAME}.appex`,
+      undefined,
+      { target: mainTarget.uuid, explicitFileType: 'wrapper.app-extension' }
+    );
+    if (productFile) {
+      const buildFileUuid = xcodeProject.generateUuid();
+      xcodeProject.addToPbxBuildFileSection({
+        uuid: buildFileUuid,
+        isa: 'PBXBuildFile',
+        fileRef: productFile.fileRef || productFile.uuid,
+        settings: { ATTRIBUTES: ['RemoveHeadersOnCopy'] },
+      });
+      embedExtPhase.buildPhase.files = embedExtPhase.buildPhase.files || [];
+      embedExtPhase.buildPhase.files.push({
+        value: buildFileUuid,
+        comment: `${WIDGET_EXTENSION_NAME}.appex in Embed App Extensions`,
+      });
+    }
   }
 }
 
 /**
- * Copy the iOS native module files (WidgetDataModuleIOS) into the main app.
+ * Copy the iOS native module files (WidgetDataModuleIOS) into the main app
+ * AND add them to the Xcode project's compile sources so they actually build.
  */
-async function copyNativeModuleFiles(projectRoot, platformProjectRoot) {
+async function copyAndRegisterNativeModule(
+  xcodeProject,
+  projectRoot,
+  platformProjectRoot
+) {
   const sourceDir = path.join(projectRoot, 'ios-native');
   if (!fs.existsSync(sourceDir)) return;
 
@@ -252,12 +272,24 @@ async function copyNativeModuleFiles(projectRoot, platformProjectRoot) {
   }
 
   const destDir = path.join(platformProjectRoot, projectName);
+  const mainTarget = xcodeProject.getFirstTarget();
   const files = fs.readdirSync(sourceDir);
+
   for (const file of files) {
     const srcPath = path.join(sourceDir, file);
     const destPath = path.join(destDir, file);
-    if (fs.statSync(srcPath).isFile()) {
-      fs.copyFileSync(srcPath, destPath);
+    if (!fs.statSync(srcPath).isFile()) continue;
+
+    // Copy file to disk
+    fs.copyFileSync(srcPath, destPath);
+
+    // Add to Xcode project compile sources (main app target)
+    if (file.endsWith('.swift') || file.endsWith('.m')) {
+      xcodeProject.addSourceFile(
+        `${projectName}/${file}`,
+        { target: mainTarget.uuid },
+        xcodeProject.getFirstProject().firstProject.mainGroup
+      );
     }
   }
 }

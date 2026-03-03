@@ -11,8 +11,9 @@ All notable changes to this project will be documented in this file.
 - **Android Widget Data Module** – Native module (`WidgetDataModule.kt`) bridges React Native to SharedPreferences, broadcasting widget refresh intents after each write.
 - **Android PrayerTimeRepository Rewrite** – Reads from SharedPreferences (primary, with 48h staleness check) before falling back to bundled CSV. Supports city-tuned prayer times and theme mode.
 - **iOS WidgetKit Extension** – New Swift-based widget extension with two sizes (small circular, medium list). Reads prayer data from App Group UserDefaults with 30-minute timeline refresh. Supports dark and sepia themes via SwiftUI.
-- **iOS Expo Config Plugin** – `plugins/withWidgetExtension.js` injects the WidgetKit extension target, App Group entitlements, Swift source files, and frameworks during `expo prebuild`.
+- **iOS Expo Config Plugin** – `plugins/withWidgetExtension.js` injects the WidgetKit extension target, App Group entitlements, Swift source files, frameworks, and native module registration during `expo prebuild`. Properly embeds the `.appex` in the final app bundle.
 - **iOS Native Module** – `WidgetDataModuleIOS.swift` writes widget data to App Group UserDefaults and triggers WidgetKit timeline reloads.
+- **Tomorrow's Fajr Data** – Widget payload now includes `tomorrowFajrMinutes` for accurate post-Isha countdown on both platforms, matching the Android CSV-based approach.
 - **Widget Integration Tests** – 10 unit tests for `widgetDataBridge` (debouncing, immediate writes, platform branching, theme sync) and 4 integration tests in `useHomePrayerData` (widget payload content, theme reading, 12h format).
 - **Iqama Countdown Setting** – The iqama countdown on the home screen is now optional. A new "Iqama Countdown" toggle in Settings > Notifications controls visibility. Off by default; persisted via AsyncStorage (`iqama_countdown_enabled`).
 - **Iqama Countdown** – After a prayer's adhan time, the home screen countdown now shows time remaining to iqama before switching to the next prayer countdown.
@@ -28,6 +29,12 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **iOS Widget Timeline Fix** – `nextPrayer` computed property now accepts a `referenceDate` parameter instead of using `Date()`. Each pre-rendered timeline entry correctly computes its own countdown, fixing stale data in WidgetKit's cached snapshots.
+- **iOS 17+ Widget Background** – Added `widgetBackground()` View extension that uses `.containerBackground(for: .widget)` on iOS 17+ and falls back to `ContainerRelativeShape` on iOS 16. Widgets now render custom gradient backgrounds on all supported versions.
+- **Config Plugin: Native Module Registration** – Native module files (`.swift`/`.m`) are now added to Xcode's compile sources via `addSourceFile()`, not just copied to disk. Without this, the `WidgetDataModuleIOS` bridge wouldn't compile.
+- **Config Plugin: Embed App Extension** – The `.appex` product is now properly added to the "Embed App Extensions" build phase, ensuring the widget extension is bundled into the final IPA.
+- **Circular Widget Tomorrow Indicator** – Small widget now shows "TOMORROW" label when displaying next-day Fajr countdown, matching the list widget's "(tmrw)" indicator.
+- **Sepia Progress Ring Contrast** – Darkened the sepia theme's progress ring background from `#EAE7DF` to `#DAD6CF` (~13% contrast improvement) for better visibility against the `#FCFBF9` widget background.
 - **Onboarding first page title** – Changed to full "بِسْمِ اللهِ الرَّحْمَنِ الرَّحِيمِ" using standard Arabic characters (no Alef Wasla) for reliable Android rendering.
 - **Quran translation auto-reload** – Changing the translation language in settings now automatically reloads the translation for any currently open surah, without needing to close and reopen it.
 - **Revenue Cat purchase flow** – Successful purchases no longer show an Alert; instead, a `purchaseSucceeded` state flag triggers the dedicated thank-you screen in the paywall component.

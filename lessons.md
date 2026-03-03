@@ -262,3 +262,55 @@ function getWidgetDataModule() {
 - Never destructure `NativeModules` at the top level of files that need to be tested
 - Use lazy accessor functions for any module that needs runtime resolution
 - Test native module interactions early to catch this pattern
+
+## 2026-02-28: WidgetKit Timeline Pre-rendering — Date() is Wrong
+
+### The Mistake
+
+In iOS WidgetKit, `getTimeline()` creates multiple entries (e.g. 60 entries, one per minute). The SwiftUI views for ALL entries are pre-rendered at timeline creation time — NOT when each entry is displayed. Using `Date()` inside a computed property or view body gives the current time at creation, not the entry's scheduled display time.
+
+This means all 60 timeline entries showed identical countdown values (the countdown at minute 0), making the widget appear frozen until the next timeline refresh.
+
+### Files Affected
+
+- `ios-widget/WidgetDataProvider.swift` — `nextPrayer` computed property used `Date()`
+- `ios-widget/PrayerTimesWidgetViews.swift` — views didn't pass `entry.date`
+
+### The Fix
+
+Changed `nextPrayer` from a computed property to a method that accepts a `referenceDate` parameter. Views now pass `entry.date`:
+
+```swift
+// ❌ Bad: Always uses "now" — wrong for pre-rendered entries
+var nextPrayer: ... { let currentMinutes = Calendar.current.component(.hour, from: Date()) * 60 ... }
+
+// ✅ Good: Uses the entry's scheduled date
+func nextPrayer(at referenceDate: Date = Date()) -> ... { let currentMinutes = cal.component(.hour, from: referenceDate) * 60 ... }
+// In views: entry.data?.nextPrayer(at: entry.date)
+```
+
+### Prevention
+
+- In WidgetKit timeline providers, NEVER use `Date()` inside views or data models
+- Always thread `entry.date` through to any time-dependent computation
+- Remember: WidgetKit renders views as static images at timeline creation time
+
+## 2026-02-28: Expo Config Plugin — Files Copied but Not Compiled
+
+### The Mistake
+
+The config plugin used `fs.copyFileSync()` to copy native module files (`.swift`, `.m`) into the iOS project directory, but never called `xcodeProject.addSourceFile()` to register them in the Xcode project's compile sources. The files existed on disk but Xcode didn't know about them, so they wouldn't compile during EAS Build.
+
+Similarly, the "Embed App Extensions" build phase was created empty — the `.appex` product reference was never added, so the widget extension wouldn't be bundled into the final IPA.
+
+### The Fix
+
+1. Moved native module file operations into the `withXcodeProject` step (where `xcodeProject` is available)
+2. Called `xcodeProject.addSourceFile()` for each `.swift` and `.m` file
+3. Added the `.appex` product reference to the embed phase with `RemoveHeadersOnCopy` attribute
+
+### Prevention
+
+- When using Expo config plugins that add native files, always verify they're added to BOTH disk AND Xcode project
+- Test with `expo prebuild` and inspect the generated `.xcodeproj` to verify files appear in build phases
+- `withDangerousMod` only gives filesystem access — for Xcode project manipulation, use `withXcodeProject`

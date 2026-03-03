@@ -200,6 +200,7 @@ Home screen widgets display the next prayer time, countdown, and circular progre
 ```
 App startup / prayer time change / city change
   → useHomePrayerData hook computes city-tuned 24h & 12h times
+  → Also fetches tomorrow's Fajr time for accurate post-Isha countdown
   → widgetDataBridge.ts pushes JSON payload to native shared storage:
       Android: SharedPreferences ("PrayerWidgetData")
       iOS:     App Group UserDefaults ("group.com.aadilnoufal.prayertimes")
@@ -209,6 +210,8 @@ Theme change (via ThemeContext.js)
   → updateWidgetTheme() pushes themeMode to native storage
   → Widgets re-render with matching dark/sepia palette
 ```
+
+Widget payload includes: `times` (24h), `times12h` (12h), `date`, `cityId`, `themeMode`, `lastUpdated`, and `tomorrowFajrMinutes` (optional, for accurate next-day Fajr countdown).
 
 ### Android Widgets (Kotlin)
 
@@ -230,20 +233,28 @@ AlarmManager triggers 60-second refreshes. Widgets support dark and sepia themes
 
 ### iOS Widgets (SwiftUI / WidgetKit)
 
-| File                            | Purpose                                   |
-| ------------------------------- | ----------------------------------------- |
-| `PrayerTimesWidgetBundle.swift` | @main WidgetBundle entry point            |
-| `WidgetDataProvider.swift`      | Reads JSON from App Group UserDefaults    |
-| `WidgetTheme.swift`             | Dark/sepia SwiftUI colour definitions     |
-| `PrayerTimesWidgets.swift`      | Timeline providers (30-min refresh cycle) |
-| `PrayerTimesWidgetViews.swift`  | SwiftUI views for small & medium sizes    |
-| `WidgetDataModuleIOS.swift/m`   | React Native native module (ObjC bridge)  |
+| File                            | Purpose                                            |
+| ------------------------------- | -------------------------------------------------- |
+| `PrayerTimesWidgetBundle.swift` | @main WidgetBundle entry point                     |
+| `WidgetDataProvider.swift`      | Reads JSON from App Group UserDefaults             |
+| `WidgetTheme.swift`             | Dark/sepia SwiftUI colour definitions              |
+| `PrayerTimesWidgets.swift`      | Timeline providers (60 entries/hr, 30-min refresh) |
+| `PrayerTimesWidgetViews.swift`  | SwiftUI views for small & medium sizes             |
+| `WidgetDataModuleIOS.swift/m`   | React Native native module (ObjC bridge)           |
+
+Key design decisions:
+
+- `nextPrayer(at:)` takes a `Date` parameter (not `Date()`) so pre-rendered timeline entries compute correct countdowns
+- `widgetBackground()` extension handles iOS 16 (`ContainerRelativeShape`) and iOS 17+ (`.containerBackground`) compatibility
+- `tomorrowFajrMinutes` from the JS payload is used for accurate post-Isha countdown instead of reusing today's Fajr time
 
 The iOS extension is injected via an Expo config plugin (`plugins/withWidgetExtension.js`) that:
 
 - Adds the WidgetKit extension target to the Xcode project
 - Configures App Group entitlements
 - Copies Swift source files and links required frameworks
+- Registers native module files in the main app target's compile sources
+- Embeds the `.appex` product in the app bundle via the "Embed App Extensions" build phase
 
 ## Data Flow – Quran Feature
 

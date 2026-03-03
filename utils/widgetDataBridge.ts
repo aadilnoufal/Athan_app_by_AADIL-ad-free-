@@ -58,6 +58,7 @@ export interface WidgetData {
   cityId: string;     // e.g., "doha", "abu-samra", "dukhan", "alshamal"
   themeMode: string;   // "dark" | "sepia"
   lastUpdated: number; // Unix timestamp ms
+  tomorrowFajrMinutes?: number; // Tomorrow's Fajr in minutes since midnight (for accurate post-Isha countdown)
 }
 
 /**

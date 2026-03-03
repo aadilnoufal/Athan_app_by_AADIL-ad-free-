@@ -1,26 +1,53 @@
 import SwiftUI
 import WidgetKit
 
+// MARK: - iOS 16/17+ Background Compatibility
+
+extension View {
+    /// Applies the widget background correctly on both iOS 16 and 17+.
+    /// On iOS 17+ uses `.containerBackground`, on iOS 16 wraps in a ZStack.
+    func widgetBackground<Background: View>(_ background: Background) -> some View {
+        if #available(iOSApplicationExtension 17.0, *) {
+            return AnyView(
+                self.containerBackground(for: .widget) {
+                    background
+                }
+            )
+        } else {
+            return AnyView(
+                ZStack {
+                    ContainerRelativeShape()
+                        .fill(.clear)
+                        .background(background)
+                        .clipShape(ContainerRelativeShape())
+                    self
+                }
+            )
+        }
+    }
+}
+
 // MARK: - 2x2 Circular Widget View (Small Family)
 
 struct CircularWidgetView: View {
     let entry: PrayerTimelineEntry
 
+    private var theme: WidgetTheme {
+        WidgetTheme.forMode(entry.data?.themeMode ?? "dark")
+    }
+
+    private var backgroundGradient: LinearGradient {
+        LinearGradient(
+            colors: [theme.background, theme.backgroundGradientEnd],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+
     var body: some View {
-        let theme = WidgetTheme.forMode(entry.data?.themeMode ?? "dark")
-        let next = entry.data?.nextPrayer
+        let next = entry.data?.nextPrayer(at: entry.date)
 
         ZStack {
-            // Background
-            ContainerRelativeShape()
-                .fill(
-                    LinearGradient(
-                        colors: [theme.background, theme.backgroundGradientEnd],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-
             // Circular progress ring
             ZStack {
                 // Background ring
@@ -59,9 +86,17 @@ struct CircularWidgetView: View {
                     Text(next?.prayer.time12h ?? "--:--")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundColor(theme.accentGold)
+
+                    // Tomorrow indicator
+                    if next?.isTomorrow == true {
+                        Text("TOMORROW")
+                            .font(.system(size: 8, weight: .medium))
+                            .foregroundColor(theme.textSecondary.opacity(0.7))
+                    }
                 }
             }
         }
+        .widgetBackground(backgroundGradient)
     }
 }
 
@@ -70,80 +105,80 @@ struct CircularWidgetView: View {
 struct ListWidgetView: View {
     let entry: PrayerTimelineEntry
 
+    private var theme: WidgetTheme {
+        WidgetTheme.forMode(entry.data?.themeMode ?? "dark")
+    }
+
+    private var backgroundGradient: LinearGradient {
+        LinearGradient(
+            colors: [theme.background, theme.backgroundGradientEnd],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+
     var body: some View {
-        let theme = WidgetTheme.forMode(entry.data?.themeMode ?? "dark")
         let prayers = entry.data?.prayers ?? placeholderData().prayers
-        let next = entry.data?.nextPrayer
+        let next = entry.data?.nextPrayer(at: entry.date)
 
-        ZStack {
-            // Background
-            ContainerRelativeShape()
-                .fill(
-                    LinearGradient(
-                        colors: [theme.background, theme.backgroundGradientEnd],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
+        VStack(spacing: 0) {
+            // Top section: All 6 prayer times in a row
+            HStack(spacing: 0) {
+                ForEach(prayers) { prayer in
+                    let isNext = prayer.name == next?.prayer.name && !(next?.isTomorrow ?? false)
+                    VStack(spacing: 4) {
+                        Text(shortName(prayer.name))
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(isNext ? theme.accentGold : theme.textSecondary)
 
-            VStack(spacing: 0) {
-                // Top section: All 6 prayer times in a row
-                HStack(spacing: 0) {
-                    ForEach(prayers) { prayer in
-                        let isNext = prayer.name == next?.prayer.name && !(next?.isTomorrow ?? false)
-                        VStack(spacing: 4) {
-                            Text(shortName(prayer.name))
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundColor(isNext ? theme.accentGold : theme.textSecondary)
-
-                            Text(shortTime(prayer.time12h))
-                                .font(.system(size: 12, weight: .medium, design: .rounded))
-                                .foregroundColor(isNext ? theme.accentGold : theme.textPrimary)
-                        }
-                        .frame(maxWidth: .infinity)
+                        Text(shortTime(prayer.time12h))
+                            .font(.system(size: 12, weight: .medium, design: .rounded))
+                            .foregroundColor(isNext ? theme.accentGold : theme.textPrimary)
                     }
+                    .frame(maxWidth: .infinity)
                 }
-                .padding(.horizontal, 12)
-                .padding(.top, 14)
-
-                Spacer(minLength: 6)
-
-                // Separator
-                Rectangle()
-                    .fill(theme.separator)
-                    .frame(height: 1)
-                    .padding(.horizontal, 12)
-
-                Spacer(minLength: 6)
-
-                // Bottom section: Next prayer + countdown
-                HStack {
-                    HStack(spacing: 4) {
-                        Text("Next Prayer:")
-                            .font(.system(size: 14))
-                            .foregroundColor(theme.textSecondary)
-
-                        Text(next?.prayer.name ?? "Fajr")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundColor(theme.accentGold)
-
-                        if next?.isTomorrow == true {
-                            Text("(tmrw)")
-                                .font(.system(size: 10))
-                                .foregroundColor(theme.textSecondary.opacity(0.7))
-                        }
-                    }
-
-                    Spacer()
-
-                    Text(next?.countdown ?? "--:--")
-                        .font(.system(size: 16, weight: .bold, design: .rounded))
-                        .foregroundColor(theme.textPrimary)
-                }
-                .padding(.horizontal, 12)
-                .padding(.bottom, 14)
             }
+            .padding(.horizontal, 12)
+            .padding(.top, 14)
+
+            Spacer(minLength: 6)
+
+            // Separator
+            Rectangle()
+                .fill(theme.separator)
+                .frame(height: 1)
+                .padding(.horizontal, 12)
+
+            Spacer(minLength: 6)
+
+            // Bottom section: Next prayer + countdown
+            HStack {
+                HStack(spacing: 4) {
+                    Text("Next Prayer:")
+                        .font(.system(size: 14))
+                        .foregroundColor(theme.textSecondary)
+
+                    Text(next?.prayer.name ?? "Fajr")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(theme.accentGold)
+
+                    if next?.isTomorrow == true {
+                        Text("(tmrw)")
+                            .font(.system(size: 10))
+                            .foregroundColor(theme.textSecondary.opacity(0.7))
+                    }
+                }
+
+                Spacer()
+
+                Text(next?.countdown ?? "--:--")
+                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                    .foregroundColor(theme.textPrimary)
+            }
+            .padding(.horizontal, 12)
+            .padding(.bottom, 14)
         }
+        .widgetBackground(backgroundGradient)
     }
 
     /// Abbreviate "Maghrib" → "Magh", "Sunrise" → "Sun", others keep full name.
@@ -178,7 +213,8 @@ struct CircularWidgetView_Previews: PreviewProvider {
                 date: "01-01",
                 cityId: "doha",
                 themeMode: "sepia",
-                lastUpdated: Date().timeIntervalSince1970 * 1000
+                lastUpdated: Date().timeIntervalSince1970 * 1000,
+                tomorrowFajrMinutes: nil
             )
         ))
         .previewContext(WidgetPreviewContext(family: .systemSmall))
@@ -199,7 +235,8 @@ struct ListWidgetView_Previews: PreviewProvider {
                 date: "01-01",
                 cityId: "doha",
                 themeMode: "sepia",
-                lastUpdated: Date().timeIntervalSince1970 * 1000
+                lastUpdated: Date().timeIntervalSince1970 * 1000,
+                tomorrowFajrMinutes: nil
             )
         ))
         .previewContext(WidgetPreviewContext(family: .systemMedium))

@@ -29,11 +29,14 @@ struct WidgetPrayerData {
     let cityId: String
     let themeMode: String   // "dark" | "sepia"
     let lastUpdated: Double
+    let tomorrowFajrMinutes: Int? // Tomorrow's Fajr in minutes (for accurate post-Isha countdown)
 
     /// The next upcoming prayer (or tomorrow's Fajr if all are past).
-    var nextPrayer: (prayer: PrayerTime, countdown: String, progress: Double, isTomorrow: Bool)? {
-        let now = Calendar.current
-        let currentMinutes = now.component(.hour, from: Date()) * 60 + now.component(.minute, from: Date())
+    /// - Parameter referenceDate: The date to compute against. Pass `entry.date`
+    ///   so that pre-rendered timeline entries get the correct countdown.
+    func nextPrayer(at referenceDate: Date = Date()) -> (prayer: PrayerTime, countdown: String, progress: Double, isTomorrow: Bool)? {
+        let cal = Calendar.current
+        let currentMinutes = cal.component(.hour, from: referenceDate) * 60 + cal.component(.minute, from: referenceDate)
 
         for (index, prayer) in prayers.enumerated() {
             if prayer.totalMinutes > currentMinutes {
@@ -49,13 +52,15 @@ struct WidgetPrayerData {
 
         // All prayers done today → next is tomorrow's Fajr
         if let fajr = prayers.first {
+            // Use tomorrow's actual Fajr time if available, otherwise approximate with today's
+            let fajrMins = tomorrowFajrMinutes ?? fajr.totalMinutes
             let minutesUntilMidnight = (24 * 60) - currentMinutes
-            let totalDiff = minutesUntilMidnight + fajr.totalMinutes
+            let totalDiff = minutesUntilMidnight + fajrMins
             let countdown = formatCountdown(totalDiff)
 
             let ishaMinutes = prayers.last?.totalMinutes ?? currentMinutes
             let durationUntilMidnight = (24 * 60) - ishaMinutes
-            let totalDuration = durationUntilMidnight + fajr.totalMinutes
+            let totalDuration = durationUntilMidnight + fajrMins
             let elapsed = currentMinutes - ishaMinutes
             let progress = totalDuration > 0 ? Double(elapsed) / Double(totalDuration) : 0.0
 
@@ -92,6 +97,7 @@ func loadWidgetData() -> WidgetPrayerData? {
     let date = json["date"] as? String ?? ""
     let cityId = json["cityId"] as? String ?? "doha"
     let themeMode = defaults.string(forKey: WidgetDataKeys.themeMode) ?? "dark"
+    let tomorrowFajrMinutes = json["tomorrowFajrMinutes"] as? Int
 
     var prayerList: [PrayerTime] = []
     for name in prayerNames {
@@ -108,7 +114,8 @@ func loadWidgetData() -> WidgetPrayerData? {
         date: date,
         cityId: cityId,
         themeMode: themeMode,
-        lastUpdated: lastUpdated
+        lastUpdated: lastUpdated,
+        tomorrowFajrMinutes: tomorrowFajrMinutes
     )
 }
 
@@ -132,6 +139,7 @@ func placeholderData() -> WidgetPrayerData {
         date: "01-01",
         cityId: "doha",
         themeMode: "dark",
-        lastUpdated: Date().timeIntervalSince1970 * 1000
+        lastUpdated: Date().timeIntervalSince1970 * 1000,
+        tomorrowFajrMinutes: nil
     )
 }

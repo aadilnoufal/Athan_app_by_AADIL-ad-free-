@@ -28,7 +28,7 @@ struct WidgetTheme {
         textPrimary: Color(red: 0.176, green: 0.157, blue: 0.141),       // #2D2824
         textSecondary: Color(red: 0.361, green: 0.329, blue: 0.302),     // #5C544D
         accentGold: Color(red: 0.831, green: 0.686, blue: 0.216),        // #D4AF37
-        progressBackground: Color(red: 0.918, green: 0.906, blue: 0.875),// #EAE7DF
+        progressBackground: Color(red: 0.855, green: 0.839, blue: 0.812),// #DAD6CF — darkened for better contrast
         separator: Color(red: 0.918, green: 0.906, blue: 0.875),         // #EAE7DF
         borderColor: Color(red: 0.918, green: 0.906, blue: 0.875)        // #EAE7DF
     )
