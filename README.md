@@ -18,12 +18,14 @@ Prayer Times by AADIL is a comprehensive, advertisement-free mobile application 
 🌍 **Multi-Language Support** - Arabic and English  
 ⚡ **Fast & Lightweight** - Smooth performance with minimal battery usage  
 🛡️ **Improved Resume Stability** - Hardened app resume behavior after backgrounding to reduce intermittent reopen crashes
+📱 **Home Screen Widgets** - Android (2×2 circular + 4×2 list) and iOS (small + medium) widgets showing next prayer countdown, theme-synced with the app
 
 Language selection is managed from the **Settings** tab.
 
 ## Installation
 
 The app is available on:
+
 - Google Play Store (Android)
 - App Store (iOS)
 
@@ -66,9 +68,10 @@ This is a closed-source project. Contributions are not accepted. However, bug re
 ## Support
 
 If you encounter any issues or have questions, please reach out to:
+
 - 📧 Email: aadilnoufal@jummahunmuted.com
 
 ---
 
 **Made with ❤️ by AADIL**  
-*Helping Muslims stay connected with their prayers*
+_Helping Muslims stay connected with their prayers_

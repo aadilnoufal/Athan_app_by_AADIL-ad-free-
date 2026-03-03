@@ -6,6 +6,14 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- **Widget Data Sync Architecture** – New cross-platform bridge (`utils/widgetDataBridge.ts`) pushes city-tuned prayer times from the app to native widgets via SharedPreferences (Android) and App Group UserDefaults (iOS). Data is debounced (500ms) for regular updates and immediate for initial app load.
+- **Android Widget Theme Support** – Both widget sizes (2×2 circular, 4×2 list) now follow the app's theme (dark/sepia). New `WidgetThemeHelper.kt` provides centralized colour resolution, with sepia-specific drawables for backgrounds and progress rings.
+- **Android Widget Data Module** – Native module (`WidgetDataModule.kt`) bridges React Native to SharedPreferences, broadcasting widget refresh intents after each write.
+- **Android PrayerTimeRepository Rewrite** – Reads from SharedPreferences (primary, with 48h staleness check) before falling back to bundled CSV. Supports city-tuned prayer times and theme mode.
+- **iOS WidgetKit Extension** – New Swift-based widget extension with two sizes (small circular, medium list). Reads prayer data from App Group UserDefaults with 30-minute timeline refresh. Supports dark and sepia themes via SwiftUI.
+- **iOS Expo Config Plugin** – `plugins/withWidgetExtension.js` injects the WidgetKit extension target, App Group entitlements, Swift source files, and frameworks during `expo prebuild`.
+- **iOS Native Module** – `WidgetDataModuleIOS.swift` writes widget data to App Group UserDefaults and triggers WidgetKit timeline reloads.
+- **Widget Integration Tests** – 10 unit tests for `widgetDataBridge` (debouncing, immediate writes, platform branching, theme sync) and 4 integration tests in `useHomePrayerData` (widget payload content, theme reading, 12h format).
 - **Iqama Countdown Setting** – The iqama countdown on the home screen is now optional. A new "Iqama Countdown" toggle in Settings > Notifications controls visibility. Off by default; persisted via AsyncStorage (`iqama_countdown_enabled`).
 - **Iqama Countdown** – After a prayer's adhan time, the home screen countdown now shows time remaining to iqama before switching to the next prayer countdown.
   - Hardcoded offsets: Fajr +25, Dhuhr +20, Asr +20, Maghrib +10, Isha +20 minutes

@@ -111,21 +111,25 @@ export const ThemeProvider = ({ children }) => {
     (async () => {
       try {
         const stored = await AsyncStorage.getItem(THEME_KEY);
+        let resolvedMode = ThemeNames.DARK;
         // Support both old format ('light'/'dark') and new format
         if (stored === 'light') {
           // Migrate old 'light' to 'sepia'
-          setMode(ThemeNames.SEPIA);
+          resolvedMode = ThemeNames.SEPIA;
           await AsyncStorage.setItem(THEME_KEY, ThemeNames.SEPIA);
         } else if (stored === 'warm' || stored === 'cool' || stored === 'minimal') {
           // Migrate old multi-light themes back to classic light
-          setMode(ThemeNames.SEPIA);
+          resolvedMode = ThemeNames.SEPIA;
           await AsyncStorage.setItem(THEME_KEY, ThemeNames.SEPIA);
         } else if (AllThemes.includes(stored)) {
-          setMode(stored);
+          resolvedMode = stored;
         } else {
           // If nothing stored or invalid, default to dark
-          setMode(ThemeNames.DARK);
+          resolvedMode = ThemeNames.DARK;
         }
+        setMode(resolvedMode);
+        // Sync loaded theme to widgets on startup
+        updateWidgetTheme(resolvedMode);
       } catch {
         setMode(ThemeNames.DARK);
       }

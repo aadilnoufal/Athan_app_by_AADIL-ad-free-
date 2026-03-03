@@ -255,7 +255,7 @@ export default function Home() {
 
       // Force immediate fresh data fetch for new location
       console.log('Fetching FRESH data for new region (no cache)...');
-      await fetchAndCachePrayerTimes();
+      await fetchAndCachePrayerTimes(0, newRegionId);
 
       // Schedule notifications after successful data fetch
       if (notificationsEnabled && currentDay === 0) {

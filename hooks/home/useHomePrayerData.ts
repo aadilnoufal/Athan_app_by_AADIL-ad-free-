@@ -20,7 +20,7 @@ import { format, addDays, differenceInSeconds } from 'date-fns';
 import { getRegionConfig, DEFAULT_REGION } from '../../app/config/prayerTimeConfig';
 import { applyLocalDataCityAdjustments, extractCityIdFromRegionId } from '../../utils/prayerTimeTuner';
 import { getPrayerTimesFromLocalData } from '../../utils/localPrayerData';
-import { updateWidgetData, type WidgetData } from '../../utils/widgetDataBridge';
+import { updateWidgetData, updateWidgetDataImmediate, type WidgetData } from '../../utils/widgetDataBridge';
 import { findNextPrayer, isSamePrayerTime } from '../../utils/timeUtils';
 import { getIqamaTime, hasIqama } from '../../utils/iqamaConfig';
 import type { PrayerData, NextPrayer } from '../../app/components/home/homeTypes';
@@ -106,8 +106,11 @@ export function useHomePrayerData(params: UseHomePrayerDataParams) {
     return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`;
   };
 
+  // Track whether this is the first fetch (for immediate widget update)
+  const isFirstFetchRef = useRef(true);
+
   // ── fetchAndCachePrayerTimes ────────────────────────
-  const fetchAndCachePrayerTimes = async (retryCount = 0) => {
+  const fetchAndCachePrayerTimes = async (retryCount = 0, overrideRegionId?: string) => {
     try {
       const fetchDate = addDays(new Date(), currentDay);
       const formattedDate = format(fetchDate, 'dd-MM-yyyy');
@@ -119,7 +122,8 @@ export function useHomePrayerData(params: UseHomePrayerDataParams) {
       if (localData) {
         console.log(`Using local CSV prayer time data for ${formattedDate}`);
 
-        const cityId = extractCityIdFromRegionId(regionId);
+        const effectiveRegionId = overrideRegionId || regionId;
+        const cityId = extractCityIdFromRegionId(effectiveRegionId);
         console.log(`Applying local data adjustments for city: ${cityId}`);
 
         let timings = { ...localData.times } as any;
@@ -148,15 +152,23 @@ export function useHomePrayerData(params: UseHomePrayerDataParams) {
         // Push today's city-tuned prayer times to native widgets
         if (currentDay === 0) {
           try {
+            // Read current theme mode from AsyncStorage for widget payload
+            const currentTheme = await AsyncStorage.getItem('app_theme_mode_v2') || 'dark';
             const widgetPayload: WidgetData = {
               times: timings,
               times12h: formattedTimes.times12h as any,
               date: format(fetchDate, 'dd-MM'),
               cityId,
-              themeMode: 'dark', // Will be updated by ThemeContext
+              themeMode: currentTheme,
               lastUpdated: Date.now(),
             };
-            updateWidgetData(widgetPayload);
+            // Use immediate update on first load, debounced for subsequent updates
+            if (isFirstFetchRef.current) {
+              updateWidgetDataImmediate(widgetPayload);
+              isFirstFetchRef.current = false;
+            } else {
+              updateWidgetData(widgetPayload);
+            }
           } catch (widgetErr) {
             console.log('⚠️ Widget data sync failed (non-critical):', widgetErr);
           }

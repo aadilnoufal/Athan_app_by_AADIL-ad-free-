@@ -185,8 +185,65 @@ constants/
   surahAliases.ts      Surah name alias map (134 entries) + ViewMode type
 
 widgets/
-  widgetTaskHandler.ts Android widget bridge
+  widgetTaskHandler.ts Android widget architecture documentation
+
+utils/
+  widgetDataBridge.ts  Cross-platform widget data sync bridge
 ```
+
+## Widget Architecture
+
+Home screen widgets display the next prayer time, countdown, and circular progress on both Android and iOS.
+
+### Data Flow
+
+```
+App startup / prayer time change / city change
+  → useHomePrayerData hook computes city-tuned 24h & 12h times
+  → widgetDataBridge.ts pushes JSON payload to native shared storage:
+      Android: SharedPreferences ("PrayerWidgetData")
+      iOS:     App Group UserDefaults ("group.com.aadilnoufal.prayertimes")
+  → Native widgets read from shared storage on periodic refresh
+
+Theme change (via ThemeContext.js)
+  → updateWidgetTheme() pushes themeMode to native storage
+  → Widgets re-render with matching dark/sepia palette
+```
+
+### Android Widgets (Kotlin)
+
+| File                      | Purpose                                      |
+| ------------------------- | -------------------------------------------- |
+| `WidgetDataModule.kt`     | React Native ↔ SharedPreferences bridge      |
+| `WidgetDataPackage.kt`    | ReactPackage registration                    |
+| `PrayerTimeRepository.kt` | Read SharedPrefs (primary) or CSV (fallback) |
+| `WidgetThemeHelper.kt`    | Centralized dark/sepia colour resolution     |
+| `PrayerWidget.kt`         | 2×2 circular widget with progress ring       |
+| `PrayerWidget4x2.kt`      | 4×2 list widget showing all 6 prayer times   |
+
+Two widget sizes:
+
+- **2×2** – Circular progress ring with next prayer countdown
+- **4×2** – Six prayer columns with highlighted next prayer
+
+AlarmManager triggers 60-second refreshes. Widgets support dark and sepia themes.
+
+### iOS Widgets (SwiftUI / WidgetKit)
+
+| File                            | Purpose                                   |
+| ------------------------------- | ----------------------------------------- |
+| `PrayerTimesWidgetBundle.swift` | @main WidgetBundle entry point            |
+| `WidgetDataProvider.swift`      | Reads JSON from App Group UserDefaults    |
+| `WidgetTheme.swift`             | Dark/sepia SwiftUI colour definitions     |
+| `PrayerTimesWidgets.swift`      | Timeline providers (30-min refresh cycle) |
+| `PrayerTimesWidgetViews.swift`  | SwiftUI views for small & medium sizes    |
+| `WidgetDataModuleIOS.swift/m`   | React Native native module (ObjC bridge)  |
+
+The iOS extension is injected via an Expo config plugin (`plugins/withWidgetExtension.js`) that:
+
+- Adds the WidgetKit extension target to the Xcode project
+- Configures App Group entitlements
+- Copies Swift source files and links required frameworks
 
 ## Data Flow – Quran Feature
 

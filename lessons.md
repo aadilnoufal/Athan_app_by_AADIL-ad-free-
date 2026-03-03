@@ -230,3 +230,35 @@ Replace Alef Wasla (ٱ) with standard Alif (ا) in all user-facing Arabic string
 - Always test Arabic text rendering on actual Android devices
 - Avoid Unicode characters that look identical in editors but differ in font support (ٱ vs ا)
 - If Arabic text appears truncated on Android, inspect for unusual Unicode codepoints first
+
+---
+
+## 2026-02-27: NativeModules Destructuring Breaks Jest Tests
+
+### The Mistake
+
+Destructuring `NativeModules` at the top level of a module (`const { WidgetDataModule } = NativeModules;`) captures the reference at import time. In Jest, this runs before any test setup code, so mock assignments to `NativeModules.WidgetDataModule` in `beforeEach` or even `jest.mock` factories may not be reflected in the captured variable.
+
+### The Solution
+
+Use lazy accessor functions instead of top-level destructuring:
+
+```typescript
+// ❌ BAD: captured at import time, before jest mocks are set up
+const { WidgetDataModule } = NativeModules;
+
+// ✅ GOOD: resolved at call time, picks up jest mocks
+function getWidgetDataModule() {
+  return NativeModules.WidgetDataModule;
+}
+```
+
+### Files Affected
+
+- `utils/widgetDataBridge.ts` — Changed to lazy accessor pattern for both `WidgetDataModule` and `WidgetDataModuleIOS`
+
+### Prevention
+
+- Never destructure `NativeModules` at the top level of files that need to be tested
+- Use lazy accessor functions for any module that needs runtime resolution
+- Test native module interactions early to catch this pattern

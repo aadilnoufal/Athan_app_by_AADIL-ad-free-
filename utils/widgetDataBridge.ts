@@ -20,7 +20,14 @@
 
 import { Platform, NativeModules } from 'react-native';
 
-const { WidgetDataModule } = NativeModules;
+/** Lazy accessor — resolved at call time so tests can mock NativeModules. */
+function getWidgetDataModule() {
+  return NativeModules.WidgetDataModule;
+}
+
+function getWidgetDataModuleIOS() {
+  return NativeModules.WidgetDataModuleIOS;
+}
 
 // Debounce timer to avoid excessive writes
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -82,6 +89,7 @@ export function updateWidgetDataImmediate(data: WidgetData): void {
  */
 export function updateWidgetTheme(themeMode: string): void {
   if (Platform.OS === 'android') {
+    const WidgetDataModule = getWidgetDataModule();
     if (!WidgetDataModule) {
       console.log('⚠️ WidgetDataModule not available on Android');
       return;
@@ -105,6 +113,7 @@ export function updateWidgetTheme(themeMode: string): void {
  */
 export async function getWidgetData(): Promise<string | null> {
   if (Platform.OS === 'android') {
+    const WidgetDataModule = getWidgetDataModule();
     if (!WidgetDataModule) {
       console.log('⚠️ WidgetDataModule not available');
       return null;
@@ -117,7 +126,7 @@ export async function getWidgetData(): Promise<string | null> {
     }
   } else if (Platform.OS === 'ios') {
     try {
-      const { WidgetDataModuleIOS } = NativeModules;
+      const WidgetDataModuleIOS = getWidgetDataModuleIOS();
       if (WidgetDataModuleIOS) {
         return await WidgetDataModuleIOS.getWidgetData();
       }
@@ -146,6 +155,7 @@ function _writeWidgetData(data: WidgetData): void {
 }
 
 function _writeWidgetDataAndroid(jsonString: string): void {
+  const WidgetDataModule = getWidgetDataModule();
   if (!WidgetDataModule) {
     console.log('⚠️ WidgetDataModule not available — widget data will not be synced');
     return;
@@ -161,10 +171,8 @@ function _writeWidgetDataAndroid(jsonString: string): void {
 }
 
 function _writeWidgetDataIOS(jsonString: string): void {
-  // iOS implementation will use the App Group UserDefaults module
-  // added via the Expo config plugin in Phase 3
   try {
-    const { WidgetDataModuleIOS } = NativeModules;
+    const WidgetDataModuleIOS = getWidgetDataModuleIOS();
     if (WidgetDataModuleIOS) {
       WidgetDataModuleIOS.setWidgetData(jsonString)
         .then(() => {
@@ -184,7 +192,7 @@ function _writeWidgetDataIOS(jsonString: string): void {
 
 function _writeThemeModeIOS(themeMode: string): void {
   try {
-    const { WidgetDataModuleIOS } = NativeModules;
+    const WidgetDataModuleIOS = getWidgetDataModuleIOS();
     if (WidgetDataModuleIOS) {
       WidgetDataModuleIOS.setThemeMode(themeMode);
     }

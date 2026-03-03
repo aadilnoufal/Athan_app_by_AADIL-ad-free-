@@ -90,6 +90,15 @@ jest.mock('date-fns', () => ({
 
 jest.spyOn(Alert, 'alert').mockImplementation(() => {});
 
+// Mock widget data bridge to prevent native module calls
+jest.mock('../../../utils/widgetDataBridge', () => ({
+  updateWidgetData: jest.fn(),
+  updateWidgetDataImmediate: jest.fn(),
+  updateWidgetTheme: jest.fn(),
+  getWidgetData: jest.fn().mockResolvedValue(null),
+}));
+const mockWidgetBridge = jest.requireMock('../../../utils/widgetDataBridge');
+
 import { useHomePrayerData, UseHomePrayerDataParams } from '../../../hooks/home/useHomePrayerData';
 
 // ── Helpers ────────────────────────────────────────────────────────────
@@ -393,5 +402,65 @@ describe('useHomePrayerData', () => {
     });
 
     expect(result.current.loading).toBe(false);
+  });
+
+  // ── Widget data sync ──────────────────────────────────────────────
+
+  it('pushes widget data immediately on first fetch (day 0)', async () => {
+    mockLocalData.getPrayerTimesFromLocalData.mockReturnValue(mockLocalPrayerData);
+    (AsyncStorage.getItem as jest.Mock).mockImplementation((key: string) => {
+      if (key === 'app_theme_mode_v2') return Promise.resolve('sepia');
+      return Promise.resolve(null);
+    });
+
+    renderHook(() => useHomePrayerData(defaultParams));
+
+    await waitFor(() => {
+      expect(mockWidgetBridge.updateWidgetDataImmediate).toHaveBeenCalledTimes(1);
+      const payload = mockWidgetBridge.updateWidgetDataImmediate.mock.calls[0][0];
+      expect(payload.times.Fajr).toBe('05:15');
+      expect(payload.themeMode).toBe('sepia');
+      expect(payload.cityId).toBe('LA');
+    });
+  });
+
+  it('reads themeMode from AsyncStorage for widget payload', async () => {
+    mockLocalData.getPrayerTimesFromLocalData.mockReturnValue(mockLocalPrayerData);
+    (AsyncStorage.getItem as jest.Mock).mockImplementation((key: string) => {
+      if (key === 'app_theme_mode_v2') return Promise.resolve('dark');
+      return Promise.resolve(null);
+    });
+
+    renderHook(() => useHomePrayerData(defaultParams));
+
+    await waitFor(() => {
+      const payload = mockWidgetBridge.updateWidgetDataImmediate.mock.calls[0][0];
+      expect(payload.themeMode).toBe('dark');
+    });
+  });
+
+  it('defaults to dark theme when AsyncStorage has no theme', async () => {
+    mockLocalData.getPrayerTimesFromLocalData.mockReturnValue(mockLocalPrayerData);
+    (AsyncStorage.getItem as jest.Mock).mockResolvedValue(null);
+
+    renderHook(() => useHomePrayerData(defaultParams));
+
+    await waitFor(() => {
+      const payload = mockWidgetBridge.updateWidgetDataImmediate.mock.calls[0][0];
+      expect(payload.themeMode).toBe('dark');
+    });
+  });
+
+  it('includes 12h times in widget payload', async () => {
+    mockLocalData.getPrayerTimesFromLocalData.mockReturnValue(mockLocalPrayerData);
+
+    renderHook(() => useHomePrayerData(defaultParams));
+
+    await waitFor(() => {
+      const payload = mockWidgetBridge.updateWidgetDataImmediate.mock.calls[0][0];
+      expect(payload.times12h).toBeDefined();
+      expect(payload.times12h.Fajr).toContain('AM');
+      expect(payload.times12h.Isha).toContain('PM');
+    });
   });
 });
