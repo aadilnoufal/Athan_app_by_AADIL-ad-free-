@@ -27,6 +27,18 @@ All notable changes to this project will be documented in this file.
   - Settings persisted in AsyncStorage (`iqama_notifications_enabled`, `iqama_notification_settings`, `iqama_notification_minutes`)
 - **Thank You Screen** – After a successful in-app purchase, the paywall closes and a heartfelt thank-you screen appears with "JazakAllahu Khairan" message and "Ameen" close button. Replaces the previous plain Alert dialog.
 
+### Fixed (Phase 8 — Deep Audit)
+
+- **parseRegionId multi-word city bug** – `parseRegionId()` used `parts[2]` which returned `"abu"` for `"qatar-qatar-abu-samra"`. Now uses `parts.slice(2).join('-')` to correctly reconstruct multi-word city IDs. Affected Abu Samra users' settings screen.
+- **Android post-Isha countdown wrong for non-Doha** – `PrayerTimeRepository.kt` always fell back to raw Doha CSV for tomorrow's Fajr, ignoring city-tuned `tomorrowFajrMinutes` from SharedPreferences. Added `getTomorrowFajr()` wrapper that checks SharedPrefs first, falling back to CSV only when unavailable. Fixes up to 4-minute countdown error for non-Doha cities.
+- **iOS widget countdown seconds precision** – iOS `nextPrayer(at:)` used pure minute math, while Android accounted for partial minutes elapsed. Added `currentSecond > 0 → diff -= 1` logic to match Android's precision. Prevents iOS showing 1 minute more than Android.
+- **Production console.log spam** – `prayerTimeTuner.js` had 12 `console.log` calls firing on every prayer calculation. Replaced with `debugLog()` gated by `DEBUG_TUNER = false`.
+- **IIFE render side-effect in \_layout.tsx** – `shouldPromptSupport` triggered `__openSupportPaywall()` via an IIFE in JSX, causing a state update during render. Moved to a proper `useEffect`.
+- **Notification listener subscription churn** – `lastReceivedAt` state used as effect dependency caused Notifee foreground listener to unsubscribe/resubscribe on every notification. Changed to `useRef` — listener now subscribes once.
+- **Countdown timer churn** – `updateCountdown` callback had `countdown` in its deps → recreated every second → `setInterval` torn down/rebuilt 86,400×/day. Introduced `updateCountdownRef` pattern — interval calls `updateCountdownRef.current()` with stable deps `[nextPrayer, appState]`. Timer now only recreates ~6×/day.
+- **Tooltip rapid-tap race condition** – Multiple taps during 200ms fade animation could advance tooltips twice or call `onComplete()` twice. Added `isAnimatingRef` guard.
+- **New test suites** – Added `parseRegionId.test.ts` (11 tests) and `prayerTimeTuner.test.ts` (14 tests). Fixed `useSettingsLocation.test.ts` mock to use `parts.slice(2).join('-')`. Total tests: 126 → 152.
+
 ### Changed
 
 - **iOS Widget Timeline Fix** – `nextPrayer` computed property now accepts a `referenceDate` parameter instead of using `Date()`. Each pre-rendered timeline entry correctly computes its own countdown, fixing stale data in WidgetKit's cached snapshots.

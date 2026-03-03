@@ -314,3 +314,104 @@ Similarly, the "Embed App Extensions" build phase was created empty — the `.ap
 - When using Expo config plugins that add native files, always verify they're added to BOTH disk AND Xcode project
 - Test with `expo prebuild` and inspect the generated `.xcodeproj` to verify files appear in build phases
 - `withDangerousMod` only gives filesystem access — for Xcode project manipulation, use `withXcodeProject`
+
+---
+
+## 2026-02-28: React Anti-Patterns Found During Phase 8 Deep Audit
+
+### IIFE Side-Effects During Render
+
+**The Mistake:** Using an IIFE in JSX `{condition && (() => { doSomething(); return null; })()}` to trigger side effects. This runs during React's render phase, causing state updates during render — React's "Cannot update a component while rendering" warning and potential infinite loops.
+
+**The Fix:** Move side effects to `useEffect`:
+
+```tsx
+// ❌ Bad: Side effect during render
+{
+  shouldDoThing &&
+    (() => {
+      doThing();
+      return null;
+    })();
+}
+
+// ✅ Good: useEffect for side effects
+useEffect(() => {
+  if (shouldDoThing) doThing();
+}, [shouldDoThing]);
+```
+
+### State as Effect Dependency Causing Listener Churn
+
+**The Mistake:** Using state (`const [lastX, setLastX] = useState(0)`) as an effect dependency for subscriber setup. Every time the state updates (e.g., on notification receipt), the effect re-runs — tearing down and re-subscribing the listener. This causes missed events during the teardown gap.
+
+**The Fix:** Use `useRef` for values needed inside effects but that shouldn't trigger re-subscription:
+
+```tsx
+// ❌ Bad: listener torn down on every notification
+const [lastReceivedAt, setLastReceivedAt] = useState(0);
+useEffect(() => {
+  const unsub = subscribe((event) => {
+    setLastReceivedAt(Date.now());
+  });
+  return unsub;
+}, [lastReceivedAt]); // ← re-runs on every notification!
+
+// ✅ Good: listener stays alive
+const lastReceivedAtRef = useRef(0);
+useEffect(() => {
+  const unsub = subscribe((event) => {
+    lastReceivedAtRef.current = Date.now();
+  });
+  return unsub;
+}, []); // ← subscribes once
+```
+
+### useCallback in setInterval Deps Causing Timer Churn
+
+**The Mistake:** `setInterval(() => updateCountdown(), 1000)` where `updateCountdown` is a `useCallback` with deps that change every second (e.g., `countdown`). Since `updateCountdown` identity changes every second, the interval is torn down and rebuilt 86,400 times/day instead of ~6 (once per prayer transition).
+
+**The Fix:** Use the ref-forwarding pattern:
+
+```tsx
+const updateCountdownRef = useRef<() => void>(() => {});
+const updateCountdown = useCallback(() => { /* ... */ }, [countdown, ...]);
+updateCountdownRef.current = updateCountdown; // sync on every render
+
+useEffect(() => {
+  const timer = setInterval(() => updateCountdownRef.current(), 1000);
+  return () => clearInterval(timer);
+}, [nextPrayer]); // ← stable deps, recreated only on prayer change
+```
+
+### Prevention
+
+- Never perform side effects in JSX — always use `useEffect`
+- Never use mutable state as an effect dependency for subscription setup
+- When a callback's identity changes frequently but the interval/listener should be stable, use the ref-forwarding pattern
+- Look for `useEffect` cleanup functions that fire too often — add `console.count('effect-name cleanup')` during debugging
+
+---
+
+## 2026-02-28: String.split() for Multi-Part Identifiers
+
+### The Mistake
+
+Using `parts[2]` to extract a city from `"qatar-qatar-abu-samra".split('-')` returns `"abu"` instead of `"abu-samra"`. Any ID containing multiple dashes after the prefix is truncated.
+
+### The Fix
+
+Use `parts.slice(2).join('-')` to reconstruct the full suffix:
+
+```ts
+// ❌ Bad: only gets first part after prefix
+const cityId = parts[2]; // "abu" from "qatar-qatar-abu-samra"
+
+// ✅ Good: reconstructs full suffix
+const cityId = parts.slice(2).join("-"); // "abu-samra"
+```
+
+### Prevention
+
+- When splitting compound identifiers, prefer `slice().join()` over index access for the trailing portion
+- Add test cases for multi-word values whenever implementing ID parsing

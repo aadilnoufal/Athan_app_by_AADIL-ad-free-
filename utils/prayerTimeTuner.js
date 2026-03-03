@@ -2,6 +2,10 @@
  * Utility to apply tuning parameters to prayer times
  */
 
+// Enable for local debugging only; keep false in production
+const DEBUG_TUNER = false;
+const debugLog = (...args) => { if (DEBUG_TUNER) console.log(...args); };
+
 /**
  * Convert time string in format "HH:MM" to minutes since midnight
  * @param {string} timeStr - Time string in format "HH:MM"
@@ -106,17 +110,17 @@ export function applyTuningParametersToBatch(timesBatch, tuningParams) {
  * @returns {Object} Adjusted prayer times object
  */
 export function applyLocalDataCityAdjustments(times, cityId, isLocalData = false) {
-  console.log(`applyLocalDataCityAdjustments called with cityId: ${cityId}, isLocalData: ${isLocalData}`);
+  debugLog(`applyLocalDataCityAdjustments called with cityId: ${cityId}, isLocalData: ${isLocalData}`);
   
   // If this is not local data, return original times without adjustments
   if (!isLocalData) {
-    console.log('Not local data, returning original times');
+    debugLog('Not local data, returning original times');
     return { ...times };
   }
 
   // For Doha: Use local CSV times as-is (no adjustments)
   if (cityId === 'doha') {
-    console.log('Doha detected: Using local CSV times as-is (no adjustments)');
+    debugLog('Doha detected: Using local CSV times as-is (no adjustments)');
     return { ...times };
   }
 
@@ -140,11 +144,11 @@ export function applyLocalDataCityAdjustments(times, cityId, isLocalData = false
   
   // If no adjustments defined for this city, return original times
   if (!adjustments) {
-    console.log(`No adjustments defined for city: ${cityId}, returning original times`);
+    debugLog(`No adjustments defined for city: ${cityId}, returning original times`);
     return { ...times };
   }
 
-  console.log(`Applying adjustments for ${cityId}:`, adjustments);
+  debugLog(`Applying adjustments for ${cityId}:`, adjustments);
   const result = { ...times };
   
   // Apply Fajr adjustment if defined
@@ -152,7 +156,7 @@ export function applyLocalDataCityAdjustments(times, cityId, isLocalData = false
     const fajrMinutes = timeToMinutes(result.Fajr);
     const originalFajr = result.Fajr;
     result.Fajr = minutesToTime(fajrMinutes + adjustments.Fajr);
-    console.log(`Fajr adjusted: ${originalFajr} -> ${result.Fajr} (${adjustments.Fajr > 0 ? '+' : ''}${adjustments.Fajr} min)`);
+    debugLog(`Fajr adjusted: ${originalFajr} -> ${result.Fajr} (${adjustments.Fajr > 0 ? '+' : ''}${adjustments.Fajr} min)`);
   }
   
   // Apply Maghrib adjustment if defined
@@ -160,10 +164,10 @@ export function applyLocalDataCityAdjustments(times, cityId, isLocalData = false
     const maghribMinutes = timeToMinutes(result.Maghrib);
     const originalMaghrib = result.Maghrib;
     result.Maghrib = minutesToTime(maghribMinutes + adjustments.Maghrib);
-    console.log(`Maghrib adjusted: ${originalMaghrib} -> ${result.Maghrib} (${adjustments.Maghrib > 0 ? '+' : ''}${adjustments.Maghrib} min)`);
+    debugLog(`Maghrib adjusted: ${originalMaghrib} -> ${result.Maghrib} (${adjustments.Maghrib > 0 ? '+' : ''}${adjustments.Maghrib} min)`);
   }
   
-  console.log('Final adjusted times:', result);
+  debugLog('Final adjusted times:', result);
   return result;
 }
 
@@ -173,10 +177,10 @@ export function applyLocalDataCityAdjustments(times, cityId, isLocalData = false
  * @returns {string} The city ID (e.g., 'doha')
  */
 export function extractCityIdFromRegionId(regionId) {
-  console.log(`extractCityIdFromRegionId called with regionId: ${regionId}`);
+  debugLog(`extractCityIdFromRegionId called with regionId: ${regionId}`);
   
   if (!regionId || typeof regionId !== 'string') {
-    console.log('Invalid regionId, defaulting to doha');
+    debugLog('Invalid regionId, defaulting to doha');
     return 'doha'; // Default to doha
   }
   
@@ -191,7 +195,7 @@ export function extractCityIdFromRegionId(regionId) {
   // Check for direct mapping first
   if (regionMappings[regionId]) {
     const cityId = regionMappings[regionId];
-    console.log(`Direct mapping found: ${regionId} -> ${cityId}`);
+    debugLog(`Direct mapping found: ${regionId} -> ${cityId}`);
     return cityId;
   }
   
@@ -221,6 +225,6 @@ export function extractCityIdFromRegionId(regionId) {
     cityId = cityMappings[cityId.toLowerCase()];
   }
   
-  console.log(`Extracted city ID: ${cityId} from region ID: ${regionId}`);
+  debugLog(`Extracted city ID: ${cityId} from region ID: ${regionId}`);
   return cityId;
 }

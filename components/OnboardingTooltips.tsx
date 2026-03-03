@@ -59,6 +59,7 @@ export default function OnboardingTooltips({
   const [currentIndex, setCurrentIndex] = useState(0);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.85)).current;
+  const isAnimatingRef = useRef(false); // Guard against rapid taps
 
   const gold = colors.accent.gold;
   const textPrimary = colors.text.primary;
@@ -84,12 +85,18 @@ export default function OnboardingTooltips({
           friction: 8,
           useNativeDriver: true,
         }),
-      ]).start();
+      ]).start(() => {
+        isAnimatingRef.current = false; // Allow next tap once entrance completes
+      });
     };
     show();
   }, [currentIndex]);
 
   const handleNext = useCallback(() => {
+    // Guard against rapid taps during animation
+    if (isAnimatingRef.current) return;
+    isAnimatingRef.current = true;
+
     // Animate out
     Animated.timing(fadeAnim, {
       toValue: 0,

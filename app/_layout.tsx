@@ -74,7 +74,7 @@ function InAppNotification({ title, body, onClose }: { title: string; body: stri
 
 function InnerLayout() {
   const [notification, setNotification] = useState<{title: string; body: string; data?: any} | null>(null);
-  const [lastReceivedAt, setLastReceivedAt] = useState(0); // Track when last notification was received
+  const lastReceivedAtRef = useRef(0); // Track when last notification was received (ref to avoid re-subscribing listener)
   // Removed blocking splash: we no longer delay initial render for assets
   const [assetsLoaded, setAssetsLoaded] = useState(true);
   const colorScheme = useColorScheme();
@@ -150,6 +150,14 @@ function InnerLayout() {
     checkSchedule();
     return () => { if (timer) clearTimeout(timer); };
   }, []);
+
+  // When the scheduler says we should prompt, trigger the opener via useEffect
+  // (not during render) to avoid React state-update-during-render warnings.
+  useEffect(() => {
+    if (shouldPromptSupport) {
+      (globalThis as any).__openSupportPaywall?.();
+    }
+  }, [shouldPromptSupport]);
 
   // Expose a global function to let screens open/close the paywall
   useEffect(() => {
@@ -328,8 +336,8 @@ function InnerLayout() {
 
         // Only show new notifications (avoid duplication from quick re-renders)
         const currentTime = new Date().getTime();
-        if (currentTime - lastReceivedAt > 1000) {
-          setLastReceivedAt(currentTime);
+        if (currentTime - lastReceivedAtRef.current > 1000) {
+          lastReceivedAtRef.current = currentTime;
 
           // Set notification for display
           setNotification({
@@ -373,7 +381,8 @@ function InnerLayout() {
       unsubscribe();
       clearTimeout(timer);
     };
-  }, [lastReceivedAt]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Stable subscription — lastReceivedAtRef is a ref, no deps needed
   
   // Expose test function globally for easier debugging (remove in production)
   if (__DEV__) {
@@ -426,20 +435,12 @@ function InnerLayout() {
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         </Stack>
         {notification && (
-          <InAppNotification 
+          <InAppNotification
             title={notification.title}
             body={notification.body}
             onClose={() => setNotification(null)}
           />
         )}
-        {/* If auto-schedule says we should prompt, set a trigger other screens can act on */}
-        {shouldPromptSupport && (() => {
-          // Immediately trigger global opener so the active screen can display its modal
-          // @ts-ignore
-          // Fire and reset the flag
-          (globalThis as any).__openSupportPaywall?.();
-          return null;
-        })()}
       </SafeAreaProvider>
     </LanguageProvider>
   );

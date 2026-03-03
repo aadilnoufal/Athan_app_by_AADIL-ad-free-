@@ -37,10 +37,14 @@ struct WidgetPrayerData {
     func nextPrayer(at referenceDate: Date = Date()) -> (prayer: PrayerTime, countdown: String, progress: Double, isTomorrow: Bool)? {
         let cal = Calendar.current
         let currentMinutes = cal.component(.hour, from: referenceDate) * 60 + cal.component(.minute, from: referenceDate)
+        let currentSecond = cal.component(.second, from: referenceDate)
 
         for (index, prayer) in prayers.enumerated() {
             if prayer.totalMinutes > currentMinutes {
-                let diff = prayer.totalMinutes - currentMinutes
+                var diff = prayer.totalMinutes - currentMinutes
+                // Account for partial minutes elapsed (matches Android precision)
+                if currentSecond > 0 { diff -= 1 }
+                if diff < 0 { diff = 0 }
                 let countdown = formatCountdown(diff)
                 let prevMinutes = index > 0 ? prayers[index - 1].totalMinutes : 0
                 let totalDuration = prayer.totalMinutes - prevMinutes
@@ -55,7 +59,10 @@ struct WidgetPrayerData {
             // Use tomorrow's actual Fajr time if available, otherwise approximate with today's
             let fajrMins = tomorrowFajrMinutes ?? fajr.totalMinutes
             let minutesUntilMidnight = (24 * 60) - currentMinutes
-            let totalDiff = minutesUntilMidnight + fajrMins
+            var totalDiff = minutesUntilMidnight + fajrMins
+            // Account for partial minutes elapsed (matches Android precision)
+            if currentSecond > 0 { totalDiff -= 1 }
+            if totalDiff < 0 { totalDiff = 0 }
             let countdown = formatCountdown(totalDiff)
 
             let ishaMinutes = prayers.last?.totalMinutes ?? currentMinutes

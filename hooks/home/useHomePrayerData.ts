@@ -80,7 +80,9 @@ export function useHomePrayerData(params: UseHomePrayerDataParams) {
   // ── Refs ────────────────────────────────────────────
   const lastCountdownLog = useRef<string>('');
   const countdownTriggeredRefresh = useRef<string>('');
-
+  // Ref to hold the latest updateCountdown function so the setInterval doesn't
+  // need to be torn down and rebuilt every time the callback identity changes.
+  const updateCountdownRef = useRef<() => void>(() => {});
   // ── Load iqama countdown setting + listen for changes ──────────
   useEffect(() => {
     const loadIqamaSetting = async () => {
@@ -657,6 +659,9 @@ export function useHomePrayerData(params: UseHomePrayerDataParams) {
     updateNextPrayer,
   ]);
 
+  // Keep ref in sync so the stable setInterval always calls the latest version
+  updateCountdownRef.current = updateCountdown;
+
   // ── Date management ─────────────────────────────────
   const checkDayChange = () => {
     const now = Date.now();
@@ -782,18 +787,20 @@ export function useHomePrayerData(params: UseHomePrayerDataParams) {
   }, [currentDay, lastRefreshDate, location, method, tuningParams, isFirstLoad]);
 
   // ── Timer management — only when app is in foreground
+  // Uses updateCountdownRef so the interval is stable and only torn
+  // down when nextPrayer or appState changes (not every render).
   useEffect(() => {
     let countdownTimer: NodeJS.Timeout | null = null;
 
     if (nextPrayer && appState === 'active') {
-      updateCountdown();
-      countdownTimer = setInterval(updateCountdown, 1000);
+      updateCountdownRef.current();
+      countdownTimer = setInterval(() => updateCountdownRef.current(), 1000);
     }
 
     return () => {
       if (countdownTimer) clearInterval(countdownTimer);
     };
-  }, [updateCountdown, nextPrayer, appState]);
+  }, [nextPrayer, appState]);
 
   // ── Reset progress when next prayer changes ─────────
   useEffect(() => {

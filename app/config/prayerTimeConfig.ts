@@ -127,12 +127,13 @@ export function getAvailableRegions(): RegionConfig[] {
 }
 
 // Parse a region ID into its components
+// Handles multi-word city IDs like "abu-samra" by joining parts[2..] with '-'
 export function parseRegionId(regionId: string): { countryId: string, stateId: string, cityId: string } {
   const parts = regionId.split('-');
   return {
     countryId: parts[0] || '',
     stateId: parts[1] || '',
-    cityId: parts[2] || ''
+    cityId: parts.slice(2).join('-') || ''
   };
 }
 

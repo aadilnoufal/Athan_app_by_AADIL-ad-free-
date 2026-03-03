@@ -60,7 +60,7 @@ jest.mock('../../../app/config/prayerTimeConfig', () => ({
   DEFAULT_REGION: 'US-CA-LA',
   parseRegionId: (regionId: string) => {
     const parts = regionId.split('-');
-    return { countryId: parts[0], stateId: parts[1], cityId: parts[2] };
+    return { countryId: parts[0] || '', stateId: parts[1] || '', cityId: parts.slice(2).join('-') || '' };
   },
 }));
 

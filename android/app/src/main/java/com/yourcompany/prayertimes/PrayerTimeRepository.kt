@@ -237,6 +237,26 @@ object PrayerTimeRepository {
         }
     }
 
+    /**
+     * Get tomorrow's Fajr time, preferring city-tuned value from SharedPrefs
+     * over raw CSV. The JS bridge sends tomorrowFajrMinutes already adjusted
+     * for the selected city, so this is more accurate for non-Doha users.
+     */
+    private fun getTomorrowFajr(context: Context): Int? {
+        // Try SharedPreferences first (city-tuned)
+        try {
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val jsonStr = prefs.getString(KEY_WIDGET_DATA, null)
+            if (jsonStr != null) {
+                val json = JSONObject(jsonStr)
+                val tomorrowFajr = json.optInt("tomorrowFajrMinutes", -1)
+                if (tomorrowFajr > 0) return tomorrowFajr
+            }
+        } catch (_: Exception) { }
+        // Fall back to CSV (raw Doha times)
+        return getTomorrowFajrFromCSV(context)
+    }
+
     // ========================================================================
     // Shared computation: build PrayerInfo / TodaysPrayers from minute values
     // ========================================================================
@@ -285,7 +305,8 @@ object PrayerTimeRepository {
             return TodaysPrayers(allPrayers, nextPrayerIndex, nextPrayerInfo)
         } else {
             // All prayers done today → next is tomorrow's Fajr
-            val tomorrowFajr = getTomorrowFajrFromCSV(context) ?: return TodaysPrayers(allPrayers, -1,
+            // Prefer city-tuned value from SharedPrefs over raw CSV
+            val tomorrowFajr = getTomorrowFajr(context) ?: return TodaysPrayers(allPrayers, -1,
                 PrayerInfo("Fajr", "--:--", "--:--", 0, true))
 
             val minutesUntilMidnight = (24 * 60) - currentTimeMinutes
@@ -335,7 +356,8 @@ object PrayerTimeRepository {
         }
 
         // All prayers done today → next is tomorrow's Fajr
-        val tomorrowFajr = getTomorrowFajrFromCSV(context) ?: return null
+        // Prefer city-tuned value from SharedPrefs over raw CSV
+        val tomorrowFajr = getTomorrowFajr(context) ?: return null
 
         val minutesUntilMidnight = (24 * 60) - currentTimeMinutes
         var totalDiff = minutesUntilMidnight + tomorrowFajr
