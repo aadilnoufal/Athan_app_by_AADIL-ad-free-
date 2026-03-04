@@ -147,7 +147,6 @@ async function addWidgetExtension(
   // === Xcode project manipulation ===
   // Add the extension target with its source files
 
-  const targetUuid = xcodeProject.generateUuid();
   const widgetSourceFiles = fs.readdirSync(widgetDir).filter(f => f.endsWith('.swift'));
 
   // Add a PBXGroup for the widget extension files
@@ -213,43 +212,12 @@ async function addWidgetExtension(
     }
   }
 
-  // Add the widget extension to the main app's embed extensions build phase
-  // This ensures the .appex is included in the final app bundle
-  const mainTarget = xcodeProject.getFirstTarget();
-  const embedExtPhase = xcodeProject.addBuildPhase(
-    [],
-    'PBXCopyFilesBuildPhase',
-    'Embed App Extensions',
-    mainTarget.uuid,
-    'app_extension'
-  );
-  if (embedExtPhase) {
-    embedExtPhase.buildPhase.dstSubfolderSpec = 13; // PlugIns folder
-
-    // Use the product reference already created by addTarget() for the .appex
-    // (avoids xcodeProject.addFile() crash when group is undefined in newer xcode package versions)
-    const productRefUuid = target.pbxNativeTarget?.productReference;
-    if (productRefUuid) {
-      const buildFileUuid = xcodeProject.generateUuid();
-      const pbxBuildFileSection = xcodeProject.hash.project.objects['PBXBuildFile'];
-      pbxBuildFileSection[buildFileUuid] = {
-        isa: 'PBXBuildFile',
-        fileRef: productRefUuid,
-        fileRef_comment: `${WIDGET_EXTENSION_NAME}.appex`,
-        settings: { ATTRIBUTES: ['RemoveHeadersOnCopy'] },
-      };
-      pbxBuildFileSection[buildFileUuid + '_comment'] =
-        `${WIDGET_EXTENSION_NAME}.appex in Embed App Extensions`;
-
-      embedExtPhase.buildPhase.files = embedExtPhase.buildPhase.files || [];
-      embedExtPhase.buildPhase.files.push({
-        value: buildFileUuid,
-        comment: `${WIDGET_EXTENSION_NAME}.appex in Embed App Extensions`,
-      });
-    } else {
-      console.warn('[withWidgetExtension] Could not find product reference for widget target — .appex will not be embedded');
-    }
-  }
+  // NOTE: addTarget() for 'app_extension' already:
+  //   1. Creates a "Copy Files" PBXCopyFilesBuildPhase on the main target (dstSubfolderSpec=13 → PlugIns)
+  //   2. Adds the .appex product to that phase
+  //   3. Adds a target dependency from the main app to the widget extension
+  // No additional embed phase is needed — creating one would produce a
+  // "Multiple commands produce PrayerTimesWidget.appex" error in Xcode 14+.
 }
 
 /**
