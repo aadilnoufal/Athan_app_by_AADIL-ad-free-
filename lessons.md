@@ -415,3 +415,50 @@ const cityId = parts.slice(2).join("-"); // "abu-samra"
 
 - When splitting compound identifiers, prefer `slice().join()` over index access for the trailing portion
 - Add test cases for multi-word values whenever implementing ID parsing
+
+---
+
+## 2026-02-28: xcode npm Package — addTarget() Doesn't Create Build Phases or Target Dependencies
+
+### The Mistake
+
+The `xcode` npm package's `addTarget('app_extension')` creates a PBXNativeTarget with an **empty `buildPhases` array**. It does NOT create the standard Sources, Frameworks, or Resources build phases that Xcode targets need. When `addSourceFile()` is subsequently called targeting the widget UUID, `addToPbxSourcesBuildPhase()` calls `buildPhaseObject('PBXSourcesBuildPhase', 'Sources', widgetTargetUuid)`, which fails to find a Sources phase on the widget target. On a real project, it silently falls back to the main app target's Sources phase — meaning widget Swift files are compiled as part of the **wrong target**. On a minimal project without any Sources phase, it crashes with `Cannot read properties of null (reading 'files')`.
+
+Additionally, `addTarget('app_extension')` only creates a "Copy Files" embed phase but does NOT create a `PBXTargetDependency`. This is only auto-created for `watch2_app` and `watch2_extension` types. Without it, Xcode might not build the extension before trying to embed it.
+
+Finally, `addTargetDependency()` silently no-ops if the `PBXTargetDependency` and `PBXContainerItemProxy` sections don't exist in the project objects — they must be initialized as empty objects first.
+
+### The Fix
+
+```js
+// After addTarget(), create the required build phases:
+xcodeProject.addBuildPhase([], "PBXSourcesBuildPhase", "Sources", target.uuid);
+xcodeProject.addBuildPhase(
+  [],
+  "PBXFrameworksBuildPhase",
+  "Frameworks",
+  target.uuid,
+);
+xcodeProject.addBuildPhase(
+  [],
+  "PBXResourcesBuildPhase",
+  "Resources",
+  target.uuid,
+);
+
+// Initialize dependency sections and add the target dependency:
+if (!xcodeProject.hash.project.objects["PBXTargetDependency"]) {
+  xcodeProject.hash.project.objects["PBXTargetDependency"] = {};
+}
+if (!xcodeProject.hash.project.objects["PBXContainerItemProxy"]) {
+  xcodeProject.hash.project.objects["PBXContainerItemProxy"] = {};
+}
+xcodeProject.addTargetDependency(mainTarget.uuid, [target.uuid]);
+```
+
+### Prevention
+
+- Never assume `addTarget()` creates build phases — always verify by reading the source code
+- Write an integration test that simulates the full plugin against a parsed xcode project
+- When using `addTargetDependency`, check that required sections exist first
+- The `xcode` package's API is incomplete for extension targets — always read the source to understand what each function actually does vs. what you'd expect

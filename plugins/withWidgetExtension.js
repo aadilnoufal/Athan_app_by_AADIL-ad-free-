@@ -168,6 +168,42 @@ async function addWidgetExtension(
     widgetBundleId
   );
 
+  // addTarget() creates the target with an empty buildPhases array.
+  // We must explicitly create Sources, Frameworks, and Resources build phases
+  // so that addSourceFile() and addFramework() can find the correct phase
+  // on the widget target (not the main app target).
+  xcodeProject.addBuildPhase(
+    [],
+    'PBXSourcesBuildPhase',
+    'Sources',
+    target.uuid
+  );
+  xcodeProject.addBuildPhase(
+    [],
+    'PBXFrameworksBuildPhase',
+    'Frameworks',
+    target.uuid
+  );
+  xcodeProject.addBuildPhase(
+    [],
+    'PBXResourcesBuildPhase',
+    'Resources',
+    target.uuid
+  );
+
+  // Ensure the main target depends on the widget target so Xcode
+  // builds the extension before embedding it.
+  // addTargetDependency() silently no-ops if these sections don't exist,
+  // so we create them first.
+  const mainTarget = xcodeProject.getFirstTarget();
+  if (!xcodeProject.hash.project.objects['PBXTargetDependency']) {
+    xcodeProject.hash.project.objects['PBXTargetDependency'] = {};
+  }
+  if (!xcodeProject.hash.project.objects['PBXContainerItemProxy']) {
+    xcodeProject.hash.project.objects['PBXContainerItemProxy'] = {};
+  }
+  xcodeProject.addTargetDependency(mainTarget.uuid, [target.uuid]);
+
   // Add source files to the target's build phase
   for (const swiftFile of widgetSourceFiles) {
     xcodeProject.addSourceFile(
