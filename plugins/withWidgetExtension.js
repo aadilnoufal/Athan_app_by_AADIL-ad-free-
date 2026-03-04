@@ -26,7 +26,9 @@ const IOS_DEPLOYMENT_TARGET = '16.0';
 /**
  * Main plugin entry point
  */
-function withWidgetExtension(config) {
+function withWidgetExtension(config, options = {}) {
+  const { appleTeamId } = options;
+
   // Step 1: Add App Group to main app entitlements
   config = withEntitlementsPlist(config, (modConfig) => {
     modConfig.modResults['com.apple.security.application-groups'] = [APP_GROUP_ID];
@@ -48,7 +50,8 @@ function withWidgetExtension(config) {
       platformProjectRoot,
       bundleId,
       appVersion,
-      buildNumber
+      buildNumber,
+      appleTeamId
     );
 
     // Step 3: Copy and register native module files in the main app target
@@ -73,7 +76,8 @@ async function addWidgetExtension(
   platformProjectRoot,
   mainBundleId,
   appVersion = '1.0',
-  buildNumber = '1'
+  buildNumber = '1',
+  appleTeamId = null
 ) {
   const widgetBundleId = mainBundleId + WIDGET_BUNDLE_ID_SUFFIX;
   const widgetDir = path.join(platformProjectRoot, WIDGET_EXTENSION_NAME);
@@ -245,6 +249,14 @@ async function addWidgetExtension(
       config.buildSettings.ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = '"AccentColor"';
       config.buildSettings.ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = '"WidgetBackground"';
       config.buildSettings.SKIP_INSTALL = 'YES';
+
+      // Code signing: DEVELOPMENT_TEAM is required for EAS Build.
+      // EAS injects signing for targets it knows about, but the extension
+      // target is added during prebuild (after EAS's credential phase).
+      // Setting it here ensures the widget target is always signable.
+      if (appleTeamId) {
+        config.buildSettings.DEVELOPMENT_TEAM = appleTeamId;
+      }
     }
   }
 

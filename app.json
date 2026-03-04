@@ -69,11 +69,26 @@
           ]
         }
       ],
-      "./plugins/withWidgetExtension"
+      ["./plugins/withWidgetExtension", { "appleTeamId": "MNPBRLN354" }]
     ],
     "extra": {
       "eas": {
-        "projectId": "f0bad73e-5773-4af0-b9b3-c829ee9495ec"
+        "projectId": "f0bad73e-5773-4af0-b9b3-c829ee9495ec",
+        "build": {
+          "experimental": {
+            "ios": {
+              "appExtensions": [
+                {
+                  "targetName": "PrayerTimesWidget",
+                  "bundleIdentifier": "com.aadilnoufal.prayertimes.PrayerTimesWidget",
+                  "entitlements": {
+                    "com.apple.security.application-groups": ["group.com.aadilnoufal.prayertimes"]
+                  }
+                }
+              ]
+            }
+          }
+        }
       },
       "comment": "Android folder removed - EAS Build handles Android project generation from app.json configuration",
       "revenuecat": {
