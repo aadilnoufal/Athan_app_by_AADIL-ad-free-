@@ -462,3 +462,33 @@ xcodeProject.addTargetDependency(mainTarget.uuid, [target.uuid]);
 - Write an integration test that simulates the full plugin against a parsed xcode project
 - When using `addTargetDependency`, check that required sections exist first
 - The `xcode` package's API is incomplete for extension targets — always read the source to understand what each function actually does vs. what you'd expect
+
+## 2026-03-04: xcode npm Package — addSourceFile() Path Resolution with Groups
+
+### The Mistake
+
+When using `addSourceFile(path, opts, groupUuid)`, the `path` is resolved **relative to the group's path**, not relative to the project root. If the group has `path: 'PrayerTimesWidget'` (set by `addPbxGroup`), and you call `addSourceFile('PrayerTimesWidget/file.swift', ...)`, the resolved path becomes `PrayerTimesWidget/PrayerTimesWidget/file.swift` — double-nested and wrong.
+
+Additionally, `addPbxGroup(files, name, path)` creates file references for ALL files in the `files` array. If you then call `addSourceFile()` for the same files, **duplicate file references** are created — one from `addPbxGroup` (correct path) and one from `addSourceFile` (potentially wrong path). The build uses the one from `addSourceFile`, which is the one with the wrong double-nested path.
+
+### The Fix
+
+```js
+// ❌ Wrong: Double-nested path
+addPbxGroup(
+  [...swiftFiles, "Info.plist", "Widget.entitlements"],
+  "Widget",
+  "Widget",
+);
+addSourceFile("Widget/file.swift", { target }, groupUuid); // → Widget/Widget/file.swift
+
+// ✅ Correct: Only non-source files in group, just filename for addSourceFile
+addPbxGroup(["Info.plist", "Widget.entitlements"], "Widget", "Widget");
+addSourceFile("file.swift", { target }, groupUuid); // → Widget/file.swift
+```
+
+### Prevention
+
+- When using `addSourceFile` with a group UUID, pass only the filename, not a prefixed path
+- Don't include source files in `addPbxGroup` if you plan to call `addSourceFile` for them — that creates duplicates
+- `addSourceFile` already adds the file to the group AND to the build phase, so `addPbxGroup` only needs non-compiled files (Info.plist, entitlements)

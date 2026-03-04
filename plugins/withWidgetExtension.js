@@ -153,9 +153,12 @@ async function addWidgetExtension(
 
   const widgetSourceFiles = fs.readdirSync(widgetDir).filter(f => f.endsWith('.swift'));
 
-  // Add a PBXGroup for the widget extension files
+  // Add a PBXGroup for the widget extension files.
+  // Only include non-source files here (Info.plist, entitlements).
+  // Swift source files are added separately via addSourceFile() which
+  // both adds them to this group AND registers them in the build phase.
   const widgetGroup = xcodeProject.addPbxGroup(
-    [...widgetSourceFiles, 'Info.plist', `${WIDGET_EXTENSION_NAME}.entitlements`],
+    ['Info.plist', `${WIDGET_EXTENSION_NAME}.entitlements`],
     WIDGET_EXTENSION_NAME,
     WIDGET_EXTENSION_NAME
   );
@@ -208,10 +211,16 @@ async function addWidgetExtension(
   }
   xcodeProject.addTargetDependency(mainTarget.uuid, [target.uuid]);
 
-  // Add source files to the target's build phase
+  // Add source files to the target's build phase.
+  // Pass just the filename (not "PrayerTimesWidget/file.swift") because
+  // addSourceFile resolves paths relative to the group's path.
+  // The group already has path "PrayerTimesWidget", so using just "file.swift"
+  // resolves to "PrayerTimesWidget/file.swift" — which is correct.
+  // Using "PrayerTimesWidget/file.swift" would resolve to
+  // "PrayerTimesWidget/PrayerTimesWidget/file.swift" — double-nested and wrong.
   for (const swiftFile of widgetSourceFiles) {
     xcodeProject.addSourceFile(
-      `${WIDGET_EXTENSION_NAME}/${swiftFile}`,
+      swiftFile,
       { target: target.uuid },
       widgetGroup.uuid
     );
