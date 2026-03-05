@@ -128,6 +128,9 @@ export default function SettingsScreen() {
     audioDownloadProgress,
     quranFontFamilyState,
     filteredTranslations,
+    translationDownloading,
+    translationDownloadProgress,
+    downloadedTranslationIds,
     handleEditionPrefChange,
     handleDownloadAllAudio,
     handleClearAllQuranDownloads,
@@ -297,6 +300,9 @@ export default function SettingsScreen() {
             audioEditions={audioEditions}
             audioFullDownloading={audioFullDownloading}
             audioDownloadProgress={audioDownloadProgress}
+            translationDownloading={translationDownloading}
+            translationDownloadProgress={translationDownloadProgress}
+            downloadedTranslationIds={downloadedTranslationIds}
             setShowTranslationPicker={setShowTranslationPicker}
             setShowReciterPicker={setShowReciterPicker}
             handleEditionPrefChange={handleEditionPrefChange}
@@ -341,6 +347,7 @@ export default function SettingsScreen() {
         quranTranslationEdition={quranTranslationEdition}
         handleTranslationEditionChange={handleTranslationEditionChange}
         onClose={() => setShowTranslationPicker(false)}
+        downloadedTranslationIds={downloadedTranslationIds}
       />
 
       <ReciterPickerModal

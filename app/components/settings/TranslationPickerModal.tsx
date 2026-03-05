@@ -21,6 +21,7 @@ interface TranslationPickerModalProps {
   quranTranslationEdition: string;
   handleTranslationEditionChange: (identifier: string) => void;
   onClose: () => void;
+  downloadedTranslationIds?: Set<string>;
 }
 
 /**
@@ -38,6 +39,7 @@ export const TranslationPickerModal: React.FC<TranslationPickerModalProps> = ({
   quranTranslationEdition,
   handleTranslationEditionChange,
   onClose,
+  downloadedTranslationIds,
 }) => {
   const gt = (alpha: number) => goldTint(alpha, C);
 
@@ -69,20 +71,32 @@ export const TranslationPickerModal: React.FC<TranslationPickerModalProps> = ({
             data={filteredTranslations}
             keyExtractor={(item) => item.identifier}
             keyboardShouldPersistTaps="handled"
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                onPress={() => handleTranslationEditionChange(item.identifier)}
-                style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: gt(0.08) }}
-              >
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 14, fontWeight: '600', color: C.text.primary }}>{item.name}</Text>
-                  <Text style={{ fontSize: 12, color: C.text.secondary, marginTop: 2 }}>{item.language} · {item.identifier}</Text>
-                </View>
-                {quranTranslationEdition === item.identifier && (
-                  <MaterialCommunityIcons name="check-circle" size={20} color={C.accent.gold} />
-                )}
-              </TouchableOpacity>
-            )}
+            renderItem={({ item }) => {
+              const isSelected = quranTranslationEdition === item.identifier;
+              const isDownloaded = downloadedTranslationIds?.has(item.identifier) ?? false;
+              return (
+                <TouchableOpacity
+                  onPress={() => handleTranslationEditionChange(item.identifier)}
+                  style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: gt(0.08) }}
+                >
+                  <View style={{ flex: 1 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Text style={{ fontSize: 14, fontWeight: '600', color: C.text.primary }}>{item.name}</Text>
+                      {isDownloaded && (
+                        <View style={{ marginLeft: 6, flexDirection: 'row', alignItems: 'center', backgroundColor: isDark ? 'rgba(184,143,56,0.15)' : 'rgba(184,143,56,0.1)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                          <MaterialCommunityIcons name="download-circle" size={12} color={C.accent.gold} style={{ marginRight: 2 }} />
+                          <Text style={{ fontSize: 10, color: C.accent.gold, fontWeight: '600' }}>Offline</Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text style={{ fontSize: 12, color: C.text.secondary, marginTop: 2 }}>{item.language} · {item.identifier}</Text>
+                  </View>
+                  {isSelected && (
+                    <MaterialCommunityIcons name="check-circle" size={20} color={C.accent.gold} />
+                  )}
+                </TouchableOpacity>
+              );
+            }}
             ListEmptyComponent={
               <View style={{ alignItems: 'center', padding: 20 }}>
                 <Text style={{ color: C.text.secondary, fontSize: 14 }}>{t('noTranslationsFound')}</Text>

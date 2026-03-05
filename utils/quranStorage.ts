@@ -43,7 +43,11 @@ const BUNDLED_QURAN_EN: SurahData[] = require('../assets/quran/quran_en.json');
 const QURAN_DIR = `${FileSystem.documentDirectory}quran/`;
 const SURAHS_DIR = `${QURAN_DIR}surahs/`;
 const AUDIO_DIR = `${QURAN_DIR}audio/`;
+const TRANSLATIONS_DIR = `${QURAN_DIR}translations/`;
 const META_FILE = `${QURAN_DIR}meta.json`;
+
+// Maximum number of non-English offline translations (to save storage)
+const MAX_OFFLINE_TRANSLATIONS = 2;
 
 // AsyncStorage keys
 const INDEX_KEY = '@quran_download_index';          // JSON of DownloadIndex
@@ -60,6 +64,7 @@ const BISMILLAH_CACHE_KEY = '@quran_bismillah_cache'; // JSON of { [edition]: bi
 const LAST_READ_KEY = '@quran_last_read';             // JSON of LastReadEntry
 const QURAN_FONT_FAMILY_KEY = '@quran_font_family';   // 'default' | 'Amiri' | 'ScheherazadeNew'
 const BOOKMARK_KEY = '@quran_bookmark';               // JSON of BookmarkEntry
+const TRANSLATION_DL_INDEX_KEY = '@quran_translation_download_index'; // JSON of TranslationDownloadIndex
 
 /* ---------- Types ---------- */
 
@@ -302,6 +307,184 @@ export async function deleteAllQuranData(): Promise<void> {
         // Best-effort
     }
     await AsyncStorage.removeItem(INDEX_KEY);
+    await AsyncStorage.removeItem(TRANSLATION_DL_INDEX_KEY);
+}
+
+/* ---------- Offline Translation Management ---------- */
+
+/**
+ * Tracks which translation editions have been fully downloaded for offline use.
+ * English (en.sahih) is always bundled — it's never in this index.
+ */
+export interface TranslationDownloadEntry {
+    edition: string;       // e.g. 'fr.hamidullah'
+    downloadedAt: number;  // epoch ms — used for LRU eviction
+    sizeBytes: number;     // approximate size on disk
+}
+
+interface TranslationDownloadIndex {
+    editions: Record<string, TranslationDownloadEntry>;
+}
+
+async function readTranslationIndex(): Promise<TranslationDownloadIndex> {
+    try {
+        const raw = await AsyncStorage.getItem(TRANSLATION_DL_INDEX_KEY);
+        if (raw) return JSON.parse(raw);
+    } catch { /* corrupted – reset */ }
+    return { editions: {} };
+}
+
+async function writeTranslationIndex(index: TranslationDownloadIndex): Promise<void> {
+    await AsyncStorage.setItem(TRANSLATION_DL_INDEX_KEY, JSON.stringify(index));
+}
+
+function translationDir(edition: string): string {
+    return `${TRANSLATIONS_DIR}${edition}/`;
+}
+
+function translationSurahPath(edition: string, surahNumber: number): string {
+    return `${TRANSLATIONS_DIR}${edition}/${surahNumber}.json`;
+}
+
+/** Check whether a full translation edition is downloaded offline. */
+export async function isTranslationDownloaded(edition: string): Promise<boolean> {
+    if (edition === EDITIONS.ENGLISH || edition === 'en.sahih') return true; // Bundled
+    const index = await readTranslationIndex();
+    return !!index.editions[edition];
+}
+
+/** Get list of all downloaded non-English translation editions, sorted newest first. */
+export async function getDownloadedTranslations(): Promise<TranslationDownloadEntry[]> {
+    const index = await readTranslationIndex();
+    return Object.values(index.editions).sort((a, b) => b.downloadedAt - a.downloadedAt);
+}
+
+/** Get the set of downloaded edition identifiers (for quick lookup in UI). */
+export async function getDownloadedTranslationIds(): Promise<Set<string>> {
+    const index = await readTranslationIndex();
+    const ids = new Set(Object.keys(index.editions));
+    ids.add(EDITIONS.ENGLISH); // Always include English
+    return ids;
+}
+
+/**
+ * Read a single surah from an offline translation.
+ * Returns null if the translation isn't downloaded.
+ * For en.sahih, reads from bundled data.
+ */
+export async function readOfflineTranslation(
+    surahNumber: number,
+    edition: string,
+): Promise<SurahData | null> {
+    // Bundled English: always available
+    if (edition === EDITIONS.ENGLISH || edition === 'en.sahih') {
+        return getBundledSurah(surahNumber, 'en');
+    }
+    // Downloaded translation
+    try {
+        const path = translationSurahPath(edition, surahNumber);
+        const info = await FileSystem.getInfoAsync(path);
+        if (info.exists) {
+            const raw = await FileSystem.readAsStringAsync(path);
+            return JSON.parse(raw) as SurahData;
+        }
+    } catch { /* fall through */ }
+    return null;
+}
+
+/**
+ * Download a full translation edition (all 114 surahs) for offline use.
+ * Uses the bulk /quran/{edition} endpoint (single ~2-3 MB request).
+ *
+ * @param edition    Edition identifier, e.g. 'fr.hamidullah'
+ * @param onProgress Called with (surahsDone, totalSurahs) for UI updates
+ * @returns Total approximate bytes written
+ */
+export async function downloadTranslationEdition(
+    edition: string,
+    onProgress?: (done: number, total: number) => void,
+): Promise<number> {
+    if (edition === EDITIONS.ENGLISH || edition === 'en.sahih') {
+        // English is bundled — nothing to download
+        return 0;
+    }
+
+    // Enforce the offline limit BEFORE downloading
+    await enforceTranslationLimit(edition);
+
+    const dir = translationDir(edition);
+    const dirInfo = await FileSystem.getInfoAsync(dir);
+    if (!dirInfo.exists) {
+        await FileSystem.makeDirectoryAsync(dir, { intermediates: true });
+    }
+
+    // Fetch entire Quran in this edition (single API call)
+    const surahs = await fetchFullQuran(edition);
+
+    let totalBytes = 0;
+    for (let i = 0; i < surahs.length; i++) {
+        const surah = surahs[i];
+        const json = JSON.stringify(surah);
+        totalBytes += json.length;
+        await FileSystem.writeAsStringAsync(
+            translationSurahPath(edition, surah.number),
+            json,
+        );
+        onProgress?.(i + 1, surahs.length);
+    }
+
+    // Update index
+    const index = await readTranslationIndex();
+    index.editions[edition] = {
+        edition,
+        downloadedAt: Date.now(),
+        sizeBytes: totalBytes,
+    };
+    await writeTranslationIndex(index);
+
+    return totalBytes;
+}
+
+/**
+ * Delete a downloaded translation edition.
+ * English (bundled) can never be deleted.
+ */
+export async function deleteTranslationEdition(edition: string): Promise<void> {
+    if (edition === EDITIONS.ENGLISH || edition === 'en.sahih') return; // Protect English
+
+    try {
+        await FileSystem.deleteAsync(translationDir(edition), { idempotent: true });
+    } catch { /* best effort */ }
+
+    const index = await readTranslationIndex();
+    delete index.editions[edition];
+    await writeTranslationIndex(index);
+}
+
+/**
+ * Enforce a maximum of MAX_OFFLINE_TRANSLATIONS non-English translations.
+ * Deletes the oldest (by downloadedAt) to make room for a new one.
+ *
+ * @param reserveFor If provided, this edition won't be counted/deleted
+ *                   (used when about to download a new one)
+ */
+export async function enforceTranslationLimit(reserveFor?: string): Promise<void> {
+    const index = await readTranslationIndex();
+    const entries = Object.values(index.editions)
+        .filter(e => e.edition !== reserveFor) // Don't count the one we're about to add
+        .sort((a, b) => a.downloadedAt - b.downloadedAt); // Oldest first
+
+    // If already at or over the limit, delete oldest(s)
+    while (entries.length >= MAX_OFFLINE_TRANSLATIONS) {
+        const oldest = entries.shift()!;
+        console.log(`🗑️ Removing oldest offline translation: ${oldest.edition} to stay within ${MAX_OFFLINE_TRANSLATIONS} limit`);
+        try {
+            await FileSystem.deleteAsync(translationDir(oldest.edition), { idempotent: true });
+        } catch { /* best effort */ }
+        delete index.editions[oldest.edition];
+    }
+
+    await writeTranslationIndex(index);
 }
 
 /** Approximate total size in bytes of all downloaded surahs. */

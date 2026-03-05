@@ -165,7 +165,7 @@ lib/
   qibla-compass/       Qibla compass logic
 
 utils/
-  quranStorage.ts      Quran offline download & cache management
+  quranStorage.ts      Quran offline download & cache management (includes translation offline download with max 2 non-English limit, LRU eviction)
   quranHelpers.ts      Pure helpers: stripBismillah(), formatSize(), bismillah constants
   iqamaConfig.ts       Iqama offset configuration (per-prayer offsets, getIqamaTime, hasIqama)
   notifeePrayerService.js   Notification scheduling via Notifee (smallIcon: ic_notification)

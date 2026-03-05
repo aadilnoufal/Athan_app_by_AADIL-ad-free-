@@ -19,6 +19,9 @@ interface QuranSettingsSectionProps {
   audioEditions: Array<{ identifier: string; name: string; englishName?: string; [key: string]: any }>;
   audioFullDownloading: boolean;
   audioDownloadProgress: { done: number; total: number } | null;
+  translationDownloading: boolean;
+  translationDownloadProgress: { done: number; total: number } | null;
+  downloadedTranslationIds: Set<string>;
   setShowTranslationPicker: (show: boolean) => void;
   setShowReciterPicker: (show: boolean) => void;
   handleEditionPrefChange: (pref: EditionPref) => void;
@@ -49,6 +52,9 @@ export const QuranSettingsSection: React.FC<QuranSettingsSectionProps> = ({
   audioEditions,
   audioFullDownloading,
   audioDownloadProgress,
+  translationDownloading,
+  translationDownloadProgress,
+  downloadedTranslationIds,
   setShowTranslationPicker,
   setShowReciterPicker,
   handleEditionPrefChange,
@@ -229,8 +235,31 @@ export const QuranSettingsSection: React.FC<QuranSettingsSectionProps> = ({
             {translationEditions.find(e => e.identifier === quranTranslationEdition)?.name ?? quranTranslationEdition}
           </Text>
         </View>
-        <MaterialCommunityIcons name="chevron-right" size={20} color={C.text.tertiary} />
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          {downloadedTranslationIds.has(quranTranslationEdition) && (
+            <MaterialCommunityIcons name="check-circle" size={16} color={C.accent.gold} style={{ marginRight: 6 }} />
+          )}
+          <MaterialCommunityIcons name="chevron-right" size={20} color={C.text.tertiary} />
+        </View>
       </TouchableOpacity>
+
+      {/* Translation download progress */}
+      {translationDownloading && translationDownloadProgress && (
+        <View style={[styles.enhancedSettingContainer, { marginBottom: 10, borderWidth: 0.5, borderColor: gt(0.15), borderRadius: 10, paddingVertical: 10, alignItems: 'center' }]}>
+          <ActivityIndicator size="small" color={C.accent.gold} style={{ marginRight: 10 }} />
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.enhancedSettingLabel, { fontWeight: '600', fontSize: 13 }]}>
+              {t('downloadingTranslation') ?? 'Downloading translation for offline use...'}
+            </Text>
+            <View style={{ marginTop: 6, height: 4, borderRadius: 2, backgroundColor: gt(0.1), overflow: 'hidden' }}>
+              <View style={{ height: 4, borderRadius: 2, backgroundColor: C.accent.gold, width: `${Math.round((translationDownloadProgress.done / translationDownloadProgress.total) * 100)}%` }} />
+            </View>
+            <Text style={[styles.enhancedSettingDescription, { marginTop: 4, fontSize: 11 }]}>
+              {`${translationDownloadProgress.done} / ${translationDownloadProgress.total} surahs`}
+            </Text>
+          </View>
+        </View>
+      )}
 
       {/* Reciter picker */}
       <Text style={styles.enhancedSettingSubtitle}>{t('reciter')}</Text>

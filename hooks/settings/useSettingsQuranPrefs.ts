@@ -26,6 +26,9 @@ import {
   getQuranFontFamily,
   setQuranFontFamily,
   QuranFontFamily,
+  downloadTranslationEdition,
+  getDownloadedTranslationIds,
+  isTranslationDownloaded,
 } from '../../utils/quranStorage';
 import { EditionInfo, EDITIONS } from '../../lib/quranApi';
 
@@ -60,6 +63,9 @@ export function useSettingsQuranPrefs(t: TFunc) {
   const [audioFullDownloading, setAudioFullDownloading] = useState(false);
   const [audioDownloadProgress, setAudioDownloadProgress] = useState<{ done: number; total: number } | null>(null);
   const [quranFontFamilyState, setQuranFontFamilyState] = useState<QuranFontFamily>('default');
+  const [translationDownloading, setTranslationDownloading] = useState(false);
+  const [translationDownloadProgress, setTranslationDownloadProgress] = useState<{ done: number; total: number } | null>(null);
+  const [downloadedTranslationIds, setDownloadedTranslationIds] = useState<Set<string>>(new Set([EDITIONS.ENGLISH]));
 
   // ── Load on mount ────────────────────────────────────────────────────
   useEffect(() => {
@@ -83,15 +89,17 @@ export function useSettingsQuranPrefs(t: TFunc) {
         console.log('Error loading Quran settings:', e);
       }
     })();
-    // Pre-load edition lists
+    // Pre-load edition lists + downloaded translation IDs
     (async () => {
       try {
-        const [trEditions, auEditions] = await Promise.all([
+        const [trEditions, auEditions, dlIds] = await Promise.all([
           getTranslationEditionsCached(),
           getAudioEditionsCached(),
+          getDownloadedTranslationIds(),
         ]);
         setTranslationEditions(trEditions);
         setAudioEditions(auEditions);
+        setDownloadedTranslationIds(dlIds);
       } catch { /* silent */ }
     })();
   }, []);
@@ -171,6 +179,28 @@ export function useSettingsQuranPrefs(t: TFunc) {
     await setTranslationEdition(identifier);
     setShowTranslationPicker(false);
     setEditionSearchQuery('');
+
+    // Download the selected translation for offline use (unless it's English or already downloaded)
+    if (identifier !== EDITIONS.ENGLISH && identifier !== 'en.sahih') {
+      const alreadyDownloaded = await isTranslationDownloaded(identifier);
+      if (!alreadyDownloaded) {
+        setTranslationDownloading(true);
+        setTranslationDownloadProgress({ done: 0, total: 114 });
+        try {
+          await downloadTranslationEdition(identifier, (done, total) => {
+            setTranslationDownloadProgress({ done, total });
+          });
+          // Refresh downloaded translation IDs
+          const dlIds = await getDownloadedTranslationIds();
+          setDownloadedTranslationIds(dlIds);
+        } catch (e: any) {
+          console.log('Translation download failed (will use online):', e?.message);
+        } finally {
+          setTranslationDownloading(false);
+          setTranslationDownloadProgress(null);
+        }
+      }
+    }
   };
 
   const handleReciterChange = async (identifier: string) => {
@@ -186,18 +216,29 @@ export function useSettingsQuranPrefs(t: TFunc) {
 
   // ── Derived data ─────────────────────────────────────────────────────
 
-  const filteredTranslations = translationEditions.filter((ed) => {
-    if (!editionSearchQuery) return true;
-    const q = editionSearchQuery.toLowerCase();
-    const langName = LANG_NAMES[ed.language] ?? '';
-    return (
-      ed.name.toLowerCase().includes(q) ||
-      ed.language.toLowerCase().includes(q) ||
-      ed.identifier.toLowerCase().includes(q) ||
-      ed.englishName.toLowerCase().includes(q) ||
-      langName.includes(q)
-    );
-  });
+  const filteredTranslations = (() => {
+    let list = translationEditions.filter((ed) => {
+      if (!editionSearchQuery) return true;
+      const q = editionSearchQuery.toLowerCase();
+      const langName = LANG_NAMES[ed.language] ?? '';
+      return (
+        ed.name.toLowerCase().includes(q) ||
+        ed.language.toLowerCase().includes(q) ||
+        ed.identifier.toLowerCase().includes(q) ||
+        ed.englishName.toLowerCase().includes(q) ||
+        langName.includes(q)
+      );
+    });
+
+    // Always put English (en.sahih) at the top of the list
+    const englishIdx = list.findIndex(e => e.identifier === EDITIONS.ENGLISH);
+    if (englishIdx > 0) {
+      const [english] = list.splice(englishIdx, 1);
+      list.unshift(english);
+    }
+
+    return list;
+  })();
 
   // ── Public API ───────────────────────────────────────────────────────
   return {
@@ -219,6 +260,9 @@ export function useSettingsQuranPrefs(t: TFunc) {
     audioDownloadProgress,
     quranFontFamilyState,
     filteredTranslations,
+    translationDownloading,
+    translationDownloadProgress,
+    downloadedTranslationIds,
 
     // Handlers
     handleEditionPrefChange,

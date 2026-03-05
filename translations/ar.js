@@ -218,6 +218,7 @@ export default {
   currentTranslation: 'الترجمة الحالية',
   translationLanguage: 'اللغة',
   noTranslationsFound: 'لا توجد ترجمات',
+  downloadingTranslation: 'جارٍ تنزيل الترجمة للاستخدام بدون إنترنت...',
 
   // Quran reciter / audio
   reciter: 'القارئ',

@@ -52,6 +52,9 @@ jest.mock('../../../utils/quranStorage', () => ({
   downloadAllAudio: jest.fn().mockResolvedValue(undefined),
   getQuranFontFamily: jest.fn().mockResolvedValue('default'),
   setQuranFontFamily: jest.fn().mockResolvedValue(undefined),
+  downloadTranslationEdition: jest.fn().mockResolvedValue(0),
+  getDownloadedTranslationIds: jest.fn().mockResolvedValue(new Set(['en.sahih'])),
+  isTranslationDownloaded: jest.fn().mockResolvedValue(false),
 }));
 
 jest.mock('../../../lib/quranApi', () => ({

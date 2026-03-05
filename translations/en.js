@@ -216,6 +216,7 @@ export default {
   currentTranslation: 'Current Translation',
   translationLanguage: 'Language',
   noTranslationsFound: 'No translations found',
+  downloadingTranslation: 'Downloading translation for offline use...',
 
   // Quran reciter / audio
   reciter: 'Reciter',

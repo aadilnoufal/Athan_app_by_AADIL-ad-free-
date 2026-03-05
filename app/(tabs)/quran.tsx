@@ -32,6 +32,7 @@ import {
     setBookmark,
     removeBookmark,
     BookmarkEntry,
+    readOfflineTranslation,
 } from '../../utils/quranStorage';
 import { useQuranData } from '../../hooks/quran/useQuranData';
 import { useQuranAudio } from '../../hooks/quran/useQuranAudio';
@@ -146,16 +147,20 @@ export default function QuranScreen() {
                 setCurrentSurahAr(arData);
 
                 // Translation: use bundled English if that's the selected edition,
-                // otherwise fetch the chosen translation online (fallback to English).
+                // otherwise try offline cache, then fetch online (fallback to English).
                 let trData: SurahData | null = null;
                 if (translationEdition === EDITIONS.ENGLISH) {
                     trData = await readOfflineSurah(surahNumber, 'en');
                 } else {
-                    try {
-                        trData = await fetchSurah(surahNumber, translationEdition);
-                    } catch {
-                        // Fallback to bundled English if network fails
-                        trData = await readOfflineSurah(surahNumber, 'en');
+                    // Try offline downloaded translation first
+                    trData = await readOfflineTranslation(surahNumber, translationEdition);
+                    if (!trData) {
+                        try {
+                            trData = await fetchSurah(surahNumber, translationEdition);
+                        } catch {
+                            // Fallback to bundled English if network fails
+                            trData = await readOfflineSurah(surahNumber, 'en');
+                        }
                     }
                 }
                 setCurrentSurahTr(trData);
@@ -264,11 +269,15 @@ export default function QuranScreen() {
                 if (translationEdition === EDITIONS.ENGLISH) {
                     trData = await readOfflineSurah(surahNumber, 'en');
                 } else {
-                    try {
-                        trData = await fetchSurah(surahNumber, translationEdition);
-                    } catch {
-                        // Fallback to bundled English if network fails
-                        trData = await readOfflineSurah(surahNumber, 'en');
+                    // Try offline downloaded translation first
+                    trData = await readOfflineTranslation(surahNumber, translationEdition);
+                    if (!trData) {
+                        try {
+                            trData = await fetchSurah(surahNumber, translationEdition);
+                        } catch {
+                            // Fallback to bundled English if network fails
+                            trData = await readOfflineSurah(surahNumber, 'en');
+                        }
                     }
                 }
                 setCurrentSurahTr(trData);
