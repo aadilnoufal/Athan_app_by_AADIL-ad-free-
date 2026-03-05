@@ -68,17 +68,6 @@ export const findNextPrayer = (prayerTimes, prayerTimes12h = null, dayOffset = 0
     const nextPrayer = prayers.find(prayer => prayer.date.getTime() >= lookAheadTime);
     
     if (nextPrayer) {
-      // Special case: If current prayer is Isha and next is Fajr, show "Fajr (Tomorrow)"
-      const currentHour = now.getHours();
-      if (nextPrayer.name === 'Fajr' && currentHour >= 18) {
-        const tomorrowFajr = createPrayerDate(nextPrayer.timeRaw, 1);
-        return {
-          name: 'Fajr (Tomorrow)',
-          time: nextPrayer.time,
-          timeRaw: nextPrayer.timeRaw,
-          date: tomorrowFajr
-        };
-      }
       return nextPrayer;
     }
     

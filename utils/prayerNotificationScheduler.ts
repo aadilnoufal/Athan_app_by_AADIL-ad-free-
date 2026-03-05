@@ -13,6 +13,7 @@ import { AppState } from 'react-native';
 import { getPrayerTimesFromLocalData } from './localPrayerData';
 import { scheduleNotifeePrayerNotifications, cancelAllNotifeePrayerNotifications } from './notifeePrayerService';
 import { IQAMA_OFFSETS } from './iqamaConfig';
+import { applyLocalDataCityAdjustments, extractCityIdFromRegionId } from './prayerTimeTuner';
 
 // Config
 const WINDOW_DAYS = 10; // days forward to keep scheduled
@@ -36,16 +37,18 @@ interface DayPrayerTimes {
   [key: string]: string; // index signature for dynamic access
 }
 
-function buildPrayerTimesForDate(date: Date): DayPrayerTimes | null {
+function buildPrayerTimesForDate(date: Date, cityId: string = 'doha'): DayPrayerTimes | null {
   const data: any = getPrayerTimesFromLocalData(date);
   if (!data || !data.times) return null;
+  // Apply city-specific offsets (e.g. Abu Samra: Fajr +3min, Maghrib +2min)
+  const adjusted = applyLocalDataCityAdjustments(data.times, cityId, true) as Record<string, string>;
   const result: DayPrayerTimes = {
-    Fajr: data.times.Fajr,
-    Sunrise: data.times.Sunrise,
-    Dhuhr: data.times.Dhuhr,
-    Asr: data.times.Asr,
-    Maghrib: data.times.Maghrib,
-    Isha: data.times.Isha,
+    Fajr: adjusted['Fajr'],
+    Sunrise: adjusted['Sunrise'],
+    Dhuhr: adjusted['Dhuhr'],
+    Asr: adjusted['Asr'],
+    Maghrib: adjusted['Maghrib'],
+    Isha: adjusted['Isha'],
   };
   return result;
 }
@@ -59,17 +62,27 @@ async function getNotificationSettings(): Promise<any> {
   }
 }
 
+// Preferences pre-fetched once per window-fill to avoid repeated AsyncStorage reads
+interface SchedulePrefs {
+  useAzanSound: boolean;
+  iqamaEnabled: boolean;
+  iqamaSettings: any;
+  iqamaMinutes: number;
+}
+
 // Core: schedule one day's prayers (using existing function that sets repeat daily). For window we schedule per day w/out repeat to avoid drift.
-async function scheduleDay(date: Date, settings: any) {
-  const pt = buildPrayerTimesForDate(date);
+async function scheduleDay(date: Date, settings: any, cityId: string = 'doha', prefs?: SchedulePrefs) {
+  const pt = buildPrayerTimesForDate(date, cityId);
   if (!pt) return [];
 
-  // Determine user sound preference (default true)
-  let useAzanSound = true;
-  try {
-    const stored = await AsyncStorage.getItem('use_azan_sound');
-    if (stored === 'false') useAzanSound = false;
-  } catch {}
+  // Use pre-fetched preference or read from storage as fallback
+  let useAzanSound = prefs ? prefs.useAzanSound : true;
+  if (!prefs) {
+    try {
+      const stored = await AsyncStorage.getItem('use_azan_sound');
+      if (stored === 'false') useAzanSound = false;
+    } catch {}
+  }
 
   const created: string[] = [];
   const prayers = ['Fajr','Sunrise','Dhuhr','Asr','Maghrib','Isha'];
@@ -101,7 +114,8 @@ async function scheduleDay(date: Date, settings: any) {
       const android: any = {
         channelId: channelId,
         category: AndroidCategory.REMINDER,
-        smallIcon: 'ic_launcher_foreground',
+        smallIcon: 'ic_notification',
+        largeIcon: 'ic_launcher',
         // Sound is determined by channel, not individual notification on Android
         vibrationPattern: prayer === 'Fajr' ? [200,400,200,400,200,400] : [300,600,300,600],
         pressAction: { id: 'default' },
@@ -150,19 +164,21 @@ async function scheduleDay(date: Date, settings: any) {
   }
 
   // ── Iqama Notifications ──
-  let iqamaEnabled = false;
-  let iqamaSettings: any = {};
-  let iqamaMinutes = 3;
-  try {
-    const iqamaEnabledRaw = await AsyncStorage.getItem('iqama_notifications_enabled');
-    iqamaEnabled = iqamaEnabledRaw === 'true';
-    if (iqamaEnabled) {
-      const iqamaSettingsRaw = await AsyncStorage.getItem('iqama_notification_settings');
-      iqamaSettings = iqamaSettingsRaw ? JSON.parse(iqamaSettingsRaw) : {};
-      const iqamaMinRaw = await AsyncStorage.getItem('iqama_notification_minutes');
-      iqamaMinutes = iqamaMinRaw ? parseInt(iqamaMinRaw, 10) : 3;
-    }
-  } catch {}
+  let iqamaEnabled = prefs ? prefs.iqamaEnabled : false;
+  let iqamaSettings: any = prefs ? prefs.iqamaSettings : {};
+  let iqamaMinutes = prefs ? prefs.iqamaMinutes : 3;
+  if (!prefs) {
+    try {
+      const iqamaEnabledRaw = await AsyncStorage.getItem('iqama_notifications_enabled');
+      iqamaEnabled = iqamaEnabledRaw === 'true';
+      if (iqamaEnabled) {
+        const iqamaSettingsRaw = await AsyncStorage.getItem('iqama_notification_settings');
+        iqamaSettings = iqamaSettingsRaw ? JSON.parse(iqamaSettingsRaw) : {};
+        const iqamaMinRaw = await AsyncStorage.getItem('iqama_notification_minutes');
+        iqamaMinutes = iqamaMinRaw ? parseInt(iqamaMinRaw, 10) : 3;
+      }
+    } catch {}
+  }
 
   if (iqamaEnabled) {
     const iqamaPrayers = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
@@ -191,7 +207,8 @@ async function scheduleDay(date: Date, settings: any) {
         const android: any = {
           channelId: 'prayer-times-default',
           category: AndroidCategory.REMINDER,
-          smallIcon: 'ic_launcher_foreground',
+          smallIcon: 'ic_notification',
+          largeIcon: 'ic_launcher',
           vibrationPattern: [200, 300, 200, 300],
           pressAction: { id: 'default' },
           color: '#d4a017',
@@ -272,17 +289,27 @@ export async function ensurePrayerNotificationWindow() {
     const today = new Date();
     today.setHours(0,0,0,0);
 
+    // Read user's selected city for applying city-specific prayer time adjustments
+    let cityId = 'doha';
+    try {
+      const regionId = await AsyncStorage.getItem('selected_region');
+      if (regionId) {
+        cityId = extractCityIdFromRegionId(regionId);
+      }
+    } catch {}
+
     // Check if sound preference changed
     let soundPrefChanged = false;
     try {
       const currentSoundPref = await AsyncStorage.getItem('use_azan_sound');
       const storedSoundPref = await AsyncStorage.getItem(STORAGE_KEY_SOUND_PREF);
-      if (storedSoundPref && storedSoundPref !== currentSoundPref) {
+      // Only detect a change when both values exist (skip first-install where currentSoundPref is null)
+      if (storedSoundPref && currentSoundPref && storedSoundPref !== currentSoundPref) {
         console.log(`🔊 Sound preference changed: ${storedSoundPref} → ${currentSoundPref}, triggering full reschedule`);
         soundPrefChanged = true;
         await cancelAll();
       }
-      // Update stored sound preference
+      // Update stored sound preference (only when explicitly set)
       if (currentSoundPref) {
         await AsyncStorage.setItem(STORAGE_KEY_SOUND_PREF, currentSoundPref);
       }
@@ -297,16 +324,18 @@ export async function ensurePrayerNotificationWindow() {
     }
 
     const existingIds = await notifee.getTriggerNotificationIds();
-    // Filter our pattern ids with date suffix
-    const ours = existingIds.filter(id => id.startsWith('prayer-') && id.split('-').length === 3);
+    // Filter our pattern ids (prayer-xxx-YYYY-MM-DD or iqama-xxx-YYYY-MM-DD → 5 parts)
+    const ours = existingIds.filter(id =>
+      (id.startsWith('prayer-') || id.startsWith('iqama-')) && id.split('-').length === 5
+    );
 
     // Clean up past notifications before counting
     const now = Date.now();
     const todayStr = isoDate(today);
     for (const id of ours) {
       const parts = id.split('-');
-      const prayerName = parts[1];
-      const dateStr = parts[2];
+      const prayerNameRaw = parts[1];
+      const dateStr = parts.slice(2).join('-'); // e.g. '2026-03-05'
       
       // Cancel if date is in the past (before today)
       if (dateStr < todayStr) {
@@ -316,14 +345,20 @@ export async function ensurePrayerNotificationWindow() {
       
       // If it's today, check if the prayer time has already passed
       if (dateStr === todayStr) {
-        const date = new Date(dateStr);
-        const prayerTimes = buildPrayerTimesForDate(date);
+        const prayerName = prayerNameRaw.charAt(0).toUpperCase() + prayerNameRaw.slice(1);
+        const prayerTimes = buildPrayerTimesForDate(today, cityId);
         if (prayerTimes && prayerTimes[prayerName]) {
           const [hours, minutes] = prayerTimes[prayerName].split(':').map(Number);
-          const prayerDate = new Date(date);
+          const prayerDate = new Date(today);
           prayerDate.setHours(hours, minutes, 0, 0);
           
-          // If prayer time has passed, cancel it
+          // For iqama notifications, add the iqama offset
+          if (id.startsWith('iqama-')) {
+            const offset = IQAMA_OFFSETS[prayerName] || 0;
+            prayerDate.setMinutes(prayerDate.getMinutes() + offset);
+          }
+          
+          // If prayer/iqama time has passed, cancel it
           if (prayerDate.getTime() < now) {
             await notifee.cancelTriggerNotification(id);
             continue;
@@ -334,22 +369,48 @@ export async function ensurePrayerNotificationWindow() {
     
     // Re-fetch IDs after cleanup
     const updatedIds = await notifee.getTriggerNotificationIds();
-    const activeOurs = updatedIds.filter(id => id.startsWith('prayer-') && id.split('-').length === 3);
+    const activeOurs = updatedIds.filter(id =>
+      (id.startsWith('prayer-') || id.startsWith('iqama-')) && id.split('-').length === 5
+    );
 
-    // Build set of dates already covered
+    // Build set of dates already covered (from prayer IDs — iqama is co-scheduled)
     const coveredDates = new Set<string>();
     for (const id of activeOurs) {
-      const parts = id.split('-');
-      const dateStr = parts.slice(-1)[0];
-      coveredDates.add(dateStr);
+      if (id.startsWith('prayer-')) {
+        const parts = id.split('-');
+        const dateStr = parts.slice(2).join('-');
+        coveredDates.add(dateStr);
+      }
     }
+
+    // Pre-fetch preferences once instead of reading AsyncStorage per day (up to 10x)
+    const schedPrefs: SchedulePrefs = {
+      useAzanSound: true,
+      iqamaEnabled: false,
+      iqamaSettings: {},
+      iqamaMinutes: 3,
+    };
+    try {
+      const storedSound = await AsyncStorage.getItem('use_azan_sound');
+      if (storedSound === 'false') schedPrefs.useAzanSound = false;
+      const iqamaEnabledRaw = await AsyncStorage.getItem('iqama_notifications_enabled');
+      schedPrefs.iqamaEnabled = iqamaEnabledRaw === 'true';
+      if (schedPrefs.iqamaEnabled) {
+        const iqamaSettingsRaw = await AsyncStorage.getItem('iqama_notification_settings');
+        schedPrefs.iqamaSettings = iqamaSettingsRaw ? JSON.parse(iqamaSettingsRaw) : {};
+        const iqamaMinRaw = await AsyncStorage.getItem('iqama_notification_minutes');
+        schedPrefs.iqamaMinutes = iqamaMinRaw ? parseInt(iqamaMinRaw, 10) : 3;
+      }
+    } catch {}
 
     let scheduledCount = activeOurs.length;
     let dayCursor = new Date(today);
-    for (let i=0; i<WINDOW_DAYS && scheduledCount < 54; i++) {
+    // Leave headroom: stop early enough so one full day (up to 11 notifs) can't exceed 54
+    const safeMax = 54 - 11; // 11 = max per day (6 prayers + 5 iqama)
+    for (let i=0; i<WINDOW_DAYS && scheduledCount < safeMax; i++) {
       const dateStr = isoDate(dayCursor);
       if (!coveredDates.has(dateStr)) {
-        const created = await scheduleDay(dayCursor, settings);
+        const created = await scheduleDay(dayCursor, settings, cityId, schedPrefs);
         scheduledCount += created.length;
       }
       dayCursor.setDate(dayCursor.getDate()+1);

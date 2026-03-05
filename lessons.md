@@ -36,6 +36,53 @@ backgroundColor: isDark ? C.surface.primary : C.background.secondary
 
 ---
 
+## 2025-07: GPS-based country detection is wrong for push notification topics
+
+### The Mistake
+
+Used `expo-location` GPS reverse-geocoding to detect the user's country for FCM `country-{XX}` topic subscription. This had multiple problems:
+
+1. Required location permission just for push notifications
+2. GPS is unreliable indoors / returns null
+3. The "fallback" parsed `"qatar-qatar-doha".split('-')[0]` → `"QATAR"` (wrong — wanted ISO `"QA"`)
+4. If a user is traveling, GPS gives the wrong country (not the one they selected for prayer times)
+
+### The Fix
+
+Switched to **settings-based country detection**: read the user's `selected_region` from AsyncStorage (e.g. `"qatar-qatar-doha"`), parse the country ID (`"qatar"`), and look up the ISO code via a new `isoCode` field on the `Country` interface in `prayerTimeConfig.ts`. No location permission needed. The country topic now reflects the user's **intentional choice**, not their physical location.
+
+### How to Avoid
+
+When detecting user context (country, language, region), prefer the value the user explicitly chose in settings over auto-detected values. GPS/IP geolocation adds complexity, permissions, and failure modes — and may not match user intent.
+
+---
+
+## 2026-02-27: Pre-build code audit — critical bugs found
+
+### The Mistakes
+
+1. **Placeholder data left in CSV** — Dec 31 prayer times were round placeholder numbers (`05:00,06:30,12:00...`). Looked valid at a glance but deviated 64+ minutes from neighboring days. Always validate data against neighbors.
+
+2. **Missing edge-case data (Feb 29)** — Year-agnostic CSV had 365 rows but no Feb 29. Easy to miss because it only matters once every 4 years. Always test boundary dates explicitly.
+
+3. **String split assumptions** — Used `id.split('-').length === 3` to match IDs like `prayer-fajr-2026-03-05` (which splits to 5 parts, not 3). The filter silently returned empty, hiding the bug. Always test string parsing with actual data samples.
+
+4. **Stale closures in React useEffect with `[]` deps** — `notificationsEnabled` was captured as `false` (initial value) and never updated inside long-lived intervals. Two critical code paths (health check + background reschedule) were permanently dead. Use refs to mirror state values that need to be read inside long-lived closures.
+
+5. **Hijri epoch date parsing** — `new Date('622-07-16')` works on V8 (Node) but returns `Invalid Date` on Hermes (React Native's JS engine). 3-digit years are not valid ISO 8601. Always use pre-computed timestamps for ancient dates.
+
+6. **Notification system prefix collision** — Two notification systems (legacy daily-repeat and rolling window) both used `prayer-` prefix. Functions like `cancelAllNotifeePrayerNotifications` would wipe both systems. Use distinct prefixes when multiple scheduling strategies coexist.
+
+### How to Avoid
+
+- Test with real data at boundaries (Dec 31, Jan 1, Feb 28/29, DST transitions)
+- Verify string parsing with actual production ID samples, not hypothetical ones
+- Use refs for state values read inside `[]`-dep effects
+- Test on the actual JS engine (Hermes), not just Node/V8
+- When scheduling a moving window of notifications, count ALL notification types (prayer + iqama) toward the cap
+
+---
+
 ## 2025-02-27: Jest mock hoisting + useEffect race conditions
 
 ### The Mistake (1): Jest-expo mock variable hoisting
@@ -492,3 +539,168 @@ addSourceFile("file.swift", { target }, groupUuid); // → Widget/file.swift
 - When using `addSourceFile` with a group UUID, pass only the filename, not a prefixed path
 - Don't include source files in `addPbxGroup` if you plan to call `addSourceFile` for them — that creates duplicates
 - `addSourceFile` already adds the file to the group AND to the build phase, so `addPbxGroup` only needs non-compiled files (Info.plist, entitlements)
+
+---
+
+## 2026-03: Firebase RemoteMessage iOS Image Property
+
+### The Mistake
+
+When implementing the foreground push handler, used `remoteMessage.notification?.apple?.imageUrl` for iOS image URLs. This property does NOT exist on the Firebase `Notification` TypeScript type:
+
+- There is no `apple` property — the iOS-specific property is `ios`
+- Even `ios` only has `subtitle`, `subtitleLocKey`, `subtitleLocArgs`, `badge`, `sound` — no `imageUrl`
+- The correct path for images is `remoteMessage.notification?.image` (base `Notification` property)
+- For Android, `remoteMessage.notification?.android?.imageUrl` is correct (confirmed in types)
+
+### Files Affected
+
+- `utils/pushNotifications.ts` — `setupForegroundHandler()` iOS attachment code
+- `__tests__/utils/pushNotifications.test.ts` — test for image handling
+
+### The Fix
+
+Changed iOS image source from non-existent `notification.apple.imageUrl` to `notification.image` (the base property on the `Notification` type).
+
+### Prevention
+
+- Always verify property paths against the actual TypeScript `.d.ts` type definitions in `node_modules/`
+- Don't assume platform-specific property names — check `notification.android` vs `notification.ios` structures
+- The `image` property on `Notification` is documented as "Web only" but is actually populated on mobile too
+
+---
+
+## 2026-03: AuthorizationStatus Magic Numbers
+
+### The Mistake
+
+Used raw numeric comparisons `=== 1` and `=== 2` for Firebase Messaging `AuthorizationStatus` instead of using the named constants from the module. While functionally correct, this is fragile and less readable.
+
+### The Fix
+
+Changed to `messaging.AuthorizationStatus.AUTHORIZED` and `messaging.AuthorizationStatus.PROVISIONAL` as shown in the official docs.
+
+### Prevention
+
+- Always use named constants/enums instead of magic numbers
+- Follow the patterns shown in the official SDK documentation examples
+
+---
+
+## 2026-03-04: Expo Config Plugin Only Runs During `expo prebuild` — Android Firebase Not Initializing
+
+### The Mistake
+
+After implementing Firebase Cloud Messaging, push notifications were never received on Android despite the JS code, Python sender script, and Firebase project all being correctly configured. The root cause: the `@react-native-firebase/app` Expo config plugin in `app.json` plugins array only modifies native files during `expo prebuild`. Since the project uses a **pre-existing `android/` folder with local Gradle builds** (never runs `expo prebuild --clean`), the Google Services Gradle plugin was never injected into the build files. Three things were missing:
+
+1. `google-services.json` was only at project root, not in `android/app/` where Gradle expects it
+2. `classpath 'com.google.gms:google-services:4.4.2'` was missing from `android/build.gradle` buildscript dependencies
+3. `apply plugin: 'com.google.gms.google-services'` was missing from `android/app/build.gradle`
+
+Without these, the Firebase native SDK has no project config → no FCM token → no topic subscriptions → no push delivery.
+
+### The Fix
+
+- Copied `google-services.json` to `android/app/`
+- Added `classpath 'com.google.gms:google-services:4.4.2'` to root `android/build.gradle`
+- Added `apply plugin: 'com.google.gms.google-services'` to `android/app/build.gradle`
+
+### Prevention
+
+- When using Expo config plugins with a **pre-existing native folder** (not generated by `expo prebuild`), remember that plugins do NOT run automatically — you must manually apply any native changes they would have made
+- Always verify native-level setup after adding Firebase packages: check `google-services.json` location, Gradle classpath, and plugin apply statements
+- Test push notification receipt on a real device after initial setup, not just the JS-level logic
+
+---
+
+## 2026-03-04: AsyncStorage.getItem Mock Ordering in Jest — mockResolvedValueOnce Queue
+
+### The Mistake
+
+When testing `subscribeToTopics()` version-upgrade logic, used `mockResolvedValueOnce` chaining to mock multiple `AsyncStorage.getItem` calls. But the function's control flow depends on runtime conditions (GPS success/failure), so `getItem` calls happen in different orders depending on code path. The first `mockResolvedValueOnce(null)` was consumed by the wrong `getItem` call, causing test failures.
+
+### The Fix
+
+Used `mockImplementation` with a key-checking callback instead:
+
+```typescript
+(AsyncStorage.getItem as jest.Mock).mockImplementation((key: string) => {
+  if (key === "push_version_topic") return Promise.resolve("3.9.0");
+  return Promise.resolve(null);
+});
+```
+
+### Prevention
+
+- When a function makes multiple `getItem` calls whose ORDER depends on runtime conditions (e.g., GPS availability), never use `mockResolvedValueOnce` queue — use `mockImplementation` with key-based dispatch
+- This is especially important when the function has early-return branches that skip some storage reads
+
+---
+
+## 2026-02-27: Android Notification Channel Mismatch (Root Cause: Legacy Variable)
+
+### The Mistake
+
+A legacy `let channelId = 'prayer-reminders'` variable at module scope was left over from before the 4-channel system was introduced (`prayer-times-azan`, `fajr-prayer-azan`, `prayer-times-default`, `fajr-prayer-default`). Multiple functions (snooze, test notifications, fallback channels, force-recreate) referenced this stale variable or other legacy channel IDs like `fajr_prayer_channel`, resulting in notifications being silently dropped on Android (since notifications pointed at non-existent channels are discarded without error).
+
+### Files Affected
+
+- `utils/notifeePrayerService.js` — 5 separate functions affected
+
+### The Fix
+
+- Removed the legacy `channelId` variable entirely
+- Updated all functions to dynamically select the correct channel via `getSoundPreference()` (azan vs default) and prayer name (Fajr vs other)
+- Fixed `forceRecreateNotificationChannels()` to delete all 5 real channel IDs
+- Fixed `createFallbackChannels()` to use the same IDs as primary channels
+
+### Prevention
+
+- When a module's channel/ID naming scheme changes, always do a full grep for ALL references to the old scheme
+- Never rely on `createChannel` to update existing channels on Android — only delete+recreate works
+- Test notification functions on Android after channel changes to verify they actually fire
+- Avoid module-level `let` variables that hold configuration — prefer functions that read current state
+
+---
+
+## 2026-02-27: Notification Scheduler Missing City Adjustments
+
+### The Mistake
+
+The rolling notification scheduler called `getPrayerTimesFromLocalData(date)` and used raw CSV times directly. But the home screen applied `applyLocalDataCityAdjustments()` to adjust for non-Doha cities. This meant users in Abu Samra/Dukhan/Al Shamal saw correct times on screen but got notifications at the wrong (Doha) times.
+
+### The Fix
+
+- Updated `buildPrayerTimesForDate()` to accept a `cityId` parameter and apply `applyLocalDataCityAdjustments()`
+- `ensurePrayerNotificationWindow()` now reads `selected_region` from AsyncStorage and extracts the city ID
+
+### Prevention
+
+- When prayer times pass through a transformation pipeline (raw CSV → city adjustments → display), every consumer of that data must apply ALL the same transformations
+- Notification scheduling is a "shadow" consumer that's easy to forget — always verify notification times match displayed times
+
+---
+
+## 2026-02-27: Animated.spring 360° Wrap-Around
+
+### The Mistake
+
+Compass rotation used `Animated.spring({ toValue: -compassHeading })` directly. When heading crosses 360°→0° (e.g., 355° to 5°), the animated value jumps from -355 to -5, causing a 350° clockwise spin instead of a 10° counterclockwise movement.
+
+### The Fix
+
+Track accumulated rotation using shortest-path angular delta:
+
+```typescript
+let delta = newHeading - prevHeading;
+if (delta > 180) delta -= 360;
+if (delta < -180) delta += 360;
+accumulated += delta;
+Animated.spring({ toValue: -accumulated });
+```
+
+### Prevention
+
+- Any animated rotation in degrees must handle the 0°/360° boundary
+- Never animate directly to raw angle values — use accumulated delta approach
+- Same pattern applies to any circular value (clock hands, dials, gauges)

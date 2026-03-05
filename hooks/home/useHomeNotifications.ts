@@ -48,6 +48,10 @@ export function useHomeNotifications() {
   // ── Refs ────────────────────────────────────────────
   const notificationInitialized = useRef(false);
   const lastScheduleAttempt = useRef<number>(0);
+  /** Ref mirror of notificationsEnabled so long-lived intervals read the latest value */
+  const notificationsEnabledRef = useRef(false);
+  /** Ref mirror of notificationSettings so health-check reads the latest per-prayer toggles */
+  const notificationSettingsRef = useRef<NotificationSettings>(notificationSettings);
 
   /**
    * Refs for cross-domain values that are set by the orchestrator.
@@ -65,6 +69,15 @@ export function useHomeNotifications() {
   const syncCurrentDay = (day: number) => {
     currentDayRef.current = day;
   };
+
+  // Keep ref in sync with state so long-lived intervals always read the latest value
+  useEffect(() => {
+    notificationsEnabledRef.current = notificationsEnabled;
+  }, [notificationsEnabled]);
+
+  useEffect(() => {
+    notificationSettingsRef.current = notificationSettings;
+  }, [notificationSettings]);
 
   // ── checkNotificationSettings ───────────────────────
   const checkNotificationSettings = async () => {
@@ -148,11 +161,10 @@ export function useHomeNotifications() {
       lastScheduleAttempt.current = now;
 
       console.log('🔄 ===== SCHEDULING NOTIFICATIONS FOR TODAY =====');
-      console.log(`🔄 notificationsEnabled: ${notificationsEnabled}`);
+      console.log(`🔄 notificationsEnabled: ${notificationsEnabledRef.current}`);
       console.log(`🔄 prayerTimes available: ${!!(prayerTimesRef.current && prayerTimesRef.current.times)}`);
-      console.log('🔄 notificationSettings:', notificationSettings);
 
-      if (!notificationsEnabled) {
+      if (!notificationsEnabledRef.current) {
         console.log('⏭️ Notifications disabled by user, skipping scheduling');
         return;
       }
@@ -211,7 +223,7 @@ export function useHomeNotifications() {
 
         if (notifEnabled !== null) {
           const isEnabled = notifEnabled === 'true';
-          if (isEnabled !== notificationsEnabled) {
+          if (isEnabled !== notificationsEnabledRef.current) {
             setNotificationsEnabled(isEnabled);
 
             if (isEnabled && prayerTimesRef.current) {
@@ -232,7 +244,7 @@ export function useHomeNotifications() {
         }
 
         const forceReschedule = await AsyncStorage.getItem('force_notification_reschedule');
-        if (forceReschedule === 'true' && notificationsEnabled && prayerTimesRef.current) {
+        if (forceReschedule === 'true' && notificationsEnabledRef.current && prayerTimesRef.current) {
           console.log('Background task requested notification reschedule');
           await AsyncStorage.removeItem('force_notification_reschedule');
           await AsyncStorage.removeItem('last_notification_scheduled');
@@ -257,7 +269,7 @@ export function useHomeNotifications() {
         await forceRescheduleAllNotifications();
       }
 
-      if (notificationsEnabled && prayerTimesRef.current) {
+      if (notificationsEnabledRef.current && prayerTimesRef.current) {
         const status = await getScheduledNotifeePrayerNotifications();
 
         if (status.length === 0) {
@@ -269,7 +281,7 @@ export function useHomeNotifications() {
               if (isNaN(hours) || isNaN(minutes)) return false;
               const prayerDate = new Date();
               prayerDate.setHours(hours, minutes, 0, 0);
-              return prayerDate > now && notificationSettings[prayer as keyof NotificationSettings];
+              return prayerDate > now && notificationSettingsRef.current[prayer as keyof NotificationSettings];
             },
           );
 

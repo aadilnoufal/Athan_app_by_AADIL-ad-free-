@@ -10,7 +10,7 @@ export default {
   returnToToday: 'العودة لليوم',
   iqamaPrefix: 'إقامة +',
   iqamaSuffix: ' د',
-  iqamaExplanation: 'أوقات الإقامة تقريبية: الفجر +25 د، الظهر +20 د، العصر +20 د، المغرب +10 د، العشاء +20 د بعد الأذان.',
+  iqamaExplanation: 'أوقات الإقامة تقريبية: الفجر +25 د، الظهر +20 د، العصر +25 د، المغرب +10 د، العشاء +20 د بعد الأذان.',
   iqamaCountdown: 'الإقامة',
   iqamaIn: 'الإقامة خلال',
 
@@ -105,7 +105,7 @@ export default {
 
   // About section
   about: 'حول التطبيق',
-  appVersion: 'مواقيت الصلاة الإصدار ٤.٠',
+  appVersion: 'مواقيت الصلاة',
   aboutText: 'احصل على مواقيت صلاة دقيقة مخصصة لموقعك. بينما نسعى لأعلى درجات الدقة، يرجى ملاحظة أن التوقيتات الفعلية قد تختلف قليلاً.',
   supportApp: 'دعم التطبيق',
   supportDeveloper: 'دعم المطور',
@@ -289,7 +289,13 @@ export default {
   onboardingFeatureDua: 'مجموعة أدعية وأذكار يومية',
   onboardingFeatureQuran: 'اقرأ واستمع إلى القرآن الكريم',
   onboardingFeatureQibla: 'حدد اتجاه القبلة في أي مكان',
+  onboardingWidgetsLabel: 'ودجات الشاشة الرئيسية',
+  onboardingFeatureWidgets: 'أوقات الصلاة بلمحة على شاشتك الرئيسية',
+  onboardingIqamaLabel: 'تنبيهات الإقامة',
+  onboardingFeatureIqama: 'احصل على إشعار قبل بدء الإقامة',
   onboardingFeatureSettings: 'خصّص كل شيء حسب احتياجاتك',
+  onboardingWhatsNewTitle: 'ما الجديد',
+  onboardingWhatsNewDesc: 'أضفنا ميزات جديدة قوية لتعزيز تجربة عبادتك.',
   onboardingSetupTitle: 'إعداد سريع',
   onboardingSetupDesc: 'حدد موقعك للحصول على أوقات صلاة دقيقة.',
   onboardingSetupNotifications: 'تفعيل إشعارات الصلاة',
@@ -321,6 +327,20 @@ export default {
   tooltipSettingsQuran: 'اختر الخط والترجمة والقارئ المفضل لديك',
   tooltipGotIt: 'فهمت',
   tooltipDuaCategories: 'اضغط على فئة لتوسيعها وقراءة الأدعية بداخلها',
+
+  // ── الودجات (إعدادات) ──────────────────────────
+  widgetSectionTitle: 'الودجات',
+  widgetSectionDesc: 'أضف ودجات أوقات الصلاة إلى شاشتك الرئيسية للوصول السريع.',
+  widgetSmallTitle: 'ودجة مصغّرة',
+  widgetSmallDesc: 'العد التنازلي للصلاة القادمة (٢×٢)',
+  widgetLargeTitle: 'ودجة كاملة',
+  widgetLargeDesc: 'جميع أوقات الصلاة مع العد التنازلي (٤×٢)',
+  widgetAddTitle: 'إضافة ودجة',
+  widgetIOSInstructions: '١) اضغط مطوّلاً على الشاشة الرئيسية\n٢) اضغط على زر \"+\"\n٣) ابحث عن \"أوقات الصلاة\"\n٤) اختر الحجم المطلوب وأضفه',  widgetIOSStep1: 'اضغط مطوّلاً على الشاشة الرئيسية',
+  widgetIOSStep2: 'اضغط على زر "+" (الزاوية العلوية)',
+  widgetIOSStep3: 'ابحث عن "أوقات الصلاة"',
+  widgetIOSStep4: 'اختر الحجم واضغط "إضافة ودجة"',
+  widgetIOSHowToAdd: 'كيفية الإضافة:',  widgetAndroidInstructions: 'اضغط مطوّلاً على الشاشة الرئيسية → الودجات → ابحث عن \"أوقات الصلاة\" → اسحب الودجة إلى الشاشة',
 
   // ── الدعم / صفحة التبرع ──────────────────────────
   supportTitle: 'ادعم هذا التطبيق',

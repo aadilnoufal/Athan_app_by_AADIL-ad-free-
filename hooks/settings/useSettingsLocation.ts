@@ -19,6 +19,7 @@ import {
   DEFAULT_REGION,
   parseRegionId,
 } from '../../app/config/prayerTimeConfig';
+import { updateCountryTopic } from '../../utils/pushNotifications';
 
 interface UseSettingsLocationOptions {
   /** Expo Router push — used to navigate home after a location update */
@@ -111,6 +112,11 @@ export function useSettingsLocation({ navigateHome }: UseSettingsLocationOptions
       // Cancel ALL existing notifications so they can be rescheduled for the new location
       await notifee.cancelAllNotifications();
       console.log('Cancelled all scheduled notifications during region change');
+
+      // Update FCM country topic subscription in case the country changed
+      updateCountryTopic().catch(err =>
+        console.log('⚠️ Could not update country topic after region change:', err),
+      );
 
       // Clear any existing cached prayer data
       const cachedKeys = await AsyncStorage.getAllKeys();

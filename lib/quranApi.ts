@@ -83,15 +83,21 @@ export interface EditionInfo {
 
 async function apiFetch<T>(path: string): Promise<T> {
     const url = `${BASE}${path}`;
-    const res = await fetch(url);
-    if (!res.ok) {
-        throw new Error(`Quran API error ${res.status}: ${url}`);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20000); // 20s timeout
+    try {
+        const res = await fetch(url, { signal: controller.signal });
+        if (!res.ok) {
+            throw new Error(`Quran API error ${res.status}: ${url}`);
+        }
+        const json = await res.json();
+        if (json.code !== 200 || json.status !== 'OK') {
+            throw new Error(json.data ?? `Quran API returned status ${json.status}`);
+        }
+        return json.data as T;
+    } finally {
+        clearTimeout(timeout);
     }
-    const json = await res.json();
-    if (json.code !== 200 || json.status !== 'OK') {
-        throw new Error(json.data ?? `Quran API returned status ${json.status}`);
-    }
-    return json.data as T;
 }
 
 /* ---------- Public API ---------- */

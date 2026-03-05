@@ -40,6 +40,18 @@ const FEATURES: FeatureItem[] = [
   { icon: 'cog-outline', labelKey: 'settings', descKey: 'onboardingFeatureSettings' },
 ];
 
+// ── "What's New" highlight items for slide 3 ─────────
+interface HighlightItem {
+  icon: string;
+  labelKey: string;
+  descKey: string;
+}
+
+const WHATS_NEW_ITEMS: HighlightItem[] = [
+  { icon: 'widgets-outline', labelKey: 'onboardingWidgetsLabel', descKey: 'onboardingFeatureWidgets' },
+  { icon: 'alarm', labelKey: 'onboardingIqamaLabel', descKey: 'onboardingFeatureIqama' },
+];
+
 // ── Props ─────────────────────────────────────────────
 interface WelcomeSlidesProps {
   onComplete: () => void;
@@ -61,15 +73,17 @@ export default function WelcomeSlides({ onComplete }: WelcomeSlidesProps) {
 
   const scrollRef = useRef<ScrollView>(null);
   const [currentPage, setCurrentPage] = useState(0);
-  const totalPages = 3;
+  const totalPages = 4;
 
   // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
   const iconScale = useRef(new Animated.Value(0.5)).current;
   const featureAnims = useRef(FEATURES.map(() => new Animated.Value(0))).current;
+  const whatsNewAnim = useRef(new Animated.Value(0)).current;
+  const whatsNewItemAnims = useRef(WHATS_NEW_ITEMS.map(() => new Animated.Value(0))).current;
 
-  // Setup state (slide 3)
+  // Setup state (slide 4)
   const [enableNotifs, setEnableNotifs] = useState(true);
   const [batteryOptEnabled, setBatteryOptEnabled] = useState(false);
   const [batteryCheckDone, setBatteryCheckDone] = useState(false);
@@ -128,11 +142,29 @@ export default function WelcomeSlides({ onComplete }: WelcomeSlidesProps) {
         Animated.timing(anim, {
           toValue: 1,
           duration: 400,
-          delay: i * 100,
           useNativeDriver: true,
         })
       );
       Animated.stagger(100, staggered).start();
+    }
+  }, [currentPage]);
+
+  // Animate "What's New" when page 3 becomes visible
+  useEffect(() => {
+    if (currentPage === 2) {
+      Animated.timing(whatsNewAnim, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }).start();
+      const staggered = whatsNewItemAnims.map((anim, i) =>
+        Animated.timing(anim, {
+          toValue: 1,
+          duration: 400,
+          useNativeDriver: true,
+        })
+      );
+      Animated.stagger(150, staggered).start();
     }
   }, [currentPage]);
 
@@ -332,7 +364,78 @@ export default function WelcomeSlides({ onComplete }: WelcomeSlidesProps) {
     </View>
   );
 
-  // ── Slide 3: Quick Setup ────────────────────────────
+  // ── Slide 3: What's New ──────────────────────────────
+  const renderWhatsNew = () => (
+    <View style={[localStyles.slide, { width: SCREEN_WIDTH }]}>
+      <Animated.View
+        style={[
+          localStyles.whatsNewContent,
+          {
+            opacity: whatsNewAnim,
+            transform: [
+              {
+                translateY: whatsNewAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [20, 0],
+                }),
+              },
+            ],
+          },
+        ]}
+      >
+        {/* Star icon */}
+        <View style={[localStyles.whatsNewIconBg, { backgroundColor: gt(0.1) }]}>
+          <MaterialCommunityIcons name="star-shooting" size={48} color={gold} />
+        </View>
+
+        <Text style={[localStyles.slideTitle, { color: textPrimary }]}>
+          {t('onboardingWhatsNewTitle')}
+        </Text>
+        <Text style={[localStyles.slideSubtitle, { color: textSecondary }]}>
+          {t('onboardingWhatsNewDesc')}
+        </Text>
+
+        {/* Highlight cards */}
+        {WHATS_NEW_ITEMS.map((item, index) => (
+          <Animated.View
+            key={item.icon}
+            style={[
+              localStyles.whatsNewCard,
+              {
+                backgroundColor: surfaceBg,
+                borderColor: gt(0.15),
+                opacity: whatsNewItemAnims[index],
+                transform: [
+                  {
+                    translateY: whatsNewItemAnims[index].interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [30, 0],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+            <View style={[localStyles.whatsNewCardIcon, { backgroundColor: gt(0.12) }]}>
+              <MaterialCommunityIcons
+                name={item.icon as any}
+                size={32}
+                color={gold}
+              />
+            </View>
+            <Text style={[localStyles.whatsNewCardLabel, { color: textPrimary }]}>
+              {t(item.labelKey)}
+            </Text>
+            <Text style={[localStyles.whatsNewCardDesc, { color: textSecondary }]}>
+              {t(item.descKey)}
+            </Text>
+          </Animated.View>
+        ))}
+      </Animated.View>
+    </View>
+  );
+
+  // ── Slide 4: Quick Setup ────────────────────────────
   const renderSetup = () => (
     <View style={[localStyles.slide, { width: SCREEN_WIDTH }]}>
       <View style={localStyles.setupContent}>
@@ -495,6 +598,7 @@ export default function WelcomeSlides({ onComplete }: WelcomeSlidesProps) {
       >
         {renderWelcome()}
         {renderFeatures()}
+        {renderWhatsNew()}
         {renderSetup()}
       </ScrollView>
 
@@ -633,7 +737,49 @@ const localStyles = StyleSheet.create({
     lineHeight: 18,
   },
 
-  // Slide 3: Setup
+  // Slide 3: What's New
+  whatsNewContent: {
+    width: '100%',
+    alignItems: 'center',
+  },
+  whatsNewIconBg: {
+    width: 80,
+    height: 80,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  whatsNewCard: {
+    width: '100%',
+    padding: 20,
+    borderRadius: 16,
+    borderWidth: 1,
+    marginBottom: 16,
+    alignItems: 'center',
+  },
+  whatsNewCardIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  whatsNewCardLabel: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  whatsNewCardDesc: {
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+    paddingHorizontal: 8,
+  },
+
+  // Slide 4: Setup
   setupContent: {
     width: '100%',
     alignItems: 'center',

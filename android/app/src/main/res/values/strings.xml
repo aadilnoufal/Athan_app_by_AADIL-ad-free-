@@ -1,5 +1,7 @@
 <resources>
   <string name="app_name">Prayer Times by AADIL</string>
+  <string name="widget_description_compact">Shows next prayer countdown with a circular progress indicator</string>
+  <string name="widget_description_full">Shows all prayer times with next prayer countdown</string>
   <string name="expo_splash_screen_resize_mode" translatable="false">contain</string>
   <string name="expo_splash_screen_status_bar_translucent" translatable="false">false</string>
   <string name="expo_system_ui_user_interface_style" translatable="false">dark</string>

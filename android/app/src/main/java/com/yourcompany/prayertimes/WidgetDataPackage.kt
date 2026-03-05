@@ -6,12 +6,15 @@ import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.uimanager.ViewManager
 
 /**
- * React Native package that registers the WidgetDataModule native module.
- * Added to MainApplication.getPackages() to make it available in JS.
+ * React Native package that registers widget-related native modules.
+ * Added to MainApplication.getPackages() to make them available in JS.
  */
 class WidgetDataPackage : ReactPackage {
     override fun createNativeModules(reactContext: ReactApplicationContext): List<NativeModule> {
-        return listOf(WidgetDataModule(reactContext))
+        return listOf(
+            WidgetDataModule(reactContext),
+            WidgetPinModule(reactContext),
+        )
     }
 
     override fun createViewManagers(reactContext: ReactApplicationContext): List<ViewManager<*, *>> {

@@ -383,6 +383,37 @@ function InnerLayout() {
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Stable subscription — lastReceivedAtRef is a ref, no deps needed
+
+  // ── Push Notifications (Firebase Cloud Messaging) ──────────────────────
+  // Initialize FCM: get token, subscribe to topics, set up foreground handler.
+  // Runs once on mount. Foreground handler displays remote pushes via Notifee.
+  useEffect(() => {
+    let foregroundUnsub: (() => void) | null = null;
+    let tokenRefreshUnsub: (() => void) | null = null;
+
+    const initPush = async () => {
+      try {
+        const {
+          initializePushNotifications,
+          setupForegroundHandler,
+          setupTokenRefreshListener,
+        } = require('../utils/pushNotifications');
+
+        await initializePushNotifications();
+        foregroundUnsub = setupForegroundHandler();
+        tokenRefreshUnsub = setupTokenRefreshListener();
+      } catch (e) {
+        console.log('⚠️ Push notification init skipped:', e);
+      }
+    };
+
+    initPush();
+
+    return () => {
+      foregroundUnsub?.();
+      tokenRefreshUnsub?.();
+    };
+  }, []);
   
   // Expose test function globally for easier debugging (remove in production)
   if (__DEV__) {

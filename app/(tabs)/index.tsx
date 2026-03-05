@@ -244,6 +244,9 @@ export default function Home() {
       setNextPrayer(null);
       setCountdown('');
 
+      // Reset to today (day 0) to avoid stale day offset in new region
+      goToToday();
+
       // Update state with new location config
       setRegionId(newRegionId);
       setLocation(config.location);
@@ -258,7 +261,7 @@ export default function Home() {
       await fetchAndCachePrayerTimes(0, newRegionId);
 
       // Schedule notifications after successful data fetch
-      if (notificationsEnabled && currentDay === 0) {
+      if (notificationsEnabled) {
         setTimeout(() => {
           scheduleNotificationsForToday();
         }, 1000);

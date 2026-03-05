@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "209493385120",
+    "project_id": "push-notif-prayer-time-app",
+    "storage_bucket": "push-notif-prayer-time-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:209493385120:android:f06deed16a14ddab0bcec5",
+        "android_client_info": {
+          "package_name": "com.yourcompany.prayertimes"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCt8QVSwFpKFNElv_XTnPNb3K-0ICeTznA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -27,6 +27,7 @@ export interface State {
 export interface Country {
   id: string;
   name: string;
+  isoCode: string; // ISO 3166-1 alpha-2 code (e.g. "QA") — used for FCM push topic
   states: State[];
 }
 
@@ -86,6 +87,7 @@ const COUNTRIES: Country[] = [
   {
     id: 'qatar',
     name: 'Qatar',
+    isoCode: 'QA',
     states: [
       {
         id: 'qatar',
@@ -174,5 +176,22 @@ export default {
   parseRegionId,
   getRegionConfig,
   getDefaultRegionConfig,
+  getCountryIsoCode,
   DEFAULT_REGION
 };
+
+/**
+ * Get the ISO 3166-1 alpha-2 country code for a region ID.
+ *
+ * Example: "qatar-qatar-doha" → "QA"
+ *
+ * Used by push notification topic subscription to create country-{XX} topics.
+ * Returns null if the country is not found in the config.
+ */
+export function getCountryIsoCode(regionId: string): string | null {
+  if (!regionId) return null;
+  const { countryId } = parseRegionId(regionId);
+  if (!countryId) return null;
+  const country = COUNTRIES.find(c => c.id === countryId);
+  return country ? country.isoCode : null;
+}

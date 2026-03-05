@@ -248,7 +248,6 @@ const requestEssentialPermissions = async () => {
 // Global state
 let appStateSubscription = null;
 let isInitialized = false;
-let channelId = 'prayer-reminders';
 
 /**
  * Initialize Notifee prayer notification service
@@ -448,32 +447,48 @@ async function createFallbackChannels() {
   try {
     console.log("🔄 Creating fallback channels with default sounds...");
 
+    // Use the SAME channel IDs as the primary channels so notifications
+    // scheduled by the rolling scheduler will actually fire
     await notifee.createChannel({
-      id: channelId,
+      id: 'prayer-times-default',
       name: 'Prayer Times (Default Sound)',
       description: 'Prayer notifications with default system sound',
       importance: AndroidImportance.HIGH,
       visibility: AndroidVisibility.PUBLIC,
       sound: 'default',
       vibration: true,
-      vibrationPattern: [300, 600, 300, 600], // Even number of values (4)
+      vibrationPattern: [300, 600, 300, 600],
       lightColor: '#1a8e2d',
       lights: true,
       badge: true,
     });
 
     await notifee.createChannel({
-      id: 'fajr_prayer_channel',
+      id: 'fajr-prayer-default',
       name: 'Fajr Prayer (Default Sound)',
       description: 'Fajr notifications with default system sound',
       importance: AndroidImportance.HIGH,
       visibility: AndroidVisibility.PUBLIC,
       sound: 'default',
       vibration: true,
-      vibrationPattern: [200, 400, 200, 400, 200, 400], // Even number of values (6)
+      vibrationPattern: [200, 400, 200, 400, 200, 400],
       lightColor: '#0066cc',
       lights: true,
       badge: true,
+    });
+
+    await notifee.createChannel({
+      id: 'prayer_reminder_channel',
+      name: 'Prayer Reminders',
+      description: 'Reminder notifications with default system sound',
+      importance: AndroidImportance.DEFAULT,
+      visibility: AndroidVisibility.PUBLIC,
+      sound: 'default',
+      vibration: true,
+      vibrationPattern: [200, 300, 200, 300],
+      lightColor: '#ff9900',
+      lights: true,
+      badge: false,
     });
 
     console.log("✅ Fallback channels created successfully");
@@ -549,7 +564,8 @@ function createCrossPlatformNotification(prayer, time, useAzanSound, isReminder 
       android: {
         channelId: channelId, // CORRECT channel with CORRECT sound!
         category: AndroidCategory.REMINDER,
-        smallIcon: 'ic_launcher_foreground',
+        smallIcon: 'ic_notification',
+        largeIcon: 'ic_launcher',
         color: prayer === 'Fajr' ? '#0066cc' : '#1a8e2d',
         // No sound specified here - channel handles it perfectly
         vibrationPattern: prayer === 'Fajr' ?
@@ -761,7 +777,7 @@ export async function cancelAllNotifeePrayerNotifications() {
 
     let canceledCount = 0;
     for (const id of triggerIds) {
-      if (id.startsWith('prayer-')) {
+      if (id.startsWith('prayer-') || id.startsWith('iqama-')) {
         await notifee.cancelTriggerNotification(id);
         canceledCount++;
       }
@@ -771,7 +787,7 @@ export async function cancelAllNotifeePrayerNotifications() {
     const displayedNotifications = await notifee.getDisplayedNotifications();
     for (const notification of displayedNotifications) {
       const t = notification.notification?.data?.type;
-      if (t === "prayer-reminder" || t === 'prayer-time' || t === 'prayer-alarm') {
+      if (t === "prayer-reminder" || t === 'prayer-time' || t === 'prayer-alarm' || t === 'iqama-reminder') {
         try {
           await notifee.cancelDisplayedNotification(notification.id);
           canceledCount++;
@@ -781,7 +797,7 @@ export async function cancelAllNotifeePrayerNotifications() {
       }
     }
 
-    console.log(`🧹 Canceled ${canceledCount} prayer notifications`);
+    console.log(`🧹 Canceled ${canceledCount} prayer + iqama notifications`);
     return canceledCount;
   } catch (error) {
     console.error("❌ Error canceling Notifee prayer notifications:", error);
@@ -872,14 +888,14 @@ export async function getScheduledNotifeePrayerNotifications() {
     const triggerIds = await notifee.getTriggerNotificationIds();
 
     const prayerNotifications = triggerIds
-      .filter(id => id.startsWith('prayer-'))
+      .filter(id => id.startsWith('prayer-') || id.startsWith('iqama-'))
       .map(id => ({
         id: id,
-        prayer: id.replace('prayer-', '').charAt(0).toUpperCase() + id.replace('prayer-', '').slice(1),
-        type: 'trigger'
+        prayer: id.replace(/^(prayer|iqama)-/, '').split('-')[0].replace(/^\w/, c => c.toUpperCase()),
+        type: id.startsWith('iqama-') ? 'iqama-trigger' : 'trigger'
       }));
 
-    console.log(`📋 Found ${prayerNotifications.length} scheduled Notifee prayer notifications`);
+    console.log(`📋 Found ${prayerNotifications.length} scheduled Notifee prayer/iqama notifications`);
     return prayerNotifications;
   } catch (error) {
     console.error("❌ Error getting scheduled Notifee notifications:", error);
@@ -971,7 +987,8 @@ export async function scheduleNotifeeTestNotification() {
       testConfig.android = {
         channelId: testChannelId, // ← CORRECT channel!
         category: AndroidCategory.REMINDER,
-        smallIcon: 'ic_launcher_foreground',
+        smallIcon: 'ic_notification',
+        largeIcon: 'ic_launcher',
         color: '#1a8e2d',
         // NO sound specified - channel handles it!
         vibrationPattern: [300, 600, 300, 600],
@@ -1133,6 +1150,12 @@ async function scheduleSnoozeNotification(prayerName) {
       timestamp: snoozeTime.getTime(),
     };
 
+    const useAzanSound = await getSoundPreference();
+    const isFajr = prayerName === 'Fajr';
+    const snoozeChannelId = useAzanSound
+      ? (isFajr ? 'fajr-prayer-azan' : 'prayer-times-azan')
+      : (isFajr ? 'fajr-prayer-default' : 'prayer-times-default');
+
     await notifee.createTriggerNotification(
       {
         id: `snooze-${prayerName.toLowerCase()}-${Date.now()}`,
@@ -1143,10 +1166,11 @@ async function scheduleSnoozeNotification(prayerName) {
           type: "snooze-prayer-reminder"
         },
         android: {
-          channelId: channelId,
+          channelId: snoozeChannelId,
           category: AndroidCategory.REMINDER,
-          // Use the default notification icon from Expo
-          smallIcon: 'ic_launcher_foreground',
+          // Monochrome crescent for status bar, full-color logo in notification body
+          smallIcon: 'ic_notification',
+          largeIcon: 'ic_launcher',
           color: '#1a8e2d',
           pressAction: {
             id: 'default',
@@ -1221,7 +1245,7 @@ export async function getNotifeeServiceStatus() {
       soundPreference: useAzanSound ? 'Azan (except Sunrise)' : 'Android default sound',
       useAzanSound,
       platform: Platform.OS,
-      channelId: channelId,
+      channelId: useAzanSound ? 'prayer-times-azan' : 'prayer-times-default',
       notificationSettings: settings,
     };
   } catch (error) {
@@ -1334,12 +1358,14 @@ export async function testNotifeeFeatures() {
     // Test 5: Trigger Notification
     try {
       const triggerTime = new Date(Date.now() + 10 * 1000); // 10 seconds from now
+      const useAzanForTrigger = await getSoundPreference();
+      const triggerChannelId = useAzanForTrigger ? 'prayer-times-azan' : 'prayer-times-default';
       await notifee.createTriggerNotification(
         {
           id: 'test-trigger',
           title: '🧪 Test Trigger',
           body: 'This trigger notification was scheduled 10 seconds ago',
-          android: { channelId: channelId },
+          android: { channelId: triggerChannelId },
         },
         {
           type: TriggerType.TIMESTAMP,
@@ -1387,6 +1413,8 @@ export async function testNotifeeFeatures() {
  */
 export const testImmediateNotification = async () => {
   try {
+    const useAzanSound = await getSoundPreference();
+    const testChannelId = useAzanSound ? 'prayer-times-azan' : 'prayer-times-default';
     const notificationId = await notifee.displayNotification({
       title: '🧪 Test Immediate Notification',
       body: 'Testing azan sound directly in Notifee',
@@ -1395,7 +1423,7 @@ export const testImmediateNotification = async () => {
         playManualAzan: "true"
       },
       android: {
-        channelId: channelId,
+        channelId: testChannelId,
         sound: 'azan.wav', // Try azan sound directly
         vibrationPattern: [300, 600, 300, 600],
         color: '#1a8e2d',
@@ -1429,6 +1457,8 @@ export const testScheduledNotification = async () => {
       },
     };
 
+    const useAzanForScheduled = await getSoundPreference();
+    const scheduledTestChannelId = useAzanForScheduled ? 'prayer-times-azan' : 'prayer-times-default';
     await notifee.createTriggerNotification(
       {
         id: 'test_scheduled_notification',
@@ -1439,7 +1469,7 @@ export const testScheduledNotification = async () => {
           prayerName: 'Test'
         },
         android: {
-          channelId: channelId,
+          channelId: scheduledTestChannelId,
           sound: 'azan.wav', // Use azan sound directly
           vibrationPattern: [300, 600, 300, 600],
           color: '#ff9900',
@@ -1461,11 +1491,13 @@ export const testScheduledNotification = async () => {
  */
 export const testFajrNotification = async () => {
   try {
+    const useAzanSound = await getSoundPreference();
+    const fajrChannelId = useAzanSound ? 'fajr-prayer-azan' : 'fajr-prayer-default';
     await notifee.displayNotification({
       title: '🌅 Test Fajr Notification',
       body: 'Testing Fajr-specific channel and styling',
       android: {
-        channelId: 'fajr_prayer_channel',
+        channelId: fajrChannelId,
         sound: 'azan.wav', // Use azan sound directly for Fajr too
         vibrationPattern: [200, 400, 200, 400, 200, 400],
         color: '#0066cc',
@@ -1576,9 +1608,11 @@ export async function forceRecreateNotificationChannels() {
   try {
     console.log('🔄 Force recreating notification channels for sound fix...');
 
-    // Delete existing channels first
-    await notifee.deleteChannel(channelId);
-    await notifee.deleteChannel('fajr_prayer_channel');
+    // Delete ALL existing channels so recreate picks up sound changes
+    await notifee.deleteChannel('prayer-times-azan');
+    await notifee.deleteChannel('fajr-prayer-azan');
+    await notifee.deleteChannel('prayer-times-default');
+    await notifee.deleteChannel('fajr-prayer-default');
     await notifee.deleteChannel('prayer_reminder_channel');
 
     console.log('🗑️ Deleted existing channels');

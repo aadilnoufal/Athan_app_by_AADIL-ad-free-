@@ -11,7 +11,7 @@
 export const IQAMA_OFFSETS: Record<string, number> = {
   Fajr: 25,
   Dhuhr: 20,
-  Asr: 20,
+  Asr: 25,
   Maghrib: 10,
   Isha: 20,
 };

@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, Platform, Linking } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import * as Application from 'expo-application';
 import { MagicalButton } from './MagicalButton';
 
 interface AboutSectionProps {
@@ -32,7 +33,9 @@ export const AboutSection: React.FC<AboutSectionProps> = ({
       <Text style={styles.enhancedSectionTitle}>{t('about')}</Text>
     </View>
     <View style={styles.enhancedAboutContainer}>
-      <Text style={styles.enhancedAppVersion}>{t('appVersion')}</Text>
+      <Text style={styles.enhancedAppVersion}>
+        {`${t('appVersion')} v${Application.nativeApplicationVersion || '4.0'}`}
+      </Text>
       <Text style={styles.enhancedAboutText}>
         {t('aboutText')}
       </Text>

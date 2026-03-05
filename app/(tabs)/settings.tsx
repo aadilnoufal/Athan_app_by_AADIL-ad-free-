@@ -7,6 +7,7 @@ import {
   NotificationSection,
   LocationSection,
   QuranSettingsSection,
+  WidgetSection,
   AboutSection,
   TranslationPickerModal,
   ReciterPickerModal,
@@ -309,6 +310,12 @@ export default function SettingsScreen() {
             t={t}
           />
           </View>
+
+          <WidgetSection
+            colors={C}
+            styles={styles}
+            t={t}
+          />
 
           <AboutSection
             colors={C}

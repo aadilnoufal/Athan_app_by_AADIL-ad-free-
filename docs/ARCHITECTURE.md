@@ -10,7 +10,7 @@ High-level architecture of the Prayer Times app.
 | Routing         | Expo Router (file-based, tab group)                                                       |
 | State           | React state + AsyncStorage for persistence                                                |
 | Styling         | StyleSheet + theme context (5 themes)                                                     |
-| Notifications   | Notifee + expo-notifications                                                              |
+| Notifications   | Notifee (local) + Firebase Cloud Messaging (push) + expo-notifications (sound bundling)   |
 | Networking      | fetch (REST)                                                                              |
 | Offline Storage | expo-file-system (large content), AsyncStorage (prefs/index), react-native-mmkv (fast KV) |
 
@@ -109,6 +109,7 @@ app/
       NotificationSection.tsx   Notification toggles, per-prayer, sound, test
       LocationSection.tsx       Cascading Country → State → City pickers
       QuranSettingsSection.tsx  Edition pref, font, auto-scroll, picker buttons
+      WidgetSection.tsx         Add-to-home-screen shortcuts (pin widget on Android, instructions on iOS)
       AboutSection.tsx          Version, about text, donation, subscription
       TranslationPickerModal.tsx  Bottom-sheet translation selection with search
       ReciterPickerModal.tsx      Bottom-sheet reciter selection
@@ -167,8 +168,9 @@ utils/
   quranStorage.ts      Quran offline download & cache management
   quranHelpers.ts      Pure helpers: stripBismillah(), formatSize(), bismillah constants
   iqamaConfig.ts       Iqama offset configuration (per-prayer offsets, getIqamaTime, hasIqama)
-  notifeePrayerService.js   Notification scheduling via Notifee
+  notifeePrayerService.js   Notification scheduling via Notifee (smallIcon: ic_notification)
   prayerNotificationScheduler.ts  High-level notification orchestration (prayer + iqama scheduling)
+  pushNotifications.ts FCM token retrieval, topic subscription (all-users, country, version), foreground push display, version-based targeting
   backgroundTask.js    Expo background fetch registration
   localPrayerData.js   Bundled prayer time dataset
   audioHelper.js       Sound playback helpers
@@ -215,14 +217,15 @@ Widget payload includes: `times` (24h), `times12h` (12h), `date`, `cityId`, `the
 
 ### Android Widgets (Kotlin)
 
-| File                      | Purpose                                      |
-| ------------------------- | -------------------------------------------- |
-| `WidgetDataModule.kt`     | React Native ↔ SharedPreferences bridge      |
-| `WidgetDataPackage.kt`    | ReactPackage registration                    |
-| `PrayerTimeRepository.kt` | Read SharedPrefs (primary) or CSV (fallback) |
-| `WidgetThemeHelper.kt`    | Centralized dark/sepia colour resolution     |
-| `PrayerWidget.kt`         | 2×2 circular widget with progress ring       |
-| `PrayerWidget4x2.kt`      | 4×2 list widget showing all 6 prayer times   |
+| File                      | Purpose                                             |
+| ------------------------- | --------------------------------------------------- |
+| `WidgetDataModule.kt`     | React Native ↔ SharedPreferences bridge             |
+| `WidgetPinModule.kt`      | Native module for `requestPinAppWidget()` (API 26+) |
+| `WidgetDataPackage.kt`    | ReactPackage registration (both modules)            |
+| `PrayerTimeRepository.kt` | Read SharedPrefs (primary) or CSV (fallback)        |
+| `WidgetThemeHelper.kt`    | Centralized dark/sepia colour resolution            |
+| `PrayerWidget.kt`         | 2×2 circular widget with progress ring              |
+| `PrayerWidget4x2.kt`      | 4×2 list widget showing all 6 prayer times          |
 
 Two widget sizes:
 
@@ -230,6 +233,8 @@ Two widget sizes:
 - **4×2** – Six prayer columns with highlighted next prayer
 
 AlarmManager triggers 60-second refreshes. Widgets support dark and sepia themes.
+
+**Widget picker preview**: Both provider XMLs use `android:previewLayout` (API 31+) pointing to their initial layout, so the Android widget picker renders a realistic live preview of each widget. Descriptive `android:description` strings (`widget_description_compact`, `widget_description_full`) are shown in the picker. On Android < 12, the preview falls back to the app icon.
 
 ### iOS Widgets (SwiftUI / WidgetKit)
 
@@ -328,12 +333,13 @@ User clears cached data from Settings
 12. **Custom Quran fonts** – Amiri and Scheherazade New (OFL-licensed) bundled in `assets/fonts/`, loaded at runtime via `expo-font`. Preference persisted via AsyncStorage.
 13. **Single bookmark** – One bookmark stored in AsyncStorage; replaces Continue Reading card when set. Bookmark icon shown per ayah in reading view.
 14. **Consolidated notification prompts** – All Android permission prompts (notification, exact-alarm, battery) go through a single ordered flow in `requestEssentialPermissions()`. Session-scoped "Ask Me Later" flags reset on every fresh app launch. Power-manager/auto-start prompt removed.
-15. **Iqama offsets** – Hardcoded offsets (Fajr 25, Dhuhr 20, Asr 20, Maghrib 10, Isha 20 min after adhan). Displayed as small text below prayer name; footer explains the convention. Sunrise excluded.
+15. **Iqama offsets** – Hardcoded offsets (Fajr 25, Dhuhr 20, Asr 25, Maghrib 10, Isha 20 min after adhan). Displayed as small text below prayer name; footer explains the convention. Sunrise excluded.
 16. **Home lifecycle isolation** – Foreground-resume date synchronization for Home is isolated in `useHomeAppStateSync` to avoid stale AppState/date closures and reduce crash risk during resume.
 17. **Settings modular architecture** – Settings screen (originally 2538 lines) split into 4 domain hooks + 10 section/modal components + 1 thin orchestrator (277 lines). Each hook owns its own state & persistence; components are pure presentational. The notification hook preserves the dual-library (Notifee + expo-notifications) architecture exactly — do NOT refactor the two-library pattern.
 18. **Home screen modular architecture** – Home/Prayer Times screen (originally 2696 lines) split into 4 domain hooks + 5 extracted sub-components + type/style files. `index.tsx` (508 lines) orchestrates hooks and renders extracted components. Sub-components receive props via explicit prop drilling; `mbShared` bundles common MagicalButton styling (borderColor, shimmerStyle, shimmerAnimation) to reduce repetition. Hook dependency direction: `useHomeRegion` → independent; `useHomeNotifications` → uses refs for cross-domain data; `useHomePrayerData` → receives region params + scheduling callback via props. `useSettingsDonation` is shared between Settings and Home.
 19. **Quran modular architecture** – Quran screen (originally 1811 lines) split into 2 domain hooks + 3 extracted sub-components + shared types + static styles. `quran.tsx` (652 lines) remains the orchestrator with coordinator functions (`handleReadingScroll`, `openSurah`, `goBack`) that bridge both hooks, plus inline render helpers for views that depend on too many local variables to extract cleanly. `useQuranData` owns all non-audio state; `useQuranAudio` owns playback, downloads, and preloading. `handleReadingScroll` must live in the component because it reads `ayahLayoutsRef` from audio and writes `topVisibleAyahRef` from data.
 20. **Two-phase onboarding** – Phase 1: `WelcomeSlides` (3 swipeable pages — Welcome, Features, Quick Setup with notification toggle) shown as a gate in `_layout.tsx` before the main Stack renders. Phase 2: `OnboardingTooltips` are per-tab sequential tooltip overlays (Modal + semi-transparent backdrop) triggered 600ms after first visit to each tab. `OnboardingContext` manages state with AsyncStorage persistence per tab (`onboarding_tooltip_{home,dua,quran,qibla,settings}`) and welcome completion (`onboarding_welcome_complete`). Tooltips never re-show after dismissal; `resetOnboarding()` available for testing.
 21. **Iqama countdown mode** – After a prayer's adhan time passes, `useHomePrayerData` checks if the current time falls between adhan and iqama. If yes, the circular countdown switches to "iqama mode" (amber-themed) showing time remaining to iqama. Once iqama passes, reverts to normal next-prayer countdown. Offsets centralized in `utils/iqamaConfig.ts`. `EnhancedCircularProgress` renders different labels/colors based on `countdownMode` prop.
-22. **Iqama notification scheduling** – Iqama alerts are scheduled alongside prayer notifications in `prayerNotificationScheduler.ts`'s `scheduleDay()`. Uses the same 10-day rolling window, AlarmManager exact timing, and Notifee trigger system. IDs prefixed with `iqama-` (e.g., `iqama-fajr-2024-01-15`). Settings stored in AsyncStorage: `iqama_notifications_enabled` (master toggle), `iqama_notification_settings` (per-prayer JSON), `iqama_notification_minutes` (0-5 min before iqama). `cancelAll()` now cancels both `prayer-` and `iqama-` prefixed notifications.
+22. **Iqama notification scheduling** – Iqama alerts are scheduled alongside prayer notifications in `prayerNotificationScheduler.ts`'s `scheduleDay()`. Uses the same 10-day rolling window, AlarmManager exact timing, and Notifee trigger system. IDs prefixed with `iqama-` (e.g., `iqama-fajr-2024-01-15`). Settings stored in AsyncStorage: `iqama_notifications_enabled` (master toggle), `iqama_notification_settings` (per-prayer JSON), `iqama_notification_minutes` (0-5 min before iqama). `cancelAll()` and `cancelAllNotifeePrayerNotifications()` both cancel `prayer-` and `iqama-` prefixed triggers. Notification cleanup in `ensurePrayerNotificationWindow` filters both prefixes with `split('-').length === 5` (format: `{type}-{prayer}-{YYYY}-{MM}-{DD}`). The iOS 64-notification safe cap is set to `54 - 11 = 43` to prevent one final loop iteration from overshooting (11 = max per day: 6 prayers + 5 iqama).
 23. **Purchase thank-you screen** – Successful purchases set `purchaseSucceeded` flag in `RevenueCatContext` (replaces previous `Alert.alert`). `RevenueCatPaywall` detects this and renders a full thank-you card with close button that calls `resetPurchaseSuccess()` + `onClose()`. This ensures the paywall dismisses and the user sees a heartfelt message.
+24. **Push notifications (Firebase Cloud Messaging)** – Remote push notifications via FCM for occasional broadcasts (Eid greetings, app updates, emergency corrections). Architecture: `@react-native-firebase/messaging` handles FCM registration and message delivery; Notifee displays foreground pushes (since Firebase suppresses system notifications when app is in foreground). Topics: `all-users` (broadcast) + `country-{XX}` (country-specific, derived from user's selected region in settings via `getCountryIsoCode()` — no GPS/location permission required) + `version-{X.Y.Z}` (version-specific, auto-detected via `expo-application`; unsubscribes from old version on app update). Country ISO codes are defined in `app/config/prayerTimeConfig.ts` on each `Country` entry (e.g. Qatar → `QA`). Version topics enable targeted pushes like update reminders to all users except those on the latest version using FCM conditions. Background handler in `index.ts` (top-level), foreground handler + init in `_layout.tsx`. Config: `firebase.json` routes Android notifications to `default` channel; `app.json` has `googleServicesFile`, `@react-native-firebase/app` + `messaging` plugins, `expo-build-properties` with `useFrameworks: static` for iOS, and `aps-environment: production` entitlement. Android requires `google-services.json` in `android/app/`, `classpath 'com.google.gms:google-services:4.4.2'` in root `build.gradle`, and `apply plugin: 'com.google.gms.google-services'` in `app/build.gradle`. No opt-in/opt-out UI — all users subscribe automatically. Notifee v9.1.8 (≥ v7) intercepts notification taps, so tap handling uses Notifee events, not Firebase `onNotificationOpenedApp`. Legacy `react-native-push-notification` + `@react-native-community/push-notification-ios` removed. Python sender script at `scripts/send-push.py` with `send_to_topic()`, `send_to_condition()`, `send_update_reminder()`, and `send_to_versions()` functions. Full topic reference at `docs/PUSH_NOTIFICATION_TOPICS.md`.

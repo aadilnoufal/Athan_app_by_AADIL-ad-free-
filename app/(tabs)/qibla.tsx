@@ -50,6 +50,11 @@ export default function QiblaScreen() {
   const qiblaRotateAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const [showCalibrationTip, setShowCalibrationTip] = useState(true);
+  // Track accumulated rotation to avoid 360° wrap-around spins
+  const prevCompassHeading = useRef(0);
+  const accumulatedCompass = useRef(0);
+  const prevQiblaOffset = useRef(0);
+  const accumulatedQibla = useRef(0);
 
   // Time-based gradient colors for dynamic backgrounds (matching settings)
   const getTimeBasedGradient = (): [string, string, string] => {
@@ -93,20 +98,34 @@ export default function QiblaScreen() {
     useSensorFusion: true,
   });
 
-  // Smooth compass rotation animation
+  // Smooth compass rotation animation — shortest-path delta to avoid 360° wrap spins
   useEffect(() => {
+    // Compute shortest angular delta (-180 to +180)
+    let delta = compassHeading - prevCompassHeading.current;
+    if (delta > 180) delta -= 360;
+    if (delta < -180) delta += 360;
+    prevCompassHeading.current = compassHeading;
+    accumulatedCompass.current += delta;
+
     Animated.spring(compassRotateAnim, {
-      toValue: -compassHeading,
+      toValue: -accumulatedCompass.current,
       useNativeDriver: true,
       friction: 8,
       tension: 60,
     }).start();
   }, [compassHeading]);
 
-  // Smooth qibla indicator animation
+  // Smooth qibla indicator animation — shortest-path delta
   useEffect(() => {
+    const newQiblaOffset = qiblaDirection - compassHeading;
+    let delta = newQiblaOffset - prevQiblaOffset.current;
+    if (delta > 180) delta -= 360;
+    if (delta < -180) delta += 360;
+    prevQiblaOffset.current = newQiblaOffset;
+    accumulatedQibla.current += delta;
+
     Animated.spring(qiblaRotateAnim, {
-      toValue: qiblaDirection - compassHeading,
+      toValue: accumulatedQibla.current,
       useNativeDriver: true,
       friction: 8,
       tension: 60,

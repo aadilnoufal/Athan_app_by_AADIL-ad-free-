@@ -10,7 +10,7 @@ export default {
   returnToToday: 'Return to Today',
   iqamaPrefix: 'Iqama +',
   iqamaSuffix: ' min',
-  iqamaExplanation: 'Iqama times are approximate: Fajr +25 min, Dhuhr +20 min, Asr +20 min, Maghrib +10 min, Isha +20 min after Adhan.',
+  iqamaExplanation: 'Iqama times are approximate: Fajr +25 min, Dhuhr +20 min, Asr +25 min, Maghrib +10 min, Isha +20 min after Adhan.',
   iqamaCountdown: 'Iqama',
   iqamaIn: 'Iqama in',
 
@@ -105,7 +105,7 @@ export default {
 
   // About section
   about: 'About',
-  appVersion: 'Prayer Times v4.0',
+  appVersion: 'Prayer Times',
   aboutText: 'Get accurate prayer times customized for your location. While we strive for the highest precision, please note that actual timings may slightly differ.',
   supportApp: 'Support the App',
   supportDeveloper: 'Support Developer',
@@ -287,7 +287,13 @@ export default {
   onboardingFeatureDua: 'Daily duas and azkar collection',
   onboardingFeatureQuran: 'Read & listen to the Holy Quran',
   onboardingFeatureQibla: 'Find Qibla direction anywhere',
+  onboardingWidgetsLabel: 'Home Screen Widgets',
+  onboardingFeatureWidgets: 'Prayer times at a glance on your home screen',
+  onboardingIqamaLabel: 'Iqama Reminders',
+  onboardingFeatureIqama: 'Get notified before iqama starts',
   onboardingFeatureSettings: 'Customize everything to your needs',
+  onboardingWhatsNewTitle: "What's New",
+  onboardingWhatsNewDesc: 'We\'ve added powerful new features to enhance your worship experience.',
   onboardingSetupTitle: 'Quick Setup',
   onboardingSetupDesc: 'Set your location for accurate prayer times.',
   onboardingSetupNotifications: 'Enable prayer notifications',
@@ -338,4 +344,20 @@ export default {
   supportRestore: 'Restore Purchases',
   supportPolicy: 'Terms & Privacy Policy',
   supportProcessing: 'Processing…',
+
+  // ── Widgets (Settings) ──────────────────────────
+  widgetSectionTitle: 'Widgets',
+  widgetSectionDesc: 'Add prayer time widgets to your home screen for quick access.',
+  widgetSmallTitle: 'Compact Widget',
+  widgetSmallDesc: 'Next prayer countdown (2×2)',
+  widgetLargeTitle: 'Full Widget',
+  widgetLargeDesc: 'All prayer times with countdown (4×2)',
+  widgetAddTitle: 'Add Widget',
+  widgetIOSInstructions: '1) Long-press on your home screen\n2) Tap the "+" button (top-left)\n3) Search for "Prayer Times"\n4) Choose the size you want and tap "Add Widget"',
+  widgetIOSStep1: 'Long-press on your home screen',
+  widgetIOSStep2: 'Tap the "+" button (top-left corner)',
+  widgetIOSStep3: 'Search for "Prayer Times"',
+  widgetIOSStep4: 'Choose size & tap "Add Widget"',
+  widgetIOSHowToAdd: 'How to add:',
+  widgetAndroidInstructions: 'Long-press on your home screen → Widgets → Search for "Prayer Times" → Drag the widget to your screen',
 };

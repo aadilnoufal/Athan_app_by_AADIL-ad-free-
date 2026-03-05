@@ -48,3 +48,10 @@ android/app/upload-keystore.keystore
 android/app/debug.keystore
 /*.aab
 app-release*.aab
+
+# Firebase Admin SDK service account keys (NEVER commit these!)
+*firebase-adminsdk*.json
+scripts/send-push.py
+
+# Python virtual environment
+.venv/

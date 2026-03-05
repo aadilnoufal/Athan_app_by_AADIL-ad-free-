@@ -22,8 +22,10 @@ function timeToMinutes(timeStr) {
  * @returns {string} Time string in format "HH:MM"
  */
 function minutesToTime(minutes) {
-  const hours = Math.floor(minutes / 60);
-  const mins = Math.floor(minutes % 60);
+  // Wrap-around to handle negative values or values exceeding 24h
+  const wrapped = ((minutes % 1440) + 1440) % 1440;
+  const hours = Math.floor(wrapped / 60);
+  const mins = Math.floor(wrapped % 60);
   return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
 }
 

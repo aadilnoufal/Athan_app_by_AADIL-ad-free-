@@ -50,6 +50,18 @@ class PrayerWidget4x2 : AppWidgetProvider() {
                 // Apply theme-aware background
                 views.setInt(R.id.widget_4x2_root, "setBackgroundResource", colors.backgroundRes)
 
+                // ── Click-to-open-app ──
+                val launchIntent = Intent(context, MainActivity::class.java).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                }
+                val launchFlags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                } else {
+                    PendingIntent.FLAG_UPDATE_CURRENT
+                }
+                val launchPending = PendingIntent.getActivity(context, 101, launchIntent, launchFlags)
+                views.setOnClickPendingIntent(R.id.widget_4x2_root, launchPending)
+
                 // Theme the separator line
                 views.setInt(R.id.widget_separator, "setBackgroundColor", colors.separatorColor)
 

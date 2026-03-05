@@ -3,6 +3,7 @@ export { LanguageSection } from './LanguageSection';
 export { NotificationSection } from './NotificationSection';
 export { LocationSection } from './LocationSection';
 export { QuranSettingsSection } from './QuranSettingsSection';
+export { WidgetSection } from './WidgetSection';
 export { AboutSection } from './AboutSection';
 export { TranslationPickerModal } from './TranslationPickerModal';
 export { ReciterPickerModal } from './ReciterPickerModal';

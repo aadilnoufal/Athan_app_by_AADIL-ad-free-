@@ -62,6 +62,7 @@ const PRAYER_TIMES_CSV = `Date,Fajr,Sunrise,Dhuhr,Asr,Maghrib,Isha
 26-02,04:43,06:00,11:48,03:07,05:37,07:07
 27-02,04:42,05:59,11:48,03:07,05:38,07:08
 28-02,04:41,05:58,11:47,03:07,05:38,07:08
+29-02,04:41,05:58,11:47,03:07,05:38,07:08
 01-03,04:40,05:57,11:47,03:08,05:39,07:09
 02-03,04:39,05:56,11:47,03:08,05:39,07:09
 03-03,04:38,05:55,11:47,03:08,05:40,07:10
@@ -367,7 +368,7 @@ const PRAYER_TIMES_CSV = `Date,Fajr,Sunrise,Dhuhr,Asr,Maghrib,Isha
 28-12,04:55,06:18,11:35,02:33,04:55,06:25
 29-12,04:56,06:18,11:36,02:34,04:55,06:25
 30-12,04:56,06:19,11:36,02:34,04:56,06:26
-31-12,05:00,06:30,12:00,03:30,06:00,07:30`;
+31-12,04:56,06:19,11:36,02:34,04:56,06:26`;
 
 // Helper function to convert time to PM if needed (add 12 hours)
 const convertToPMIfNeeded = (timeStr, shouldConvertToPM) => {
@@ -437,8 +438,10 @@ const formatDateForDisplay = (date) => {
 // Helper function to get Hijri date (simplified approximation)
 const getHijriDate = (gregorianDate) => {
   // This is a simplified approximation - for production use a proper Hijri calendar library
-  const HIJRI_EPOCH = new Date('622-07-16'); // Approximate start of Hijri calendar
-  const daysDiff = Math.floor((gregorianDate - HIJRI_EPOCH) / (1000 * 60 * 60 * 24));
+  // Use a fixed timestamp for the Hijri epoch (July 16, 622 CE ≈ Julian Day 1948439.5)
+  // Hermes doesn't parse 3-digit year strings, so we use a hard-coded millisecond value.
+  const HIJRI_EPOCH_MS = -42521846400000; // new Date('0622-07-16T00:00:00Z').getTime()
+  const daysDiff = Math.floor((gregorianDate.getTime() - HIJRI_EPOCH_MS) / (1000 * 60 * 60 * 24));
   const hijriYear = Math.floor(daysDiff / 354.37) + 1; // Approximate Hijri year
   const hijriDayOfYear = daysDiff % 354;
   const hijriMonth = Math.floor(hijriDayOfYear / 29.5) + 1;
