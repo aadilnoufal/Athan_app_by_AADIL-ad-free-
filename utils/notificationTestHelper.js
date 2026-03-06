@@ -91,6 +91,13 @@ export async function testNotificationSystem() {
     console.log('Wait 5-6 minutes to hear the notifications!');
     console.log('Expected: Fajr in 5 min, Dhuhr in 6 min (both with BEEP sound)');
     
+    // IMPORTANT: Clean up legacy daily-repeating notifications after test.
+    // Without this, scheduleNotifeePrayerNotifications creates RepeatFrequency.DAILY
+    // notifications that the rolling scheduler's cleanup cannot see or cancel.
+    console.log('\n🧹 Cleaning up legacy test notifications...');
+    await cancelAllNotifeePrayerNotifications();
+    console.log('✅ Legacy test notifications cancelled (use rolling scheduler for production)');
+    
     return {
       success: true,
       scheduled: scheduled.length,
@@ -143,6 +150,13 @@ export async function quickNotificationTest(useAzan = true) {
     console.log(`✅ Test notification scheduled for ${testPrayerTimes.Fajr}`);
     console.log(`   Sound: ${useAzan ? 'AZAN 🔊' : 'BEEP 🔔'}`);
     console.log(`   Wait 1 minute to test!`);
+    
+    // Clean up legacy daily-repeating notifications after scheduling the one-time test
+    // to prevent permanent duplicates from RepeatFrequency.DAILY.
+    // Note: This cancels the test notification too — the test is for verifying channel/sound setup,
+    // not for long-term scheduling. For production, use the rolling scheduler.
+    console.log('🧹 Cleaning up legacy IDs (test notification was for verification only)...');
+    await cancelAllNotifeePrayerNotifications();
     
     return { success: true, scheduled: scheduled.length };
     

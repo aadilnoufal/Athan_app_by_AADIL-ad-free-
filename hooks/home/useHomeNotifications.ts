@@ -48,6 +48,8 @@ export function useHomeNotifications() {
   // ── Refs ────────────────────────────────────────────
   const notificationInitialized = useRef(false);
   const lastScheduleAttempt = useRef<number>(0);
+  /** Pending schedule timeouts — tracked for cleanup */
+  const pendingScheduleTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
   /** Ref mirror of notificationsEnabled so long-lived intervals read the latest value */
   const notificationsEnabledRef = useRef(false);
   /** Ref mirror of notificationSettings so health-check reads the latest per-prayer toggles */
@@ -229,7 +231,8 @@ export function useHomeNotifications() {
             if (isEnabled && prayerTimesRef.current) {
               console.log('Notifications enabled, clearing timestamp and scheduling...');
               await AsyncStorage.removeItem('last_notification_scheduled');
-              setTimeout(() => scheduleNotificationsForToday(), 1000);
+              const t1 = setTimeout(() => scheduleNotificationsForToday(), 1000);
+              pendingScheduleTimers.current.push(t1);
             } else if (!isEnabled) {
               console.log('Notifications disabled, cancelling all...');
               await cancelAllNotificationsCompletely();
@@ -239,8 +242,20 @@ export function useHomeNotifications() {
         }
 
         if (notifSettings !== null) {
-          const parsed = JSON.parse(notifSettings);
-          setNotificationSettings((prev) => ({ ...prev, ...parsed }));
+          try {
+            const parsed = JSON.parse(notifSettings);
+            setNotificationSettings((prev) => {
+              const merged = { ...prev, ...parsed };
+              // Only update if values actually changed to avoid unnecessary re-renders
+              const prevKeys = Object.keys(prev) as (keyof typeof prev)[];
+              const mergedKeys = Object.keys(merged) as (keyof typeof merged)[];
+              if (prevKeys.length === mergedKeys.length &&
+                  prevKeys.every(k => prev[k] === merged[k])) {
+                return prev;
+              }
+              return merged;
+            });
+          } catch { console.warn('Corrupted notification_settings in AsyncStorage'); }
         }
 
         const forceReschedule = await AsyncStorage.getItem('force_notification_reschedule');
@@ -248,7 +263,8 @@ export function useHomeNotifications() {
           console.log('Background task requested notification reschedule');
           await AsyncStorage.removeItem('force_notification_reschedule');
           await AsyncStorage.removeItem('last_notification_scheduled');
-          setTimeout(() => scheduleNotificationsForToday(), 500);
+          const t2 = setTimeout(() => scheduleNotificationsForToday(), 500);
+          pendingScheduleTimers.current.push(t2);
         }
       } catch (error) {
         console.error('Error checking notification settings:', error);
@@ -259,6 +275,7 @@ export function useHomeNotifications() {
 
     // Notification health-check every 60 s
     const notificationListener = async () => {
+      try {
       const updateFlag = await AsyncStorage.getItem('notifications_updated');
 
       if (updateFlag) {
@@ -288,11 +305,15 @@ export function useHomeNotifications() {
           if (hasRemainingPrayers) {
             console.log('Health check: Missing notifications, forcing reschedule...');
             await AsyncStorage.removeItem('last_notification_scheduled');
-            setTimeout(() => scheduleNotificationsForToday(), 1000);
+            const t3 = setTimeout(() => scheduleNotificationsForToday(), 1000);
+            pendingScheduleTimers.current.push(t3);
           }
         } else {
           console.log(`Health check: ${status.length} notifications are properly scheduled`);
         }
+      }
+      } catch (error) {
+        console.error('Error in notification health check:', error);
       }
     };
 
@@ -303,6 +324,8 @@ export function useHomeNotifications() {
     return () => {
       clearInterval(settingsInterval);
       clearInterval(flagsInterval);
+      pendingScheduleTimers.current.forEach(clearTimeout);
+      pendingScheduleTimers.current = [];
     };
   }, []); // Remove dependency array to prevent re-initialization
 

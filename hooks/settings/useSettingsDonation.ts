@@ -40,7 +40,7 @@ export function useSettingsDonation(t: TFunc) {
     }
 
     // Fallback – external links
-    Alert.alert(t('supportTitle'), t('supportMessage'), [
+    Alert.alert(t('supportDialogTitle'), t('supportMessage'), [
       { text: t('maybeLater'), style: 'cancel' },
       {
         text: t('oneTimeSupport'),

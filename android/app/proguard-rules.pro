@@ -17,3 +17,14 @@
 -keep class com.revenuecat.purchases.hybridcommon.** { *; }
 
 # Add any project specific keep options here:
+
+# Prayer Times native modules and widget classes
+# These are accessed via reflection by React Native's native module registry
+# and by AppWidgetProvider subclasses declared in AndroidManifest.xml.
+-keep class com.yourcompany.prayertimes.WidgetDataModule { *; }
+-keep class com.yourcompany.prayertimes.WidgetPinModule { *; }
+-keep class com.yourcompany.prayertimes.WidgetDataPackage { *; }
+-keep class com.yourcompany.prayertimes.PrayerTimeRepository { *; }
+-keep class com.yourcompany.prayertimes.WidgetThemeHelper { *; }
+-keep class com.yourcompany.prayertimes.PrayerWidget { *; }
+-keep class com.yourcompany.prayertimes.PrayerWidget4x2 { *; }

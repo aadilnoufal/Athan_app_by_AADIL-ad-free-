@@ -11,7 +11,9 @@ import notifee, { TriggerType, AndroidCategory } from '@notifee/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState } from 'react-native';
 import { getPrayerTimesFromLocalData } from './localPrayerData';
-import { scheduleNotifeePrayerNotifications, cancelAllNotifeePrayerNotifications } from './notifeePrayerService';
+// NOTE: Do NOT add static imports from notifeePrayerService here.
+// It would trigger setupNotifeeEventHandlers() as a module-load side-effect
+// and create a circular dependency. Use dynamic require() when needed (see line ~293).
 import { IQAMA_OFFSETS } from './iqamaConfig';
 import { applyLocalDataCityAdjustments, extractCityIdFromRegionId } from './prayerTimeTuner';
 
@@ -23,8 +25,23 @@ const STORAGE_KEY_VERSION = 'prayer_sched_version';
 const STORAGE_KEY_SOUND_PREF = 'prayer_sched_sound_pref'; // Track sound preference changes
 const SCHEDULER_VERSION = '1';
 
+/**
+ * Sanitize notification data to ensure all values are strings.
+ * Prevents BadParcelableException on Android 16 (SDK 36) which enforces
+ * stricter Bundle type checking.
+ */
+function sanitizeNotifeeData(data: Record<string, any>): Record<string, string> {
+  const sanitized: Record<string, string> = {};
+  for (const [key, value] of Object.entries(data)) {
+    if (value === undefined || value === null) continue;
+    sanitized[key] = String(value);
+  }
+  return sanitized;
+}
+
 let appStateSub: any = null;
-let ensureInFlight = false;
+let ensurePromise: Promise<void> | null = null;
+let ensureDirty = false;
 
 // Helper: format YYYY-MM-DD
 function isoDate(d: Date) {
@@ -150,7 +167,7 @@ async function scheduleDay(date: Date, settings: any, cityId: string = 'doha', p
           title: notificationTitle,
           body: notificationBody,
           // Use unified type 'prayer-time' for scheduled prayer notifications
-          data: { type: 'prayer-time', prayerName: prayer, soundType: useAzanForPrayer ? 'azan' : 'beep', useAzanSound: useAzanSound.toString() },
+          data: sanitizeNotifeeData({ type: 'prayer-time', prayerName: prayer, soundType: useAzanForPrayer ? 'azan' : 'beep', useAzanSound: useAzanSound.toString() }),
           android,
           ios,
         },
@@ -175,7 +192,8 @@ async function scheduleDay(date: Date, settings: any, cityId: string = 'doha', p
         const iqamaSettingsRaw = await AsyncStorage.getItem('iqama_notification_settings');
         iqamaSettings = iqamaSettingsRaw ? JSON.parse(iqamaSettingsRaw) : {};
         const iqamaMinRaw = await AsyncStorage.getItem('iqama_notification_minutes');
-        iqamaMinutes = iqamaMinRaw ? parseInt(iqamaMinRaw, 10) : 3;
+        const parsedIqamaMin = iqamaMinRaw ? parseInt(iqamaMinRaw, 10) : 3;
+        iqamaMinutes = isNaN(parsedIqamaMin) ? 3 : parsedIqamaMin;
       }
     } catch {}
   }
@@ -241,7 +259,7 @@ async function scheduleDay(date: Date, settings: any, cityId: string = 'doha', p
             id,
             title: notifTitle,
             body: notifBody,
-            data: { type: 'iqama-reminder', prayerName: prayer },
+            data: sanitizeNotifeeData({ type: 'iqama-reminder', prayerName: prayer }),
             android,
             ios,
           },
@@ -259,8 +277,25 @@ async function scheduleDay(date: Date, settings: any, cityId: string = 'doha', p
 }
 
 export async function ensurePrayerNotificationWindow() {
-  if (ensureInFlight) return;
-  ensureInFlight = true;
+  // If already running, mark dirty so the current run is followed by a re-run
+  // (needed when settings change while a scheduling pass is in flight)
+  if (ensurePromise) {
+    ensureDirty = true;
+    await ensurePromise;
+    return;
+  }
+  do {
+    ensureDirty = false;
+    ensurePromise = _ensurePrayerNotificationWindowImpl();
+    try {
+      await ensurePromise;
+    } finally {
+      ensurePromise = null;
+    }
+  } while (ensureDirty);
+}
+
+async function _ensurePrayerNotificationWindowImpl() {
   try {
     // CRITICAL: Check if notifications are globally enabled before scheduling anything
     const notificationsEnabled = await AsyncStorage.getItem('notifications_enabled');
@@ -324,8 +359,20 @@ export async function ensurePrayerNotificationWindow() {
     }
 
     const existingIds = await notifee.getTriggerNotificationIds();
-    // Filter our pattern ids (prayer-xxx-YYYY-MM-DD or iqama-xxx-YYYY-MM-DD → 5 parts)
-    const ours = existingIds.filter(id =>
+
+    // Clean up any legacy-format prayer notifications (IDs with ≠ 5 dash parts)
+    // left by older scheduler versions or test helpers that used RepeatFrequency.DAILY.
+    // These are invisible to the rolling scheduler's count and could breach iOS 64-slot limit.
+    for (const id of existingIds) {
+      if ((id.startsWith('prayer-') || id.startsWith('iqama-')) && id.split('-').length !== 5) {
+        await notifee.cancelTriggerNotification(id);
+        console.log(`🧹 Cancelled legacy notification: ${id}`);
+      }
+    }
+
+    // Re-fetch after cleanup, then filter our pattern ids (prayer-xxx-YYYY-MM-DD or iqama-xxx-YYYY-MM-DD → 5 parts)
+    const cleanedIds = await notifee.getTriggerNotificationIds();
+    const ours = cleanedIds.filter(id =>
       (id.startsWith('prayer-') || id.startsWith('iqama-')) && id.split('-').length === 5
     );
 
@@ -399,7 +446,8 @@ export async function ensurePrayerNotificationWindow() {
         const iqamaSettingsRaw = await AsyncStorage.getItem('iqama_notification_settings');
         schedPrefs.iqamaSettings = iqamaSettingsRaw ? JSON.parse(iqamaSettingsRaw) : {};
         const iqamaMinRaw = await AsyncStorage.getItem('iqama_notification_minutes');
-        schedPrefs.iqamaMinutes = iqamaMinRaw ? parseInt(iqamaMinRaw, 10) : 3;
+        const parsedIqamaMin2 = iqamaMinRaw ? parseInt(iqamaMinRaw, 10) : 3;
+        schedPrefs.iqamaMinutes = isNaN(parsedIqamaMin2) ? 3 : parsedIqamaMin2;
       }
     } catch {}
 
@@ -421,8 +469,6 @@ export async function ensurePrayerNotificationWindow() {
     await AsyncStorage.setItem(STORAGE_KEY_VERSION, SCHEDULER_VERSION);
   } catch (e) {
     console.log('ensurePrayerNotificationWindow error', e);
-  } finally {
-    ensureInFlight = false;
   }
 }
 
@@ -445,10 +491,21 @@ export function startPrayerNotificationWindowMaintainer() {
   ensurePrayerNotificationWindow();
 }
 
+export function stopPrayerNotificationWindowMaintainer() {
+  if (appStateSub) {
+    appStateSub.remove();
+    appStateSub = null;
+  }
+}
+
 // Hook to be called after a notification fires (DELIVERED) from event handlers
 export async function onPrayerNotificationDelivered() {
-  // Top up after slight delay
-  setTimeout(() => ensurePrayerNotificationWindow(), 2000);
+  // Small delay to let the system settle, then run inline so the
+  // background handler's await actually waits for the work to finish
+  // (setTimeout would fire AFTER the handler returns, but the OS may
+  // have already killed the JS context by then).
+  await new Promise(resolve => setTimeout(resolve, 500));
+  await ensurePrayerNotificationWindow();
 }
 
 // Force a complete reschedule of all notifications (for settings changes)

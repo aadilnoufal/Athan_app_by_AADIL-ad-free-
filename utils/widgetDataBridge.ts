@@ -82,6 +82,11 @@ export function updateWidgetData(data: WidgetData): void {
  * Use for critical updates like initial app load.
  */
 export function updateWidgetDataImmediate(data: WidgetData): void {
+  // Cancel any pending debounced write to prevent stale data overwriting this fresh write
+  if (debounceTimer) {
+    clearTimeout(debounceTimer);
+    debounceTimer = null;
+  }
   _writeWidgetData(data);
 }
 
@@ -195,7 +200,13 @@ function _writeThemeModeIOS(themeMode: string): void {
   try {
     const WidgetDataModuleIOS = getWidgetDataModuleIOS();
     if (WidgetDataModuleIOS) {
-      WidgetDataModuleIOS.setThemeMode(themeMode);
+      WidgetDataModuleIOS.setThemeMode(themeMode)
+        .then(() => {
+          console.log('✅ iOS widget theme updated to:', themeMode);
+        })
+        .catch((error: Error) => {
+          console.log('⚠️ Failed to update iOS widget theme:', error.message);
+        });
     }
   } catch (error) {
     // Module not yet available

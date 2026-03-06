@@ -93,16 +93,19 @@ async function playSound(soundKey) {
         
         // Create and play sound (on main thread)
         const { sound } = await Audio.Sound.createAsync(moduleRef);
-        await sound.playAsync();
-        
-        // Clean up after playback
-        setTimeout(async () => {
-          try {
-            await sound.unloadAsync();
-          } catch (e) {
-            console.warn('Error unloading sound:', e);
+
+        // Clean up when playback finishes instead of using a hardcoded timeout
+        sound.setOnPlaybackStatusUpdate(async (status) => {
+          if (status.isLoaded && status.didJustFinish) {
+            try {
+              await sound.unloadAsync();
+            } catch (e) {
+              console.warn('Error unloading sound:', e);
+            }
           }
-        }, 5000);
+        });
+
+        await sound.playAsync();
         
         resolve(true);
           

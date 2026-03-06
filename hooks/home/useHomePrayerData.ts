@@ -62,7 +62,6 @@ export function useHomePrayerData(params: UseHomePrayerDataParams) {
   const [nextPrayer, setNextPrayer] = useState<NextPrayer | null>(null);
   const [countdown, setCountdown] = useState('');
   const [countdownLoading, setCountdownLoading] = useState(true);
-  const [lastPrayerTime, setLastPrayerTime] = useState<Date | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [progressAnimation] = useState(new Animated.Value(0));
   const [progressPercent, setProgressPercent] = useState(0);
@@ -78,11 +77,22 @@ export function useHomePrayerData(params: UseHomePrayerDataParams) {
   const [iqamaCountdownEnabled, setIqamaCountdownEnabled] = useState(false);
 
   // ── Refs ────────────────────────────────────────────
+  // Track the identity of nextPrayer by name+time so that the reset
+  // effect only fires when the prayer actually changes (not just a
+  // new object reference with the same values).
+  const nextPrayerKeyRef = useRef<string>('');
   const lastCountdownLog = useRef<string>('');
   const countdownTriggeredRefresh = useRef<string>('');
+  // Track current nextPrayer to avoid stale-closure reads in updateNextPrayer
+  const nextPrayerRef = useRef<NextPrayer | null>(null);
+  nextPrayerRef.current = nextPrayer;
   // Ref to hold the latest updateCountdown function so the setInterval doesn't
   // need to be torn down and rebuilt every time the callback identity changes.
   const updateCountdownRef = useRef<() => void>(() => {});
+  // Ref mirror of notificationsEnabled so long-lived closures always read the latest value
+  const notificationsEnabledLocalRef = useRef(notificationsEnabled);
+  useEffect(() => { notificationsEnabledLocalRef.current = notificationsEnabled; }, [notificationsEnabled]);
+
   // ── Load iqama countdown setting + listen for changes ──────────
   useEffect(() => {
     const loadIqamaSetting = async () => {
@@ -110,6 +120,11 @@ export function useHomePrayerData(params: UseHomePrayerDataParams) {
 
   // Track whether this is the first fetch (for immediate widget update)
   const isFirstFetchRef = useRef(true);
+
+  // Ref to track inner retry timers so they can be cleared on effect cleanup
+  const innerRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Ref to track the notification scheduling timer so it can be cleared on unmount
+  const notifScheduleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── fetchAndCachePrayerTimes ────────────────────────
   const fetchAndCachePrayerTimes = async (retryCount = 0, overrideRegionId?: string) => {
@@ -193,8 +208,10 @@ export function useHomePrayerData(params: UseHomePrayerDataParams) {
           }
         }
 
-        if (currentDay === 0 && notificationsEnabled) {
-          setTimeout(async () => {
+        if (currentDay === 0 && notificationsEnabledLocalRef.current) {
+          // Clear any existing timer before creating a new one to prevent duplicate scheduling
+          if (notifScheduleTimerRef.current) clearTimeout(notifScheduleTimerRef.current);
+          notifScheduleTimerRef.current = setTimeout(async () => {
             console.log('Clearing old notifications and scheduling fresh ones for updated prayer times');
             await AsyncStorage.removeItem('last_notification_scheduled');
             await scheduleNotificationsForToday();
@@ -217,7 +234,9 @@ export function useHomePrayerData(params: UseHomePrayerDataParams) {
       if (retryCount < 3) {
         console.log(`Retrying prayer time fetch (attempt ${retryCount + 1} of 3)...`);
         const delay = Math.pow(2, retryCount) * 1000;
-        setTimeout(() => {
+        // Clear any existing retry timer to prevent duplicate retries
+        if (innerRetryTimerRef.current) clearTimeout(innerRetryTimerRef.current);
+        innerRetryTimerRef.current = setTimeout(() => {
           fetchAndCachePrayerTimes(retryCount + 1);
         }, delay);
         return;
@@ -257,18 +276,28 @@ export function useHomePrayerData(params: UseHomePrayerDataParams) {
   // ── fetchPrayerTimes (top-level entry with timeout) ─
   const fetchPrayerTimes = async () => {
     try {
-      setLoading(true);
+      // Only show full-screen loading spinner when there is no existing data.
+      // When data already exists, the fetch happens silently in the background
+      // to avoid the circular progress disappearing momentarily.
+      if (!prayerTimes) {
+        setLoading(true);
+      }
       console.log('Always fetching fresh data - no cache used');
 
+      let timeoutId: ReturnType<typeof setTimeout>;
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Request timeout')), 15000);
+        timeoutId = setTimeout(() => reject(new Error('Request timeout')), 15000);
       });
 
       if (isFirstLoad || !prayerTimes) {
         console.log('Fetching prayer times for first load or after no data...');
       }
 
-      await Promise.race([fetchAndCachePrayerTimes(), timeoutPromise]);
+      try {
+        await Promise.race([fetchAndCachePrayerTimes(), timeoutPromise]);
+      } finally {
+        clearTimeout(timeoutId!);
+      }
     } catch (error) {
       console.error('Error fetching prayer times:', error);
 
@@ -281,7 +310,7 @@ export function useHomePrayerData(params: UseHomePrayerDataParams) {
 
       if (isFirstLoad || !prayerTimes) {
         console.log('Error on first load, creating fallback data');
-        const today = new Date();
+        const today = addDays(new Date(), currentDay);
         const fallbackTimes: PrayerData = {
           date: format(today, 'dd MMM yyyy'),
           hijriDate: 'Unknown',
@@ -316,39 +345,40 @@ export function useHomePrayerData(params: UseHomePrayerDataParams) {
   // ── updateNextPrayer ────────────────────────────────
   const updateNextPrayer = (data: PrayerData): void => {
     if (!data || !data.times) {
-      console.log('⚠️ updateNextPrayer: No prayer data available');
+      if (__DEV__) console.log('⚠️ updateNextPrayer: No prayer data available');
       return;
     }
 
-    console.log('🔄 Calculating next prayer time...');
+    if (__DEV__) console.log('🔄 Calculating next prayer time...');
 
     const next = findNextPrayer(data.times, data.times12h, currentDay) as NextPrayer | null;
 
     if (next) {
-      console.log(`📋 findNextPrayer returned: ${next.name} at ${next.time}`);
-      console.log(`📋 Current nextPrayer: ${nextPrayer?.name || 'none'}`);
+      // Read from ref to avoid stale closure — nextPrayerRef always holds the latest value
+      const current = nextPrayerRef.current;
+      if (__DEV__) {
+        console.log(`📋 findNextPrayer returned: ${next.name} at ${next.time}`);
+        console.log(`📋 Current nextPrayer: ${current?.name || 'none'}`);
+      }
 
       const isDifferent =
-        !nextPrayer ||
-        nextPrayer.name !== next.name ||
-        !isSamePrayerTime(nextPrayer.date, next.date);
+        !current ||
+        current.name !== next.name ||
+        !isSamePrayerTime(current.date, next.date);
 
-      console.log(`📋 isDifferent: ${isDifferent}`);
+      if (__DEV__) console.log(`📋 isDifferent: ${isDifferent}`);
 
       if (isDifferent) {
-        console.log(`🔄 Next prayer updated: ${next.name} at ${next.time}`);
+        if (__DEV__) console.log(`🔄 Next prayer updated: ${next.name} at ${next.time}`);
         setNextPrayer(next);
         setCountdown('');
         setCountdownLoading(true);
         countdownTriggeredRefresh.current = '';
-        console.log(
-          `🔄 Prayer changed from ${nextPrayer?.name || 'none'} to ${next.name} - countdown reset`,
-        );
       } else {
-        console.log(`⏱️ Next prayer unchanged: ${next.name} at ${next.time}`);
+        if (__DEV__) console.log(`⏱️ Next prayer unchanged: ${next.name} at ${next.time}`);
       }
     } else {
-      console.log('⚠️ Could not determine next prayer time');
+      if (__DEV__) console.log('⚠️ Could not determine next prayer time');
     }
   };
 
@@ -466,7 +496,9 @@ export function useHomePrayerData(params: UseHomePrayerDataParams) {
           // Progress: how much of the iqama wait has elapsed
           const iqamaTotalSpan = differenceInSeconds(lastPassed.iqamaTime, lastPassed.adhanTime);
           const iqamaElapsed = differenceInSeconds(now, lastPassed.adhanTime);
-          const iqamaProgress = Math.max(0, Math.min(1, iqamaElapsed / iqamaTotalSpan));
+          const iqamaProgress = iqamaTotalSpan > 0
+            ? Math.max(0, Math.min(1, iqamaElapsed / iqamaTotalSpan))
+            : 0;
 
           if (Math.abs(iqamaProgress - progressPercent) > 0.01) {
             setProgressPercent(iqamaProgress);
@@ -546,11 +578,15 @@ export function useHomePrayerData(params: UseHomePrayerDataParams) {
       const totalTimeSpan = differenceInSeconds(prayerTime, lastPrayer);
       const elapsedTime = differenceInSeconds(now, lastPrayer);
       const remainingTime = differenceInSeconds(prayerTime, now);
-      const progressPercentage = Math.min(100, Math.max(0, (elapsedTime / totalTimeSpan) * 100));
+      const progressPercentage = totalTimeSpan > 0
+        ? Math.min(100, Math.max(0, (elapsedTime / totalTimeSpan) * 100))
+        : 0;
 
-      console.log(
-        `⏱️ Enhanced Countdown: ${Math.round(progressPercentage)}% progress, ${Math.floor(remainingTime / 60)}m remaining`,
-      );
+      if (__DEV__) {
+        console.log(
+          `⏱️ Enhanced Countdown: ${Math.round(progressPercentage)}% progress, ${Math.floor(remainingTime / 60)}m remaining`,
+        );
+      }
 
       const oneHourInSeconds = 3600;
 
@@ -651,7 +687,6 @@ export function useHomePrayerData(params: UseHomePrayerDataParams) {
     progressPercent,
     countdown,
     prayerTimes,
-    lastPrayerTime,
     countdownLoading,
     countdownMode,
     iqamaPrayerName,
@@ -697,10 +732,10 @@ export function useHomePrayerData(params: UseHomePrayerDataParams) {
 
       await fetchAndCachePrayerTimes();
 
-      if (notificationsEnabled) {
-        const lastScheduled = await AsyncStorage.getItem('last_notification_scheduled');
+      if (notificationsEnabledLocalRef.current) {        const lastScheduled = await AsyncStorage.getItem('last_notification_scheduled');
         const now = Date.now();
-        if (!lastScheduled || now - parseInt(lastScheduled) > 60000) {
+        const parsedTimestamp = lastScheduled ? parseInt(lastScheduled, 10) : NaN;
+        if (!lastScheduled || isNaN(parsedTimestamp) || now - parsedTimestamp > 60000) {
           console.log('Refresh: Rescheduling notifications after cache clear');
           await scheduleNotificationsForToday();
         } else {
@@ -709,7 +744,7 @@ export function useHomePrayerData(params: UseHomePrayerDataParams) {
       }
 
       if (showAlerts) {
-        Alert.alert(t('cacheCleared'), 'Fresh prayer times loaded', [{ text: t('ok') }]);
+        Alert.alert(t('cacheCleared'), t('freshPrayerTimesLoaded'), [{ text: t('ok') }]);
       }
     } catch (error) {
       console.error('Error clearing cache:', error);
@@ -737,8 +772,17 @@ export function useHomePrayerData(params: UseHomePrayerDataParams) {
 
   // ── Main data fetching effect ───────────────────────
   useEffect(() => {
-    setProgressPercent(0);
-    progressAnimation.setValue(0);
+    // Only reset progress visuals when there is no existing data.
+    // When data already exists (e.g. lastRefreshDate change or day-change
+    // auto-refresh), we keep the current progress intact so the circular
+    // progress ring does not flash empty.
+    if (!prayerTimes) {
+      setProgressPercent(0);
+      progressAnimation.setValue(0);
+    }
+
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let configTimer: ReturnType<typeof setTimeout> | null = null;
 
     if (location && method !== undefined && tuningParams !== undefined) {
       console.log(`Fetching prayer times for day +${currentDay}, location: ${location}`);
@@ -750,7 +794,7 @@ export function useHomePrayerData(params: UseHomePrayerDataParams) {
           console.error('Error in data fetch effect:', error);
           if (!prayerTimes) {
             console.log('Retrying data fetch in 2 seconds...');
-            setTimeout(() => {
+            retryTimer = setTimeout(() => {
               fetchPrayerTimes().catch((err) => {
                 console.error('Retry fetch error:', err);
                 setLoading(false);
@@ -764,7 +808,7 @@ export function useHomePrayerData(params: UseHomePrayerDataParams) {
 
       fetchDataWithRetry();
     } else {
-      setTimeout(() => {
+      configTimer = setTimeout(() => {
         if (loading && (!location || method === undefined || tuningParams === undefined)) {
           console.log('Configuration incomplete, stopping loading state');
           if (isFirstLoad) {
@@ -783,6 +827,10 @@ export function useHomePrayerData(params: UseHomePrayerDataParams) {
 
     return () => {
       clearInterval(dateCheckTimer);
+      if (retryTimer) clearTimeout(retryTimer);
+      if (configTimer) clearTimeout(configTimer);
+      if (innerRetryTimerRef.current) clearTimeout(innerRetryTimerRef.current);
+      if (notifScheduleTimerRef.current) clearTimeout(notifScheduleTimerRef.current);
     };
   }, [currentDay, lastRefreshDate, location, method, tuningParams, isFirstLoad]);
 
@@ -802,18 +850,28 @@ export function useHomePrayerData(params: UseHomePrayerDataParams) {
     };
   }, [nextPrayer, appState]);
 
-  // ── Reset progress when next prayer changes ─────────
+  // ── Reset progress when next prayer ACTUALLY changes ─
+  // We track a stable key (name + time) instead of the object reference.
+  // This prevents spurious resets caused by React creating a new object
+  // with the same values (e.g. when returning from a frozen tab).
+  const nextPrayerKey = nextPrayer
+    ? `${nextPrayer.name}|${nextPrayer.date?.getTime() ?? ''}`
+    : '';
+
+  // ── Track next prayer identity ─────────────────────
+  // This effect simply keeps the ref in sync.  Progress is no longer
+  // reset here — updateCountdown handles all progress transitions
+  // smoothly via Animated.timing, avoiding the flash-to-zero visual
+  // artifact that the old delayed reset caused.
   useEffect(() => {
-    if (nextPrayer) {
-      setCountdownLoading(true);
-      const resetTimeout = setTimeout(() => {
-        progressAnimation.setValue(0);
-        setProgressPercent(0);
-        setCountdownLoading(false);
-      }, 150);
-      return () => clearTimeout(resetTimeout);
+    if (!nextPrayer || !nextPrayerKey) return;
+
+    const prevKey = nextPrayerKeyRef.current;
+    if (prevKey !== nextPrayerKey) {
+      if (__DEV__) console.log(`Prayer key updated: ${prevKey || '(empty)'} → ${nextPrayerKey}`);
     }
-  }, [nextPrayer]);
+    nextPrayerKeyRef.current = nextPrayerKey;
+  }, [nextPrayerKey]);
 
   // ── checkDayChange on date/notification changes ─────
   useEffect(() => {
@@ -872,7 +930,6 @@ export function useHomePrayerData(params: UseHomePrayerDataParams) {
     countdown,
     setCountdown,
     countdownLoading,
-    lastPrayerTime,
     refreshing,
     progressAnimation,
     progressPercent,

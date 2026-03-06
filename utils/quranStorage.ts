@@ -810,8 +810,27 @@ export async function getLocalAudioUri(reciterEdition: string, globalAyahNumber:
 
 /** Delete a surah's downloaded audio files. */
 export async function deleteSurahAudio(surahNumber: number, reciterEdition: string): Promise<void> {
-    // We'd need to know the global ayah numbers; simplest: remove the index entry.
-    // Actual files will be cleaned up on next full clear.
+    // Calculate global ayah number range for this surah
+    let startAyah = 1;
+    for (let i = 0; i < BUNDLED_SURAH_LIST.length; i++) {
+        if (BUNDLED_SURAH_LIST[i].number === surahNumber) break;
+        startAyah += BUNDLED_SURAH_LIST[i].numberOfAyahs;
+    }
+    const surahMeta = BUNDLED_SURAH_LIST.find(s => s.number === surahNumber);
+    const ayahCount = surahMeta?.numberOfAyahs ?? 0;
+
+    // Delete each ayah audio file
+    for (let i = 0; i < ayahCount; i++) {
+        const filePath = audioFilePath(reciterEdition, startAyah + i);
+        try {
+            const info = await FileSystem.getInfoAsync(filePath);
+            if (info.exists) {
+                await FileSystem.deleteAsync(filePath, { idempotent: true });
+            }
+        } catch { /* file may already be gone */ }
+    }
+
+    // Remove from index
     const index = await readAudioIndex();
     delete index[audioIndexKey(surahNumber, reciterEdition)];
     await writeAudioIndex(index);

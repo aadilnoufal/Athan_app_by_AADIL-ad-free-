@@ -1,11 +1,34 @@
 import 'expo-router/entry';
-import notifee, { EventType } from '@notifee/react-native';
+import notifee, { EventType, AndroidImportance } from '@notifee/react-native';
 import messaging from '@react-native-firebase/messaging';
+import { Platform } from 'react-native';
+
+// ============================================================================
+// PRODUCTION LOG SILENCER
+// Suppress verbose console.log/warn in production builds to avoid
+// performance overhead and log noise. console.error is kept for
+// crash-reporting integrations (e.g. Sentry, Crashlytics).
+// ============================================================================
+if (!__DEV__) {
+  console.log = () => {};
+  console.warn = () => {};
+}
 
 // ============================================================================
 // CRITICAL: Register background handlers at TOP LEVEL
 // These MUST be here (not inside a function) to work when app is closed
 // ============================================================================
+
+// ── Ensure notification channels exist before background handlers fire ────
+// Channels must be created BEFORE any notification is displayed; _layout.tsx
+// creates them too, but the background handler can fire before _layout mounts.
+if (Platform.OS === 'android') {
+  notifee.createChannel({
+    id: 'default',
+    name: 'Default',
+    importance: AndroidImportance.DEFAULT,
+  }).catch(() => {});
+}
 
 // ── Firebase: Background/quit-state push message handler ──────────────────
 // When a data-only push arrives while app is killed or backgrounded,
@@ -41,6 +64,17 @@ try {
     try {
       const { notification } = detail;
       console.log('🌙 Background event (top-level):', type);
+
+      // Handle notification tap action (e.g. open store for app-update)
+      if (type === EventType.PRESS) {
+        console.log('👆 Background notification pressed');
+        try {
+          const { handleNotificationAction } = require('./utils/pushNotifications');
+          await handleNotificationAction(notification?.data as Record<string, string>);
+        } catch (e) {
+          console.log('⚠️ Background action handler failed:', (e as any)?.message);
+        }
+      }
       
       // Top up rolling window when notification is delivered in background
       if (type === EventType.DELIVERED) {

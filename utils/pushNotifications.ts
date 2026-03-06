@@ -7,6 +7,7 @@
  * 3. Foreground push display via Notifee
  * 4. Country detection via stored region in settings
  * 5. Version topic for targeted pushes (e.g. update reminders)
+ * 6. Notification tap action handling (store redirect, deep links)
  *
  * Key architectural decisions (documented in PUSH_NOTIFICATIONS.md):
  * - Notifee v9.1.8 intercepts Firebase notification taps, so we use
@@ -17,11 +18,17 @@
  * - Country detection uses the stored selected_region from settings
  *   (e.g. "qatar-qatar-doha" → countryId "qatar" → isoCode "QA").
  *   No GPS/location permission required.
+ * - handleNotificationAction() is the centralized handler for notification
+ *   taps. It reads data.type to decide what to do:
+ *     "app-update" → opens Play Store / App Store
+ *     "url" / "deep-link" → opens data.url
+ *   Called from _layout.tsx (foreground), index.ts (background), and
+ *   notifeePrayerService.js (cold start / initial notification).
  *
  * Source: https://rnfirebase.io/messaging/usage
  */
 
-import { Platform } from 'react-native';
+import { Linking, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ─── Storage Keys ───────────────────────────────────────────────────────────
@@ -29,6 +36,12 @@ const PUSH_TOKEN_KEY = 'fcm_push_token';
 const PUSH_COUNTRY_KEY = 'push_country_code';
 const PUSH_VERSION_KEY = 'push_version_topic';
 const PUSH_INIT_DONE_KEY = 'push_init_done';
+
+// ─── Store URLs ─────────────────────────────────────────────────────────────
+const STORE_URLS = {
+  ios: 'https://apps.apple.com/qa/app/prayer-times-by-aadil-noufal/id6751736180',
+  android: 'https://play.google.com/store/apps/details?id=com.yourcompany.prayertimes',
+};
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 interface PushInitResult {
@@ -98,6 +111,68 @@ export function getAppVersion(): string | null {
   return null;
 }
 
+// ─── Notification Action Handler ────────────────────────────────────────────
+
+/**
+ * Handle notification tap actions based on `data.type` payload.
+ *
+ * Supported types:
+ * - "app-update": Opens the platform-specific app store page so the user
+ *   can update. If a custom `url` field is in the data, opens that instead.
+ * - "url" / "deep-link": Opens a custom URL from `data.url`.
+ * - Default: No action (app opens normally).
+ *
+ * Called from foreground PRESS, background PRESS, and cold-start initial
+ * notification handlers.
+ *
+ * @param data - The notification data payload (key-value string map).
+ * @returns true if an action was taken, false otherwise.
+ */
+export async function handleNotificationAction(
+  data: Record<string, string> | undefined | null
+): Promise<boolean> {
+  if (!data?.type) return false;
+
+  try {
+    switch (data.type) {
+      case 'app-update': {
+        // Custom URL in payload takes priority, otherwise use platform store URL
+        const url = data.url || (Platform.OS === 'ios' ? STORE_URLS.ios : STORE_URLS.android);
+        console.log(`🔗 App update notification tapped — opening store: ${url}`);
+        const canOpen = await Linking.canOpenURL(url);
+        if (canOpen) {
+          await Linking.openURL(url);
+          return true;
+        }
+        console.log('⚠️ Cannot open store URL:', url);
+        return false;
+      }
+
+      case 'url':
+      case 'deep-link': {
+        // Generic URL action — opens whatever URL is in data.url
+        if (data.url) {
+          console.log(`🔗 Opening URL from notification: ${data.url}`);
+          const canOpen = await Linking.canOpenURL(data.url);
+          if (canOpen) {
+            await Linking.openURL(data.url);
+            return true;
+          }
+          console.log('⚠️ Cannot open URL:', data.url);
+        }
+        return false;
+      }
+
+      default:
+        // No special action for this notification type
+        return false;
+    }
+  } catch (e) {
+    console.error('❌ Error handling notification action:', e);
+    return false;
+  }
+}
+
 // ─── Core Functions ─────────────────────────────────────────────────────────
 
 /**
@@ -126,7 +201,7 @@ export async function getFCMToken(): Promise<string | null> {
 
     // Get the FCM token
     const token = await messaging().getToken();
-    console.log('🔑 FCM Token:', token);
+    if (__DEV__) console.log('🔑 FCM Token:', token);
 
     // Store locally for debugging reference
     await AsyncStorage.setItem(PUSH_TOKEN_KEY, token);
@@ -221,12 +296,12 @@ export function setupForegroundHandler(): () => void {
     const unsubscribe = messaging().onMessage(async (remoteMessage: any) => {
       console.log('📩 Foreground push received:', remoteMessage.messageId);
 
-      // Display using Notifee (uses the 'default' channel we already create)
+      // Display using Notifee (uses the prayer-times-default channel)
       await notifee.displayNotification({
         title: remoteMessage.notification?.title || 'Prayer Times',
         body: remoteMessage.notification?.body || '',
         android: {
-          channelId: 'default',
+          channelId: 'prayer-times-default',
           // Use small icon already configured in AndroidManifest
           smallIcon: 'ic_notification',
           pressAction: { id: 'default' },
@@ -269,7 +344,7 @@ export function setupTokenRefreshListener(): () => void {
     const messaging = require('@react-native-firebase/messaging').default;
 
     const unsubscribe = messaging().onTokenRefresh(async (newToken: string) => {
-      console.log('🔄 FCM token refreshed:', newToken);
+      if (__DEV__) console.log('🔄 FCM token refreshed:', newToken);
       await AsyncStorage.setItem(PUSH_TOKEN_KEY, newToken);
       // Re-subscribe (idempotent — safe to call again)
       await subscribeToTopics();

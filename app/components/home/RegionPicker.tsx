@@ -5,12 +5,13 @@
 import React, { Dispatch, SetStateAction } from 'react';
 import { View, Text, TouchableOpacity, Modal, FlatList } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { SepiaColors } from '../../../constants/sepiaColors';
 import type { HomeStyles } from './homeTypes';
 import type { RegionItem } from './homeTypes';
 
 export interface RegionPickerProps {
     styles: HomeStyles;
+    /** Theme color palette */
+    colors: any;
     /** Translation function */
     t: (key: string, params?: any) => string;
     /** Whether the picker modal is visible */
@@ -29,6 +30,7 @@ export interface RegionPickerProps {
 
 export const RegionPicker = ({
     styles,
+    colors,
     t,
     showRegionPicker,
     setShowRegionPicker,
@@ -48,7 +50,7 @@ export const RegionPicker = ({
                 <View style={styles.modalHeader}>
                     <Text style={styles.modalTitle}>{t('selectRegion')}</Text>
                     <TouchableOpacity onPress={() => toggleModal(setShowRegionPicker)}>
-                        <MaterialCommunityIcons name="close" size={24} color={SepiaColors.text.primary} />
+                        <MaterialCommunityIcons name="close" size={24} color={colors.text.primary} />
                     </TouchableOpacity>
                 </View>
                 <FlatList
@@ -71,7 +73,7 @@ export const RegionPicker = ({
                                 {item.name}
                             </Text>
                             {regionId === item.id && (
-                                <MaterialCommunityIcons name="check" size={20} color={SepiaColors.accent.gold} />
+                                <MaterialCommunityIcons name="check" size={20} color={colors.accent.gold} />
                             )}
                         </TouchableOpacity>
                     )}

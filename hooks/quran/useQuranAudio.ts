@@ -97,7 +97,7 @@ export function useQuranAudio({
             playsInSilentModeIOS: true,
             staysActiveInBackground: true,
             shouldDuckAndroid: true,
-        }).catch(() => { });
+        }).catch((e) => { console.error('⚠️ Audio mode setup failed — playback in silent/background may not work:', e); });
         return () => {
             soundRef.current?.unloadAsync().catch(() => { });
             nextSoundRef.current?.unloadAsync().catch(() => { });
@@ -113,8 +113,24 @@ export function useQuranAudio({
         autoScrollEnabled.current = true;
     }, [autoScrollWithAudio]);
 
-    // ── Reset ayah layouts when surah changes ────────────────────
+    // ── Reset ayah layouts and stop audio when surah changes ────
     useEffect(() => {
+        // Stop any currently playing audio when switching surahs
+        if (soundRef.current) {
+            soundRef.current.stopAsync().catch(() => { });
+            soundRef.current.unloadAsync().catch(() => { });
+            soundRef.current = null;
+        }
+        if (nextSoundRef.current) {
+            nextSoundRef.current.unloadAsync().catch(() => { });
+            nextSoundRef.current = null;
+            nextSoundIndexRef.current = -1;
+        }
+        isPlayingLockRef.current = false;
+        setIsPlaying(false);
+        setCurrentAyahIndex(-1);
+        currentAyahIndexRef.current = -1;
+
         ayahLayoutsRef.current = {};
         if (autoScrollResumeTimeoutRef.current) {
             clearTimeout(autoScrollResumeTimeoutRef.current);
@@ -215,6 +231,11 @@ export function useQuranAudio({
                 { uri },
                 { shouldPlay: false },
             );
+            // Guard: surah may have changed during async createAsync
+            if (currentSurahArRef.current?.number !== surah.number) {
+                sound.unloadAsync().catch(() => {});
+                return;
+            }
             nextSoundRef.current = sound;
             nextSoundIndexRef.current = nextIndex;
         } catch {
@@ -253,6 +274,8 @@ export function useQuranAudio({
             }
 
             if (sound) {
+                // Assign ref BEFORE playAsync to prevent race condition with stopAudio
+                soundRef.current = sound;
                 let didAdvance = false;
                 sound.setOnPlaybackStatusUpdate((status) => {
                     if (status.isLoaded && status.didJustFinish && !didAdvance) {
@@ -284,7 +307,7 @@ export function useQuranAudio({
                 let didAdvance = false;
                 const result = await Audio.Sound.createAsync(
                     { uri },
-                    { shouldPlay: true },
+                    { shouldPlay: false },
                     (status) => {
                         if (status.isLoaded && status.didJustFinish && !didAdvance) {
                             didAdvance = true;
@@ -304,9 +327,18 @@ export function useQuranAudio({
                     }
                 );
                 sound = result.sound;
+                // Guard: surah may have changed during async createAsync
+                if (currentSurahArRef.current?.number !== surah.number) {
+                    sound.unloadAsync().catch(() => {});
+                    setAudioLoading(false);
+                    isPlayingLockRef.current = false;
+                    return;
+                }
+                // Assign ref before playAsync so stopAudio can find it during playback
+                soundRef.current = sound;
+                await sound.playAsync();
             }
 
-            soundRef.current = sound;
             setIsPlaying(true);
 
             const nextIdx = ayahIndex + 1;
@@ -314,6 +346,11 @@ export function useQuranAudio({
                 preloadNextAyah(nextIdx);
             }
         } catch (e: any) {
+            // Clean up the sound that was assigned but failed to play
+            if (soundRef.current) {
+                try { await soundRef.current.unloadAsync(); } catch { }
+                soundRef.current = null;
+            }
             Alert.alert(t('audioError'), t('audioErrorMsg'));
         } finally {
             setAudioLoading(false);
@@ -329,13 +366,17 @@ export function useQuranAudio({
             return;
         }
         try {
-            const status = await soundRef.current.getStatusAsync();
+            // Capture ref to guard against nullification across await boundary
+            const sound = soundRef.current;
+            const status = await sound.getStatusAsync();
+            // Guard: soundRef may have been cleared (e.g. surah change) during await
+            if (!soundRef.current || soundRef.current !== sound) return;
             if (status.isLoaded) {
                 if (status.isPlaying) {
-                    await soundRef.current.pauseAsync();
+                    await sound.pauseAsync();
                     setIsPlaying(false);
                 } else {
-                    await soundRef.current.playAsync();
+                    await sound.playAsync();
                     setIsPlaying(true);
                 }
             }

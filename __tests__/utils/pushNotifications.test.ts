@@ -14,9 +14,12 @@
  * - initializePushNotifications orchestrates full init flow
  * - initializePushNotifications handles token failure gracefully
  * - updateCountryTopic unsubscribes old and subscribes new
+ * - handleNotificationAction opens store for app-update type
+ * - handleNotificationAction opens custom URL for url/deep-link type
+ * - handleNotificationAction ignores unknown types
  */
 
-import { Platform } from 'react-native';
+import { Linking, Platform } from 'react-native';
 
 // ── Mocks ────────────────────────────────────────────────────────────────
 
@@ -92,6 +95,7 @@ import {
   initializePushNotifications,
   updateCountryTopic,
   getAppVersion,
+  handleNotificationAction,
 } from '../../utils/pushNotifications';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -466,6 +470,102 @@ describe('pushNotifications', () => {
 
       // Should not throw
       await expect(updateCountryTopic()).resolves.not.toThrow();
+    });
+  });
+
+  // ── handleNotificationAction ─────────────────────────────────────────
+
+  describe('handleNotificationAction', () => {
+    beforeEach(() => {
+      (Linking.canOpenURL as jest.Mock).mockResolvedValue(true);
+      (Linking.openURL as jest.Mock).mockResolvedValue(undefined);
+    });
+
+    it('returns false for null/undefined data', async () => {
+      expect(await handleNotificationAction(null)).toBe(false);
+      expect(await handleNotificationAction(undefined)).toBe(false);
+    });
+
+    it('returns false for data without type', async () => {
+      expect(await handleNotificationAction({})).toBe(false);
+    });
+
+    it('opens Play Store for app-update on Android', async () => {
+      (Platform as any).OS = 'android';
+      const result = await handleNotificationAction({ type: 'app-update' });
+
+      expect(result).toBe(true);
+      expect(Linking.openURL).toHaveBeenCalledWith(
+        'https://play.google.com/store/apps/details?id=com.yourcompany.prayertimes'
+      );
+    });
+
+    it('opens App Store for app-update on iOS', async () => {
+      (Platform as any).OS = 'ios';
+      const result = await handleNotificationAction({ type: 'app-update' });
+
+      expect(result).toBe(true);
+      expect(Linking.openURL).toHaveBeenCalledWith(
+        'https://apps.apple.com/qa/app/prayer-times-by-aadil-noufal/id6751736180'
+      );
+    });
+
+    it('uses custom url from data payload for app-update if provided', async () => {
+      (Platform as any).OS = 'android';
+      const customUrl = 'https://example.com/update';
+      const result = await handleNotificationAction({
+        type: 'app-update',
+        url: customUrl,
+      });
+
+      expect(result).toBe(true);
+      expect(Linking.openURL).toHaveBeenCalledWith(customUrl);
+    });
+
+    it('opens URL for url type', async () => {
+      const result = await handleNotificationAction({
+        type: 'url',
+        url: 'https://example.com/promo',
+      });
+
+      expect(result).toBe(true);
+      expect(Linking.openURL).toHaveBeenCalledWith('https://example.com/promo');
+    });
+
+    it('opens URL for deep-link type', async () => {
+      const result = await handleNotificationAction({
+        type: 'deep-link',
+        url: 'myapp://settings',
+      });
+
+      expect(result).toBe(true);
+      expect(Linking.openURL).toHaveBeenCalledWith('myapp://settings');
+    });
+
+    it('returns false for url type without url field', async () => {
+      const result = await handleNotificationAction({ type: 'url' });
+      expect(result).toBe(false);
+      expect(Linking.openURL).not.toHaveBeenCalled();
+    });
+
+    it('returns false when URL cannot be opened', async () => {
+      (Linking.canOpenURL as jest.Mock).mockResolvedValue(false);
+      const result = await handleNotificationAction({ type: 'app-update' });
+
+      expect(result).toBe(false);
+      expect(Linking.openURL).not.toHaveBeenCalled();
+    });
+
+    it('returns false for unknown type', async () => {
+      const result = await handleNotificationAction({ type: 'some-unknown' });
+      expect(result).toBe(false);
+    });
+
+    it('handles errors gracefully', async () => {
+      (Linking.canOpenURL as jest.Mock).mockRejectedValue(new Error('fail'));
+      const result = await handleNotificationAction({ type: 'app-update' });
+
+      expect(result).toBe(false);
     });
   });
 });

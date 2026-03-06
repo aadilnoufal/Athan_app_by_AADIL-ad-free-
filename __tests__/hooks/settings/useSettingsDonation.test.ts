@@ -64,7 +64,7 @@ describe('useSettingsDonation', () => {
     });
 
     expect(Alert.alert).toHaveBeenCalledWith(
-      'supportTitle',
+      'supportDialogTitle',
       'supportMessage',
       expect.arrayContaining([
         expect.objectContaining({ text: 'maybeLater' }),

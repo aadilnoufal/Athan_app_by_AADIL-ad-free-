@@ -46,6 +46,25 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // =============================================================================
 
 /**
+ * Sanitize notification data to ensure all values are strings.
+ * Android 16 (SDK 36) introduced stricter Bundle/Parcelable type checking
+ * that can cause BadParcelableException if non-string values are present
+ * in the notification data object.
+ *
+ * @param {Object} data - The notification data object
+ * @returns {Object} Data object with all values coerced to strings
+ */
+function sanitizeNotifeeData(data) {
+  if (!data || typeof data !== 'object') return {};
+  const sanitized = {};
+  for (const [key, value] of Object.entries(data)) {
+    if (value === undefined || value === null) continue; // omit null/undefined
+    sanitized[key] = String(value);
+  }
+  return sanitized;
+}
+
+/**
  * Check and request essential Android permissions for prayer notifications
  * Critical for Android 12+ compatibility
  */
@@ -248,6 +267,7 @@ const requestEssentialPermissions = async () => {
 // Global state
 let appStateSubscription = null;
 let isInitialized = false;
+let eventHandlersRegistered = false;
 
 /**
  * Initialize Notifee prayer notification service
@@ -280,6 +300,12 @@ export async function initializeNotifeePrayerNotifications() {
 
     // 4. Handle initial notification if app was opened by notification
     await handleInitialNotification();
+
+    // 5. Register foreground event handlers (idempotent — only runs once)
+    if (!eventHandlersRegistered) {
+      setupNotifeeEventHandlers();
+      eventHandlersRegistered = true;
+    }
 
     isInitialized = true;
     console.log("✅ Notifee Prayer notification service initialized");
@@ -526,12 +552,12 @@ function createCrossPlatformNotification(prayer, time, useAzanSound, isReminder 
   const baseNotification = {
     title,
     body,
-    data: {
+    data: sanitizeNotifeeData({
       prayerName: prayer,
       prayerTime: time,
       type: isReminder ? "prayer-reminder" : "prayer-time",
       soundType: shouldUseAzan ? 'azan' : 'default',
-    },
+    }),
   };
 
   if (Platform.OS === 'ios') {
@@ -587,7 +613,9 @@ function createCrossPlatformNotification(prayer, time, useAzanSound, isReminder 
 }
 
 /**
- * Handle initial notification if app was opened by notification
+ * Handle initial notification if app was opened by notification (cold start).
+ * Checks the notification data payload and performs the appropriate action
+ * (e.g. opening the store for app-update notifications).
  */
 async function handleInitialNotification() {
   try {
@@ -595,8 +623,13 @@ async function handleInitialNotification() {
       const initialNotification = await notifee.getInitialNotification();
       if (initialNotification) {
         console.log('📱 App opened by notification:', initialNotification.notification?.title);
-        // You can handle specific logic here based on the notification that opened the app
-        // For example, navigate to a specific prayer or show prayer details
+        // Handle action based on data payload (e.g. open store for app-update)
+        try {
+          const { handleNotificationAction } = require('./pushNotifications');
+          await handleNotificationAction(initialNotification.notification?.data);
+        } catch (e) {
+          console.log('⚠️ Initial notification action handler failed:', e?.message);
+        }
       }
     }
   } catch (error) {
@@ -929,10 +962,10 @@ export async function scheduleImmediateNotifeeNotification(prayerName, message =
 
     const notificationId = await notifee.displayNotification({
       ...notificationConfig,
-      data: {
+      data: sanitizeNotifeeData({
         ...notificationConfig.data,
         type: "immediate-prayer-reminder",
-      },
+      }),
     });
 
     const soundInfo = shouldUseAzan ? '🔊 azan' : '🔔 default';
@@ -962,11 +995,11 @@ export async function scheduleNotifeeTestNotification() {
     const testConfig = {
       title: "🧪 Test Prayer Notification",
       body: `Testing ${useAzanSound ? 'azan' : 'default Android'} sound from channel`,
-      data: {
+      data: sanitizeNotifeeData({
         type: "prayer-time",
         prayerName: "Test",
         soundType: useAzanSound ? 'azan' : 'default',
-      },
+      }),
     };
 
     // Add platform-specific configurations
@@ -1031,6 +1064,13 @@ export function setupNotifeeEventHandlers() {
 
       case EventType.PRESS:
         console.log('👆 Notification pressed');
+        // Handle action based on data payload (e.g. open store for app-update)
+        try {
+          const { handleNotificationAction } = require('./pushNotifications');
+          handleNotificationAction(notification?.data);
+        } catch (e) {
+          console.log('⚠️ Notification action handler failed:', e?.message);
+        }
         break;
 
       case EventType.ACTION_PRESS:
@@ -1161,10 +1201,10 @@ async function scheduleSnoozeNotification(prayerName) {
         id: `snooze-${prayerName.toLowerCase()}-${Date.now()}`,
         title: `🔔 ${prayerName} Prayer Reminder`,
         body: `Snoozed reminder: It's time for ${prayerName} prayer`,
-        data: {
+        data: sanitizeNotifeeData({
           prayerName,
           type: "snooze-prayer-reminder"
-        },
+        }),
         android: {
           channelId: snoozeChannelId,
           category: AndroidCategory.REMINDER,
@@ -1418,10 +1458,10 @@ export const testImmediateNotification = async () => {
     const notificationId = await notifee.displayNotification({
       title: '🧪 Test Immediate Notification',
       body: 'Testing azan sound directly in Notifee',
-      data: {
+      data: sanitizeNotifeeData({
         type: 'test_immediate',
         playManualAzan: "true"
-      },
+      }),
       android: {
         channelId: testChannelId,
         sound: 'azan.wav', // Try azan sound directly
@@ -1464,10 +1504,10 @@ export const testScheduledNotification = async () => {
         id: 'test_scheduled_notification',
         title: '🧪 Test Scheduled Prayer',
         body: 'This should appear in 1 minute with Azan sound',
-        data: {
+        data: sanitizeNotifeeData({
           type: 'test_scheduled',
           prayerName: 'Test'
-        },
+        }),
         android: {
           channelId: scheduledTestChannelId,
           sound: 'azan.wav', // Use azan sound directly
@@ -1592,8 +1632,11 @@ export const runNotificationSystemTest = async () => {
   }
 };
 
-// Initialize event handlers when module loads
-setupNotifeeEventHandlers();
+// Event handlers are now registered inside initializeNotifeePrayerNotifications()
+// with an idempotent guard (eventHandlersRegistered flag).
+// DO NOT call setupNotifeeEventHandlers() here at module load time.
+// Doing so would register foreground listeners before channels are created,
+// causing "channel not found" errors for early-delivered notifications.
 
 /**
  * Force recreate notification channels to apply sound changes
@@ -1632,68 +1675,27 @@ export async function forceRecreateNotificationChannels() {
 }
 
 /**
- * Force refresh all scheduled prayer notifications with new sound settings
- * This will cancel existing notifications and reschedule them with correct channels
+ * Force refresh all scheduled prayer notifications with new sound settings.
+ * Routes through the rolling scheduler to avoid creating legacy RepeatFrequency.DAILY
+ * notifications that the rolling scheduler's cleanup cannot see.
  */
 export async function forceRefreshPrayerNotifications() {
   try {
     console.log('🔄 Force refreshing all prayer notifications with correct sound...');
 
-    // Step 1: Recreate channels first
+    // Step 1: Recreate channels first (Android only)
     if (Platform.OS === 'android') {
       await forceRecreateNotificationChannels();
     }
 
-    // Step 2: Cancel ALL existing prayer notifications
-    const triggerIds = await notifee.getTriggerNotificationIds();
-    let canceledCount = 0;
-    for (const id of triggerIds) {
-      if (id.startsWith('prayer-')) {
-        await notifee.cancelTriggerNotification(id);
-        canceledCount++;
-      }
-    }
-    console.log(`🗑️ Canceled ${canceledCount} existing prayer notifications`);
+    // Step 2: Use the rolling scheduler for a complete reschedule
+    // This ensures single-fire TIMESTAMP triggers with date-suffixed IDs,
+    // not the legacy RepeatFrequency.DAILY approach.
+    const { forceRescheduleAllNotifications } = require('./prayerNotificationScheduler');
+    await forceRescheduleAllNotifications();
 
-    // Step 3: Get current prayer times and settings from storage
-    let prayerTimes = null;
-    let notificationSettings = {};
-
-    try {
-      const storedTimes = await AsyncStorage.getItem('prayer_times');
-      if (storedTimes) {
-        prayerTimes = JSON.parse(storedTimes);
-      }
-
-      const storedSettings = await AsyncStorage.getItem('notification_settings');
-      if (storedSettings) {
-        notificationSettings = JSON.parse(storedSettings);
-      } else {
-        // Default settings
-        notificationSettings = {
-          Fajr: true,
-          Sunrise: false,
-          Dhuhr: true,
-          Asr: true,
-          Maghrib: true,
-          Isha: true
-        };
-      }
-    } catch (error) {
-      console.log('⚠️ Could not load existing prayer settings:', error);
-    }
-
-    // Step 4: Reschedule with new sound settings if we have prayer times
-    if (prayerTimes) {
-      console.log('📅 Rescheduling prayer notifications with correct azan sound...');
-      const newScheduledIds = await scheduleNotifeePrayerNotifications(prayerTimes, notificationSettings);
-      console.log(`✅ Rescheduled ${newScheduledIds.length} prayer notifications with azan sound`);
-      return newScheduledIds;
-    } else {
-      console.log('⚠️ No prayer times found in storage - notifications will be scheduled when times are set');
-      return [];
-    }
-
+    console.log('✅ Force refresh complete via rolling scheduler');
+    return [];
   } catch (error) {
     console.error('❌ Error force refreshing prayer notifications:', error);
     return [];

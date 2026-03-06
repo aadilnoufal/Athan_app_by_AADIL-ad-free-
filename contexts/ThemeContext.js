@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { Animated, Easing } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Appearance } from 'react-native';
@@ -173,7 +173,7 @@ export const ThemeProvider = ({ children }) => {
   }, [mode, setTheme]);
 
   const currentColors = ThemePalettes[mode] || DarkColors;
-  const value = {
+  const value = useMemo(() => ({
     colors: currentColors,
     isDark: mode === ThemeNames.DARK,
     mode,
@@ -181,7 +181,7 @@ export const ThemeProvider = ({ children }) => {
     toggleTheme,
     setTheme,
     transitionProgress
-  };
+  }), [mode, currentColors, toggleTheme, setTheme, transitionProgress]);
 
   return (
     <ThemeContext.Provider value={value}>

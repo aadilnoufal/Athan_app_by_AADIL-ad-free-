@@ -44,7 +44,7 @@ export const EnhancedCircularProgress = ({
     iqamaPrayerName = null,
 }: EnhancedCircularProgressProps) => {
     const isIqamaMode = countdownMode === 'iqama' && iqamaPrayerName;
-    const displayLabel = isIqamaMode ? t('iqamaCountdown') : t('nextPrayer');
+    const displayLabel = isIqamaMode ? t('iqamaLabel') : t('nextPrayer');
     const displayPrayerName = isIqamaMode ? t(iqamaPrayerName!) : (nextPrayer ? t(nextPrayer.name) : '');
 
     return (

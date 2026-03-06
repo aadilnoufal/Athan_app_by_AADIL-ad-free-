@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect, useCallback, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { languages, getAllTranslations } from '../translations';
 
@@ -19,8 +19,10 @@ export const LanguageProvider = ({ children }) => {
     const loadLanguage = async () => {
       try {
         const savedLang = await AsyncStorage.getItem('app_language');
-        if (savedLang) {
-          changeLanguage(savedLang);
+        if (savedLang && languages[savedLang]) {
+          // Apply directly without re-saving to storage
+          setCurrentLang(savedLang);
+          setTranslations(getAllTranslations(savedLang));
         }
       } catch (error) {
         console.error('Error loading language preference:', error);
@@ -31,7 +33,7 @@ export const LanguageProvider = ({ children }) => {
   }, []);
 
   // Function to change the current language
-  const changeLanguage = async (langId) => {
+  const changeLanguage = useCallback(async (langId) => {
     try {
       if (languages[langId]) {
         // Save to storage
@@ -46,22 +48,22 @@ export const LanguageProvider = ({ children }) => {
     } catch (error) {
       console.error('Error changing language:', error);
     }
-  };
+  }, []);
 
   // Translate function
-  const t = (key) => {
+  const t = useCallback((key) => {
     return translations[key] || key;
-  };
+  }, [translations]);
 
-  // Context value
-  const contextValue = {
+  // Context value — memoized to prevent unnecessary consumer re-renders
+  const contextValue = useMemo(() => ({
     currentLang,
     language: currentLang, // alias for convenience
     changeLanguage,
     t,
     isRTL,
     availableLanguages: languages
-  };
+  }), [currentLang, changeLanguage, t, isRTL]);
 
   return (
     <LanguageContext.Provider value={contextValue}>

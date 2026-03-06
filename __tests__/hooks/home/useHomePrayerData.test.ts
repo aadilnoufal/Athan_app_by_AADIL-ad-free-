@@ -362,7 +362,7 @@ describe('useHomePrayerData', () => {
 
     expect(Alert.alert).toHaveBeenCalledWith(
       'cacheCleared',
-      'Fresh prayer times loaded',
+      'freshPrayerTimesLoaded',
       expect.any(Array),
     );
   });

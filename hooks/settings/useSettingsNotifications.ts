@@ -105,7 +105,8 @@ export function useSettingsNotifications() {
       }
 
       if (notifSettings !== null) {
-        setNotificationSettings(JSON.parse(notifSettings));
+        try { setNotificationSettings(JSON.parse(notifSettings)); }
+        catch { console.warn('Corrupted notification_settings, using defaults'); }
       }
 
       const soundPref = await AsyncStorage.getItem('use_azan_sound');
@@ -121,12 +122,14 @@ export function useSettingsNotifications() {
 
       const iqamaSettings = await AsyncStorage.getItem('iqama_notification_settings');
       if (iqamaSettings !== null) {
-        setIqamaNotificationSettings(JSON.parse(iqamaSettings));
+        try { setIqamaNotificationSettings(JSON.parse(iqamaSettings)); }
+        catch { console.warn('Corrupted iqama_notification_settings, using defaults'); }
       }
 
       const iqamaMins = await AsyncStorage.getItem('iqama_notification_minutes');
       if (iqamaMins !== null) {
-        setIqamaMinutesBefore(parseInt(iqamaMins, 10));
+        const parsed = parseInt(iqamaMins, 10);
+        if (!isNaN(parsed)) setIqamaMinutesBefore(parsed);
       }
 
       // Load iqama countdown visibility setting

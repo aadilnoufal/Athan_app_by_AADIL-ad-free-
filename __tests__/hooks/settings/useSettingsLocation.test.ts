@@ -18,6 +18,7 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
   default: {
     getItem: jest.fn(),
     setItem: jest.fn(),
+    removeItem: jest.fn().mockResolvedValue(undefined),
     getAllKeys: jest.fn().mockResolvedValue([]),
     multiRemove: jest.fn().mockResolvedValue(undefined),
   },
@@ -65,6 +66,10 @@ jest.mock('../../../app/config/prayerTimeConfig', () => ({
 }));
 
 jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+
+jest.mock('../../../contexts/LanguageContext', () => ({
+  useLanguage: () => ({ t: (key: string) => key }),
+}));
 
 import { useSettingsLocation } from '../../../hooks/settings/useSettingsLocation';
 
@@ -197,7 +202,7 @@ describe('useSettingsLocation', () => {
     });
 
     expect(Alert.alert).toHaveBeenCalledWith(
-      'No Change',
+      'noChange',
       expect.any(String),
       expect.any(Array),
     );
@@ -225,7 +230,7 @@ describe('useSettingsLocation', () => {
     expect(AsyncStorage.setItem).toHaveBeenCalledWith('selected_region', 'US-CA-SF');
     expect(mockNotifee.cancelAllNotifications).toHaveBeenCalled();
     expect(Alert.alert).toHaveBeenCalledWith(
-      'Location Updated',
+      'locationUpdated',
       expect.any(String),
       expect.any(Array),
       expect.any(Object),

@@ -53,6 +53,11 @@ export async function unregisterBackgroundTask() {
       await BackgroundFetch.unregisterTaskAsync(TASK_ID);
       console.log('✅ Background fetch task unregistered');
     }
+    // Also stop the foreground AppState maintainer to avoid unnecessary work
+    try {
+      const { stopPrayerNotificationWindowMaintainer } = require('./prayerNotificationScheduler');
+      stopPrayerNotificationWindowMaintainer();
+    } catch { }
     // Reset started flag so it can be re-registered later
     started = false;
     return true;

@@ -1,0 +1,55 @@
+/**
+ * Type declarations for prayerTimeTuner.js
+ */
+
+export interface PrayerTimesRecord {
+  Fajr: string;
+  Sunrise: string;
+  Dhuhr: string;
+  Asr: string;
+  Maghrib: string;
+  Isha: string;
+  [key: string]: string;
+}
+
+/**
+ * Extract city ID from region ID
+ * @param regionId - The full region ID (e.g., 'qatar-qatar-doha')
+ * @returns The city ID (e.g., 'doha')
+ */
+export function extractCityIdFromRegionId(regionId: string): string;
+
+/**
+ * Apply city-specific adjustments to local prayer times data
+ * @param times - Prayer times object with times in "HH:MM" format
+ * @param cityId - The city ID (e.g., 'doha', 'abu-samra', 'dukhan', 'alshamal')
+ * @param isLocalData - Whether this is local CSV data (true) or API data (false)
+ * @returns Adjusted prayer times object
+ */
+export function applyLocalDataCityAdjustments(
+  times: PrayerTimesRecord,
+  cityId: string,
+  isLocalData?: boolean
+): PrayerTimesRecord;
+
+/**
+ * Apply tuning parameters to prayer times
+ * @param times - Prayer times object with times in "HH:MM" format
+ * @param tuningParams - Comma-separated tuning parameters
+ * @returns Adjusted prayer times object
+ */
+export function applyTuningParameters(
+  times: PrayerTimesRecord,
+  tuningParams: string
+): PrayerTimesRecord;
+
+/**
+ * Apply tuning parameters to a batch of prayer times
+ * @param timesBatch - Array of prayer times objects
+ * @param tuningParams - Comma-separated tuning parameters
+ * @returns Adjusted prayer times array
+ */
+export function applyTuningParametersToBatch(
+  timesBatch: Array<{ times: PrayerTimesRecord; [key: string]: any }>,
+  tuningParams: string
+): Array<{ times: PrayerTimesRecord; [key: string]: any }>;

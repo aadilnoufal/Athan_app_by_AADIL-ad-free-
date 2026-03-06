@@ -2,7 +2,174 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-03-06
+
+### Added (Admin Dashboard — Delivery & Analytics)
+
+- **Analytics Tracking (Campaign Labels)** — Notifications sent from the dashboard now include an `analytics_label` via `messaging.FCMOptions`. This enables Firebase Console → Cloud Messaging → Reports to track opens/impressions per campaign. Labels are auto-generated from the notification title (format: `pryr_{slug}_{YYYYMMDD_HHMMSS}`) or can be set manually.
+- **Message Expiry / TTL (Campaign Duration)** — New TTL selector in the Send form with presets (Immediate only / 1h / 6h / 12h / 24h / 2d / 1w / 4w / Custom). Sets `AndroidConfig.ttl` and `APNSConfig.headers["apns-expiration"]` so offline devices drop the message after the specified duration. Default is 24h for event-type notifications.
+- **Collapse Key** — Optional field to replace undelivered messages with the same key on a device. Uses `collapse_key` for Android and `apns-collapse-id` for iOS. Useful for "update available" type notifications where only the latest matters.
+- **Refactored `_build_message()` helper** in `fcm_service.py` — Extracted shared message construction logic (Notification, AndroidConfig, APNSConfig, FCMOptions) into a single helper, reducing duplication between `send_to_topic` and `send_to_condition`.
+- **Updated DB schema** — Added `analytics_label`, `ttl_seconds`, and `collapse_key` columns to `notification_history` table.
+- **Delivery & Analytics UI card** — Collapsible card in the Send Notification page with Campaign Label input, TTL preset selector with custom option, and Collapse Key input. Confirmation modal and history detail view show all three fields.
+- **Analytics hint toast** — After successful send, a delayed info toast tells the user where to find campaign reports in Firebase Console.
+
+### Fixed (Admin Dashboard)
+
+- **Windows cp1252 encoding crash** — Replaced emoji characters in Python `print()` statements with ASCII labels (`[OK]`, `[WARN]`, `[ERROR]`, `[READY]`) to prevent `UnicodeEncodeError` on Windows terminals.
+
+### Fixed (Crash Report & TypeScript Error Fixes)
+
+#### Circular Progress Ring Flash-to-Zero Bug
+
+- **Fixed circular progress disappearing for ~1 second** on app launch, tab switching, and day navigation — Root cause confirmed via device logging (`adb logcat`): the `NEXTPRAYER KEY EFFECT`'s 150ms delayed `setTimeout` reset to 0 was racing against the interval's `updateCountdown` computation. On every fresh prayer key assignment (initial load, day navigation via `setNextPrayer(null)` → new prayer), progress would briefly flash to 0 before recovering.
+- **Removed the delayed progress reset entirely** — Progress transitions are now handled smoothly by `Animated.timing` within `updateCountdown`, which computes the correct value from real-time epoch calculations every second. No more `setTimeout`-based reset artifacts.
+- **Guarded `fetchPrayerTimes` loading state** — `setLoading(true)` only fires when no prayer data exists, preventing the full-screen `ActivityIndicator` from replacing the circular progress on background refetches.
+- **Guarded main data effect progress reset** — `setProgressPercent(0)` and `progressAnimation.setValue(0)` only fire when `prayerTimes` is null (initial load), preserving existing progress on data refreshes.
+- **Stabilised `useFocusEffect` dependencies** — Moved `prayerTimes` and `loading` reads to refs so the callback identity only changes with `regionId`, preventing spurious re-invocations on tab focus.
+
+#### BadParcelableException Crash (Android 16 / SDK 36)
+
+- **Investigated `BadParcelableException` from Play Store crash reports** (version 94 / 4.0, Honor Magic8 Lite, Android 16 Beta SDK 36) – Root cause: `@notifee/react-native` v9.1.8 internally stores notification data in Android `Bundle`/`Parcel` objects. Android 16 (SDK 36) introduced stricter `Parcelable` type validation that rejects Notifee's internal parceling. The crash occurs inside `app.notifee.core.model.NotificationModel.c`, not in app code.
+- **Added `sanitizeNotifeeData()` defensive helper** in both `notifeePrayerService.js` and `prayerNotificationScheduler.ts` – Coerces all notification `data` values to strings and strips `null`/`undefined` entries before passing to Notifee. Applied to all 7 notification creation call sites (6 in notifeePrayerService, 2 in prayerNotificationScheduler). While this doesn't fix the internal Notifee parceling bug, it eliminates any chance of our code contributing non-string data values.
+- **Note**: Full fix requires upstream `@notifee/react-native` update for Android 16 compatibility. v9.1.8 is currently the latest available version.
+
+#### Syntax & Import Fixes
+
+- **Duplicate `View` import in `_layout.tsx`** – Lines 3 and 6 both imported `View` from `react-native`, causing TypeScript error 2300. Merged into a single import statement.
+- **Stray closing brace in `notifeePrayerService.js`** – Extra `}` at line 1671 outside any function caused TypeScript error 1128 ("Declaration or statement expected"). Removed.
+
+#### TypeScript Type Fixes
+
+- **`prayerTimeTuner.test.ts` – 23 TypeScript errors** – `applyLocalDataCityAdjustments()` and `applyTuningParameters()` JSDoc used `@returns {Object}` causing TS to infer return type as `Object` (no properties). Updated JSDoc to `@returns {Record<string, string>}` in `prayerTimeTuner.js`. All 23 "Property does not exist on type 'Object'" errors resolved.
+
+## [Unreleased] - 2026-03-05
+
+### Fixed (Round 7 — Deep Layout, Context, Utils & Data Integrity Audit)
+
+#### Layout & Context Provider Fixes
+
+- **`isDark` in `InnerLayout` ignored user theme** – Used system `useColorScheme()` instead of `useTheme()`, causing StatusBar and Stack background to follow system dark mode rather than the user's chosen theme (sepia/dark). Replaced with `useTheme().isDark` and `themeColors.background.primary`.
+- **`LanguageProvider` duplicated in both render branches** – Both the welcome-slides and main-app paths wrapped content in a separate `<LanguageProvider>`, causing the language state to reset when onboarding completed. Hoisted to `RootLayout` as a single stable instance.
+- **`SafeAreaProvider` remounted on onboarding→app transition** – Same duplication issue causing brief layout flash as insets re-measured. Hoisted to `RootLayout`.
+- **ThemeContext `value` not memoized** – New object literal on every render caused all `useTheme()` consumers to re-render unnecessarily. Wrapped in `useMemo`.
+- **LanguageContext `contextValue` not memoized** – Same cascading re-render issue. Wrapped in `useMemo`, plus `changeLanguage`/`t` wrapped in `useCallback`.
+- **OnboardingContext `value` not memoized** – Same pattern. Wrapped in `useMemo`.
+- **Language load re-saved to AsyncStorage unnecessarily** – `loadLanguage` called `changeLanguage()` which wrote the same value back. Separated load path to apply state directly without redundant write.
+- **Tab container background hardcoded to `SepiaColors`** – `StyleSheet.create` used `SepiaColors.background.primary` which flashed sepia on dark theme. Changed to `'transparent'` (inline style from theme takes precedence).
+- **Blank screen while onboarding loads** – `InnerLayout` returned `null` during `onboardingReady` check. Now returns themed background `View`.
+- **`global.__openSupportPaywall` leaked across remounts** – `useEffect` never cleaned up the global. Added cleanup returning `undefined`.
+
+#### Notification & Data Fixes
+
+- **Foreground push notifications silently dropped on Android** – `setupForegroundHandler()` used `channelId: 'default'` which was never created. Changed to `'prayer-times-default'`.
+- **Widget data bridge stale overwrite race** – `updateWidgetDataImmediate()` didn't cancel pending debounced writes, allowing stale data to overwrite fresh data 500ms later. Now clears debounce timer.
+- **`iqamaMinutes` NaN → silent notification failure** – Two `parseInt(iqamaMinRaw)` calls without NaN guard caused invalid Date → all iqama notifications silently dropped when AsyncStorage was corrupted. Added `isNaN()` fallback to default 3.
+- **`convertTo12HourFormat` produced `"12:NaN AM"`** – `localPrayerData.js` version lacked null/NaN guards. Added matching guards.
+- **`convertToPMIfNeeded` crashed on null input** – Could throw `TypeError` during CSV parsing at module load. Added null guard.
+- **Quran API error message `[object Object]`** – `Error(json.data)` stringified objects unhelpfully. Now uses `typeof` check and `JSON.stringify` fallback.
+- **City ID extraction only handled `'abu'` prefix** – Fallback in `extractCityIdFromRegionId` hardcoded `'abu'` check. Generalized to `parts.slice(2).join('-')` for any multi-word city.
+- **Surah alias false positive matches** – 3-char aliases like `'ala'`, `'hud'`, `'rum'` caused spurious search results (e.g., "balance" matching Al-Ala). Added minimum length (≥4) requirement for reverse alias matching.
+
+#### Tooltip & Animation Fixes
+
+- **`onBeforeShow` rejection permanently locked tooltip modal** – If `onBeforeShow` threw, `isAnimatingRef` stayed `true` and the tooltip became un-dismissable. Added try/catch.
+
+### Fixed (Round 6 — Creative Out-of-Box Audit)
+
+- **"Fajr (Tomorrow)" breaks next-prayer highlighting** – `nextPrayer.name` was `'Fajr (Tomorrow)'` but prayer row compared against bare `'Fajr'`, so the highlight never appeared for the final prayer period. Added `nextPrayerBaseName` with `.replace(' (Tomorrow)', '')` and a shared `isNextPrayer` variable across all 9 comparison sites in `index.tsx`.
+- **Region change doesn't clear scheduler metadata** – Changing region cancelled notifications but left stale `prayer_sched_last_day`, `prayer_sched_tz_offset`, `prayer_sched_version`, `prayer_sched_sound_pref` keys in AsyncStorage, causing the scheduler to skip rescheduling for the new region. Added `AsyncStorage.multiRemove()` in `useSettingsLocation.ts`.
+- **"Return to Today" button hidden on day +1** – Threshold was `currentDay > 1`, meaning the button didn't show when viewing tomorrow (day 1). Changed to `currentDay >= 1`.
+- **`gradientColors` useMemo froze at mount-time hour** – Previous round's `useMemo` optimization cached the gradient at the hour of first render, preventing time-of-day gradient updates. Reverted to IIFE that runs every render.
+- **Hardcoded English alerts in `useSettingsLocation`** – 5 `Alert.alert()` calls had English strings (`'No Change'`, `'Location Updated'`, etc.) that ignored the user's language setting. Replaced all with `t()` translation keys.
+- **Missing translation keys** – Added 9 new translation keys to both `en.js` and `ar.js`: `freshPrayerTimesLoaded`, `clearCachedDataConfirm`, `incompleteSelection`, `incompleteSelectionMessage`, `noChange`, `noChangeMessage`, `locationUpdated`, `locationUpdatedMessage`, `failedUpdateLocation`.
+- **`clearCache` hardcoded English alert body** – `useHomePrayerData.ts` `clearCache()` used `'Fresh prayer times loaded'` instead of `t('freshPrayerTimesLoaded')`.
+
+### Fixed (Round 5 — Ultra-Deep Concurrency, Edge Cases & Performance Audit)
+
+#### Subagent 1 — Concurrency & Async Race Conditions (9 fixes)
+
+- **`playAyah` zombie sound on error** – When `playAsync()` threw, the `catch` block left a half-initialized sound in `soundRef`. Subsequent pause attempts would restart from ayah 1. Now unloads and nullifies ref in catch.
+- **`togglePlayPause` soundRef race** – `soundRef.current` could be nullified by surah-change cleanup between `getStatusAsync()` → `pauseAsync()`. Captured into local var + re-check after await.
+- **Notification coalescing lock drops settings changes** – `ensurePrayerNotificationWindow` promise-coalescing silently swallowed concurrent calls (e.g. settings change during active run). Replaced with dirty-flag do/while loop.
+- **Background handler `setTimeout` never fires** – `onPrayerNotificationDelivered` used fire-and-forget `setTimeout` — OS killed JS context before it ran. Changed to inline `await` with 500ms settle.
+- **Timer refs overwritten without clearTimeout** – `notifScheduleTimerRef` and `innerRetryTimerRef` overwritten on rapid re-calls, orphaning old timers. Added `clearTimeout` before each overwrite.
+- **Stale `notificationsEnabled` at midnight** – `checkDayChange` interval's closure captured old value. Added `notificationsEnabledLocalRef` ref synced via `useEffect`.
+- **`Audio.setAudioModeAsync` error swallowed** – `.catch(() => {})` hid audio mode failures. Now logs error for diagnosis.
+- **InAppNotification double-dismiss race** – Timer + manual close could fire `dismiss()` twice. Added `dismissedRef` guard.
+- **AppState subscription leak** – `startPrayerNotificationWindowMaintainer` listener not removed on notification disable. Added `stopPrayerNotificationWindowMaintainer()` export.
+
+#### Subagent 2 — Time/Date Edge Cases & Data Integrity (4 fixes)
+
+- **Hijri date off by ~6 months** – `getHijriDate()` used inconsistent constants (354 vs 354.37). Fixed with consistent `daysDiff - (hijriYear - 1) * 354.37`.
+- **Stale `notificationsEnabled` in `fetchAndCachePrayerTimes`** – Missed second stale-closure usage. Changed to `notificationsEnabledLocalRef.current`.
+- **`parseInt` NaN blocks rescheduling** – Corrupted AsyncStorage → `NaN > 60000` = false → skipped silently. Added `isNaN()` guard.
+- **`timeToMinutes` NaN propagation** – Malformed time strings produced `"NaN:NaN"` in UI. Added NaN guards to both `timeToMinutes` and `minutesToTime`.
+
+#### Subagent 3 — Performance, Memory & Theme Fixes (6 fixes)
+
+- **Hardcoded hex colors in dua.tsx** – `#F5F1E6` and `#F2EEE1` in gradient bypassed theme system. Replaced with `colors.background.tertiary`.
+- **console.log in every-second hot path** – `updateNextPrayer` had 6 template-literal console.logs running every second in production. Wrapped all in `if (__DEV__)`.
+- **`preloadNextAyah` orphans Audio.Sound after surah change** – `createAsync` could resolve after surah change, assigning stale sound. Added surah-number guard after await.
+- **`playAyah` assigns stale sound after surah change** – Same class of bug for fresh-create path. Added surah guard after `createAsync`.
+- **`gradientColors` recreated every render** – Plain function call created new array on every render. Memoized with `useMemo` in `useQuranData`.
+- **console.log in useHomeAnimations** – Disabled-animations log ran in production. Wrapped in `__DEV__`.
+
+### Fixed (Round 5 Subagent 2 — Time/Date Edge Cases, Data Integrity)
+
+- **Hijri date off by ~6 months** – `getHijriDate()` in `localPrayerData.js` used `daysDiff % 354` (integer) for day-of-year but `daysDiff / 354.37` for year. The inconsistent constants caused ~174 days of cumulative drift. Replaced with `daysDiff - (hijriYear - 1) * 354.37` for consistent day-of-year.
+- **Stale `notificationsEnabled` in `fetchAndCachePrayerTimes`** – Round 5 Finding 7 fixed `clearCache` to use the ref, but `fetchAndCachePrayerTimes` (L206) still read the stale closure value. Changed to `notificationsEnabledLocalRef.current`.
+- **`parseInt` NaN silently blocks notification rescheduling** – `clearCache` did `now - parseInt(lastScheduled) > 60000` without NaN guard. Corrupted AsyncStorage value → `NaN > 60000` = false → rescheduling silently skipped. Added `isNaN()` check.
+- **`timeToMinutes` propagates NaN as `"NaN:NaN"`** – `prayerTimeTuner.js` `timeToMinutes()` returned NaN for malformed input (e.g. `"--:--"`). Added NaN guard in both `timeToMinutes` (returns NaN) and `minutesToTime` (returns `'--:--'`).
+
+## [Unreleased] - 2025-06-20
+
+### Fixed (Round 4 — Deep Production-Readiness Audit)
+
+- **Division-by-zero NaN in progress ring** – `useHomePrayerData.ts` divided `elapsedTime / totalTimeSpan` without guarding `totalTimeSpan <= 0`. If consecutive prayers had the same time after tuning, progress would be `NaN/Infinity`, corrupting `Animated.timing`. Added `> 0` guard for both prayer and iqama progress calculations.
+- **Fallback date ignores day offset** – Error fallback in `fetchPrayerTimes` used `new Date()` instead of `addDays(new Date(), currentDay)`, showing wrong date when viewing future days during an error.
+- **Region change skips notification reschedule flag** – `useSettingsLocation.ts` cancelled all notifications on region change but didn't remove `last_notification_scheduled` from AsyncStorage, causing new region to skip scheduling.
+- **Quran audio `soundRef` race condition** – `soundRef.current` was assigned after `playAsync()` / `createAsync({ shouldPlay: true })`. If `stopAudio()` was called during playback start, it operated on a stale/null ref. Moved ref assignment before `playAsync()` and changed to `shouldPlay: false` + explicit `playAsync()`.
+- **Pulse animation leak in Qibla compass** – `Animated.loop()` was never stopped on cleanup or when `isFacingQibla` toggled false. Loop animations stacked up on each re-render. Now stores loop ref and calls `loop.stop()` in cleanup.
+- **Audio helper 5s hardcoded timeout** – `audioHelper.js` used `setTimeout(5000)` to unload sound, cutting off longer azan audio. Replaced with `setOnPlaybackStatusUpdate` + `didJustFinish` for event-driven cleanup.
+- **Untracked notification schedule timeouts** – Three `setTimeout(() => scheduleNotificationsForToday(), ...)` calls in `useHomeNotifications.ts` were untracked. Added `pendingScheduleTimers` ref array with cleanup in effect return.
+- **SepiaColors hardcoded bypassing dark mode** – `RegionPicker.tsx`, `settingsStyles.ts`, and `index.tsx` used `SepiaColors` directly instead of theme `colors`, breaking dark mode. Migrated all to theme-aware `colors` prop/parameter.
+
+### Added
+
+- **Production console silencer** – Added `if (!__DEV__)` guard in `index.ts` that silences `console.log` and `console.warn` in production builds. `console.error` preserved for crash reporting.
+
+### Documentation
+
+- **Deep Round 4 audit** – Comprehensive line-by-line audit of 24+ file groups covering the full notification stack, qibla compass, contexts, RevenueCat, translations, type definitions, background tasks, and audio helper. Found 3 CRITICAL, 3 HIGH, 5 MEDIUM, 10 LOW issues. Full findings in `docs/DEEP_AUDIT_ROUND4.md`.
+
 ## [Unreleased] - 2026-02-27
+
+### Fixed (Round 3 — Deep Line-by-Line Audit)
+
+- **Stale closure in `updateNextPrayer` causing progress bar flicker** – `updateNextPrayer()` in `useHomePrayerData.ts` read `nextPrayer` from its closure, but the function was recreated each render without `useCallback`, capturing stale values. This caused unnecessary `isDifferent` detection and progress bar resets. Added `nextPrayerRef` that stays in sync with state, and `updateNextPrayer` now compares against `nextPrayerRef.current`.
+- **Dead `lastPrayerTime` state** – `lastPrayerTime` state in `useHomePrayerData.ts` was declared but `setLastPrayerTime` was never called — always `null`. Removed from state, `updateCountdown` deps array, return value, and the consumer (`index.tsx`).
+- **Duplicate translation keys in `en.js` + `ar.js`** – Four keys appeared twice (second value silently shadowing the first): `retry` (L6 vs L68), `iqamaCountdown` (L14 vs L20), `supportTitle` (L114 vs L331), `arabic` (L143 vs L168). Renamed L14 to `iqamaLabel` (compact display), renamed L114 to `supportDialogTitle` (old donation dialog), removed L68 + L168 duplicates. Updated `EnhancedCircularProgress.tsx` and `useSettingsDonation.ts` to use the new key names.
+- **`handleClearAllQuranDownloads` didn't reset UI state** – After `deleteAllQuranData()` in `useSettingsQuranPrefs.ts`, `downloadedTranslationIds` was not reset, so the UI still showed translations as "Downloaded" until app restart. Now resets to `new Set([EDITIONS.ENGLISH])`.
+- **`filteredTranslations` recomputed every render** – Was an IIFE (immediately invoked function expression) instead of `useMemo`. Wrapped in `useMemo([translationEditions, editionSearchQuery])` to avoid unnecessary recomputation.
+- **Malformed region ID with empty state/city** – `updateRegionId()` in `useSettingsLocation.ts` could produce IDs like `"AE--"` when state or city was empty. Added validation requiring all three components before saving.
+- **Debug text in production UI** – `AboutSection.tsx` displayed hardcoded "RevenueCat Status: Ready" text to all users. Removed the debug text while preserving the subscription management button.
+- **Dangling `setTimeout` for notification scheduling** – `fetchPrayerTimes()` in `useHomePrayerData.ts` called an untracked `setTimeout` for notification scheduling. If the component unmounted within 1 second, the callback would fire on an unmounted component. Added `notifScheduleTimerRef` and cleanup in the effect's return function.
+
+### Removed (Dead Files → Trash)
+
+- **`utils/simpleNotificationService.js`** – Empty/unused file, not imported anywhere.
+- **`app/safeArea.ts`** – Dead SafeArea wrapper, not imported; all code uses `react-native-safe-area-context` directly.
+- **`utils/safeAreaUtils.ts`** – Duplicate dead SafeArea utility, not imported anywhere.
+- **`widgets/widgetTaskHandler.ts`** – Empty stub, not imported by any source file.
+- **`app/components/PaywallNew.tsx`** – Dead thin wrapper around `RevenueCatPaywall`, not imported.
+- **`app/components/Paywall.tsx`** – Identical dead thin wrapper, not imported.
+
+### Documentation
+
+- **Deep 38-file UI audit** – Comprehensive line-by-line audit of all 38 UI files (`app/(tabs)/`, `app/components/`, `app/config/`, `components/`). Found 0 CRITICAL, 2 HIGH, 8 MEDIUM, 11 LOW issues. Full findings in `docs/DEEP_AUDIT_REPORT_UI.md`.
+- **Deep 32-file code audit** – Comprehensive line-by-line audit of all 32 core files (`index.ts`, `app/_layout.tsx`, all `utils/`, `lib/qibla-compass/`, `widgets/`). Found 3 CRITICAL, 5 HIGH, 6 MEDIUM, 6 LOW issues. Full findings in `docs/DEEP_AUDIT_REPORT.md`.
+- **Deep 49-file platform & infrastructure audit** – Expanded `DEEP_AUDIT_REPORT.md` with Part B covering Android Kotlin (9 files), iOS Swift (6), Config/Constants/Translations (7), Contexts (5), Types (2), Plugin & Build Config (5), Tests (15). Found 0 CRITICAL, 3 HIGH, 6 MEDIUM, 7 LOW new issues. Combined report now covers 81 files with 36 total findings.
 
 ### Added
 
@@ -49,6 +216,14 @@ All notable changes to this project will be documented in this file.
 - **FCM AuthorizationStatus magic numbers** – Replaced `=== 1` / `=== 2` with `messaging.AuthorizationStatus.AUTHORIZED` / `messaging.AuthorizationStatus.PROVISIONAL` as recommended by official docs.
 - **app.json build comment** – Fixed incorrect `extra.comment` that said "Android folder removed - EAS Build handles Android project generation". Corrected to: Android uses local Gradle build (`android/` folder exists), iOS uses EAS Build.
 - **PUSH_NOTIFICATIONS.md build process** – Updated all references from generic "EAS build for both platforms" to correctly distinguish Android (local Gradle) vs iOS (EAS Build).
+
+### Fixed (Round 2 — Deep Audit)
+
+- **prayerTimeTuner NaN propagation** – `tuningParams.split(',').map(p => parseInt(p, 10))` had no NaN guard. Corrupted AsyncStorage values (e.g. empty strings, non-numeric chars) would produce `NaN` offsets silently applied to all prayer times, yielding `"NaN:NaN"` strings. Now replaces NaN with `0` and clamps offsets to ±60 minutes.
+- **FCM token logged in production** – `console.log('🔑 FCM Token:', token)` and `console.log('🔄 FCM token refreshed:', newToken)` printed full device tokens to the system log without `__DEV__` guards. Anyone with USB access or logcat could capture tokens. Now wrapped in `if (__DEV__)`.
+- **Background push notification channel missing** – Firebase background handler in `index.ts` used `channelId: 'default'`, but the channel was only created in `_layout.tsx` useEffect. If a data-only push arrived before the app UI mounted (cold start from killed state), Android silently dropped the notification. Now creates the 'default' channel at the top level in `index.ts` before the background handler registers.
+- **Notification scheduler race condition** – `ensureInFlight` boolean guard (check-then-set) couldn't prevent concurrent scheduling if two callers arrived simultaneously (both read `false`, both set `true`, both schedule). Replaced with a Promise-based lock: the second caller awaits the first's completion instead of no-oping or duplicating work.
+- **Version numbers out of sync** – `app.json` had version `4.0.1` / versionCode `90` while `build.gradle` had versionName `4.0` / versionCode `94`. Synced both to version `4.1` / versionCode `96` / buildNumber `96`.
 
 - **Widget Settings Section** – New "Widgets" section in Settings (between Quran and About) with shortcuts to add 2×2 and 4×2 widgets to the home screen. On Android, uses native `AppWidgetManager.requestPinAppWidget()` (API 26+) via a new `WidgetPinModule.kt` native module. On iOS, shows step-by-step instructions since WidgetKit doesn't support programmatic pinning. Fully translated in EN and AR.
 - **Push Notification Research Doc** – Comprehensive analysis at `docs/PUSH_NOTIFICATIONS.md` covering provider comparison (FCM, Expo Push, OneSignal), security considerations, implementation steps, and timeline estimates. Fully verified against official Firebase docs, React Native Firebase docs, and Expo docs with source citations. Includes FCM message types (notification vs data-only vs combined), Firebase Console capabilities and limitations, Expo SDK 51+ `aps-environment` entitlement requirement, `firebase.json` configuration, Notifee v7+ interaction notes, and iOS background limitations.

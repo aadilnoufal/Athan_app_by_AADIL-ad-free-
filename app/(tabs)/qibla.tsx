@@ -135,7 +135,7 @@ export default function QiblaScreen() {
   // Pulse animation when facing Qibla
   useEffect(() => {
     if (isFacingQibla) {
-      Animated.loop(
+      const loop = Animated.loop(
         Animated.sequence([
           Animated.timing(pulseAnim, {
             toValue: 1.08,
@@ -148,7 +148,9 @@ export default function QiblaScreen() {
             useNativeDriver: true,
           }),
         ])
-      ).start();
+      );
+      loop.start();
+      return () => loop.stop();
     } else {
       pulseAnim.setValue(1);
     }

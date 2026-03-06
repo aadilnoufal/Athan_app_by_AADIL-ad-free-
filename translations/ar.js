@@ -11,7 +11,7 @@ export default {
   iqamaPrefix: 'إقامة +',
   iqamaSuffix: ' د',
   iqamaExplanation: 'أوقات الإقامة تقريبية: الفجر +25 د، الظهر +20 د، العصر +25 د، المغرب +10 د، العشاء +20 د بعد الأذان.',
-  iqamaCountdown: 'الإقامة',
+  iqamaLabel: 'الإقامة',
   iqamaIn: 'الإقامة خلال',
 
   // إعدادات إشعار الإقامة
@@ -65,7 +65,6 @@ export default {
   calibrationTip: 'معايرة البوصلة',
   calibrationDesc: 'للحصول على نتائج دقيقة، حرّك هاتفك في نمط الرقم ٨. ابتعد عن الأجسام المعدنية والأجهزة الإلكترونية.',
   recalibrate: 'إعادة المعايرة',
-  retry: 'حاول مرة أخرى',
   openSettings: 'فتح الإعدادات',
 
   // Settings screen
@@ -111,7 +110,7 @@ export default {
   supportDeveloper: 'دعم المطور',
 
   // Support dialog
-  supportTitle: 'دعم المطور',
+  supportDialogTitle: 'دعم المطور',
   supportMessage: 'شكراً لتفكيرك في التبرع للحفاظ على هذا التطبيق خالياً من الإعلانات! تبرعك سيساعد في دعم المطور ومساعدته في توسيع هذا التطبيق ليشمل بلدان أخرى وتحسينه. هذا اختياري تماماً ويمكنك استخدام التطبيق مجاناً بدون أي مشاكل.',
   maybeLater: 'ربما لاحقاً',
   oneTimeSupport: 'دعم لمرة واحدة',
@@ -143,6 +142,15 @@ export default {
   arabic: 'العربية',
   cacheCleared: 'تم مسح ذاكرة التخزين المؤقت',
   cacheMessage: 'تم تحديث بيانات أوقات الصلاة بنجاح!',
+  freshPrayerTimesLoaded: 'تم تحميل أوقات الصلاة الجديدة',
+  clearCachedDataConfirm: 'سيؤدي هذا إلى حذف ملفات الصوت المخزنة والترجمات الإضافية. النص العربي والإنجليزي المدمج سيبقى متاحاً.',
+  incompleteSelection: 'اختيار غير مكتمل',
+  incompleteSelectionMessage: 'يرجى اختيار الدولة والولاية والمدينة.',
+  noChange: 'لا يوجد تغيير',
+  noChangeMessage: 'لم تقم بتغيير موقعك.',
+  locationUpdated: 'تم تحديث الموقع',
+  locationUpdatedMessage: 'تم تحديث موقعك. ستتحدث الصفحة الرئيسية بأوقات الصلاة الجديدة.',
+  failedUpdateLocation: 'فشل في تحديث الموقع. يرجى المحاولة مرة أخرى.',
   ok: 'موافق',
   error: 'خطأ',
   failedCache: 'فشل في مسح ذاكرة التخزين المؤقت. يرجى المحاولة مرة أخرى.',
@@ -165,7 +173,6 @@ export default {
   searchMinChars: 'أدخل 3 أحرف على الأقل للبحث',
 
   // Quran reading
-  arabic: 'عربي',
   translation: 'ترجمة',
   arabicOnly: 'عربي فقط',
   arabicAndEnglish: 'عربي + إنجليزي',

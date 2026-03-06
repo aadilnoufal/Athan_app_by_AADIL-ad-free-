@@ -88,21 +88,24 @@ class WidgetDataModule(reactContext: ReactApplicationContext) : ReactContextBase
         try {
             val context = reactApplicationContext
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val editor = prefs.edit()
 
             // Update theme_mode in the top-level prefs
-            prefs.edit().putString(KEY_THEME_MODE, themeMode).apply()
+            editor.putString(KEY_THEME_MODE, themeMode)
 
-            // Also update it inside the JSON data if it exists
+            // Also update it inside the JSON data if it exists (single atomic write)
             val existingData = prefs.getString(KEY_WIDGET_DATA, null)
             if (existingData != null) {
                 try {
                     val json = org.json.JSONObject(existingData)
                     json.put("themeMode", themeMode)
-                    prefs.edit().putString(KEY_WIDGET_DATA, json.toString()).apply()
+                    editor.putString(KEY_WIDGET_DATA, json.toString())
                 } catch (e: Exception) {
                     // JSON parsing failed — just keep theme_mode updated separately
                 }
             }
+
+            editor.apply()
 
             refreshWidgets(context)
             promise.resolve(true)

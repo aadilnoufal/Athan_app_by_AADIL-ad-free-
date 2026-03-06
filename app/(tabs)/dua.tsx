@@ -101,9 +101,9 @@ export default function DuaScreen() {
     } else if (hour >= 15 && hour < 18) {
       return [colors.background.secondary, colors.background.tertiary, colors.surface.secondary];
     } else if (hour >= 18 && hour < 20) {
-      return [colors.background.tertiary, colors.surface.secondary, '#F5F1E6'];
+      return [colors.background.tertiary, colors.surface.secondary, colors.background.tertiary];
     } else {
-      return [colors.surface.secondary, colors.surface.secondary, '#F2EEE1'];
+      return [colors.surface.secondary, colors.surface.secondary, colors.background.tertiary];
     }
   };
   const gradientColors: [string, string, string] = isDark

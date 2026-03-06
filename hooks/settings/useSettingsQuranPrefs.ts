@@ -5,7 +5,7 @@
  * for the Settings screen. This isolates Quran preferences from notification/
  * location/donation concerns, making each easier to debug and test.
  */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Alert } from 'react-native';
 import {
   getEditionPref,
@@ -151,6 +151,8 @@ export function useSettingsQuranPrefs(t: TFunc) {
           style: 'destructive',
           onPress: async () => {
             await deleteAllQuranData();
+            // Reset downloaded IDs back to default (bundled English always available)
+            setDownloadedTranslationIds(new Set([EDITIONS.ENGLISH]));
             Alert.alert(t('deleteAllSuccess'));
           },
         },
@@ -216,7 +218,7 @@ export function useSettingsQuranPrefs(t: TFunc) {
 
   // ── Derived data ─────────────────────────────────────────────────────
 
-  const filteredTranslations = (() => {
+  const filteredTranslations = useMemo(() => {
     let list = translationEditions.filter((ed) => {
       if (!editionSearchQuery) return true;
       const q = editionSearchQuery.toLowerCase();
@@ -238,7 +240,7 @@ export function useSettingsQuranPrefs(t: TFunc) {
     }
 
     return list;
-  })();
+  }, [translationEditions, editionSearchQuery]);
 
   // ── Public API ───────────────────────────────────────────────────────
   return {

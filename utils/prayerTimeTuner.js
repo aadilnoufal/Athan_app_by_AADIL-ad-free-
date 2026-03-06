@@ -13,6 +13,7 @@ const debugLog = (...args) => { if (DEBUG_TUNER) console.log(...args); };
  */
 function timeToMinutes(timeStr) {
   const [hours, minutes] = timeStr.split(':').map(Number);
+  if (isNaN(hours) || isNaN(minutes)) return NaN;
   return hours * 60 + minutes;
 }
 
@@ -22,6 +23,8 @@ function timeToMinutes(timeStr) {
  * @returns {string} Time string in format "HH:MM"
  */
 function minutesToTime(minutes) {
+  // Guard: return placeholder if input is NaN (e.g. from corrupted time string)
+  if (isNaN(minutes)) return '--:--';
   // Wrap-around to handle negative values or values exceeding 24h
   const wrapped = ((minutes % 1440) + 1440) % 1440;
   const hours = Math.floor(wrapped / 60);
@@ -31,9 +34,9 @@ function minutesToTime(minutes) {
 
 /**
  * Apply tuning parameters to prayer times
- * @param {Object} times - Prayer times object with times in "HH:MM" format
+ * @param {Record<string, string>} times - Prayer times object with times in "HH:MM" format
  * @param {string} tuningParams - Comma-separated tuning parameters
- * @returns {Object} Adjusted prayer times object
+ * @returns {Record<string, string>} Adjusted prayer times object
  */
 export function applyTuningParameters(times, tuningParams) {
   // If no tuning parameters, return original times
@@ -41,8 +44,13 @@ export function applyTuningParameters(times, tuningParams) {
     return { ...times };
   }
 
-  // Parse the tuning parameters
-  const params = tuningParams.split(',').map(p => parseInt(p, 10));
+  // Parse the tuning parameters (protect against NaN from corrupted storage)
+  const params = tuningParams.split(',').map(p => {
+    const n = parseInt(p, 10);
+    // Clamp to ±60 minutes; treat NaN as 0
+    if (isNaN(n)) return 0;
+    return Math.max(-60, Math.min(60, n));
+  });
   
   // Default to 0 for any missing parameters
   while (params.length < 9) {
@@ -106,10 +114,10 @@ export function applyTuningParametersToBatch(timesBatch, tuningParams) {
  * Apply city-specific adjustments to local prayer times data
  * This function applies specific minute adjustments based on the city
  * and only when using local CSV data (not API data)
- * @param {Object} times - Prayer times object with times in "HH:MM" format
+ * @param {Record<string, string>} times - Prayer times object with times in "HH:MM" format
  * @param {string} cityId - The city ID (e.g., 'doha', 'abu-samra', 'dukhan', 'alshamal')
  * @param {boolean} isLocalData - Whether this is local CSV data (true) or API data (false)
- * @returns {Object} Adjusted prayer times object
+ * @returns {Record<string, string>} Adjusted prayer times object
  */
 export function applyLocalDataCityAdjustments(times, cityId, isLocalData = false) {
   debugLog(`applyLocalDataCityAdjustments called with cityId: ${cityId}, isLocalData: ${isLocalData}`);
@@ -201,13 +209,15 @@ export function extractCityIdFromRegionId(regionId) {
     return cityId;
   }
   
-  // Fallback: Split by dashes and get the last part(s)
+  // Fallback: Split by dashes and extract city ID
+  // e.g. 'qatar-qatar-abu-samra' → 'abu-samra'
+  // e.g. 'qatar-qatar-al-khor' → 'al-khor'
   const parts = regionId.split('-');
   let cityId;
   
-  // Special handling for multi-word cities like 'abu-samra'
-  if (parts.length >= 3 && parts[parts.length - 2] === 'abu') {
-    cityId = `${parts[parts.length - 2]}-${parts[parts.length - 1]}`;
+  // Join everything after country-state as the city ID
+  if (parts.length >= 3) {
+    cityId = parts.slice(2).join('-');
   } else {
     cityId = parts[parts.length - 1] || 'doha';
   }

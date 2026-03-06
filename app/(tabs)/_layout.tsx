@@ -3,7 +3,6 @@ import { useColorScheme, View, Dimensions, StyleSheet } from 'react-native';
 import { FontAwesome, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useEffect, useState } from 'react';
-import { SepiaColors } from '../../constants/sepiaColors';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 
@@ -171,7 +170,7 @@ function TabBarIcon(props: {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: SepiaColors.background.primary, // Match background color to avoid visual gaps
+    backgroundColor: 'transparent', // Actual color set via inline style from theme
     paddingBottom: 0, // Let the tab bar handle its own positioning
   }
 });

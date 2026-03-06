@@ -49,12 +49,9 @@ export const AboutSection: React.FC<AboutSectionProps> = ({
           <Text style={styles.enhancedSupportButtonText}>{t('supportDeveloper')}</Text>
         </MagicalButton>
 
-        {/* RevenueCat management (production-safe) for iOS and Android */}
+        {/* Subscription management for iOS and Android */}
         {(Platform.OS === 'ios' || Platform.OS === 'android') && (
           <View style={{ marginTop: 16, padding: 12, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 12 }}>
-            <Text style={{ color: C.text.secondary, fontSize: 12, textAlign: 'center', marginBottom: 8 }}>
-              RevenueCat Status: Ready
-            </Text>
             <TouchableOpacity
               style={[styles.enhancedTestButton, { backgroundColor: '#333' }]}
               onPress={() => Linking.openURL(

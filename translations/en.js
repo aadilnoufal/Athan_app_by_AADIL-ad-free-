@@ -11,7 +11,7 @@ export default {
   iqamaPrefix: 'Iqama +',
   iqamaSuffix: ' min',
   iqamaExplanation: 'Iqama times are approximate: Fajr +25 min, Dhuhr +20 min, Asr +25 min, Maghrib +10 min, Isha +20 min after Adhan.',
-  iqamaCountdown: 'Iqama',
+  iqamaLabel: 'Iqama',
   iqamaIn: 'Iqama in',
 
   // Iqama notification settings
@@ -65,7 +65,6 @@ export default {
   calibrationTip: 'Calibrate Your Compass',
   calibrationDesc: 'For accurate results, move your phone in a figure-8 pattern. Keep away from magnetic objects and electronic devices.',
   recalibrate: 'Recalibrate',
-  retry: 'Try Again',
   openSettings: 'Open Settings',
 
   // Settings screen
@@ -111,7 +110,7 @@ export default {
   supportDeveloper: 'Support Developer',
 
   // Support dialog
-  supportTitle: 'Support the Developer',
+  supportDialogTitle: 'Support the Developer',
   supportMessage: 'Thank you for considering a donation to keep this app ad-free! Your donation will help support the developer and to help him expand this app to other countries and make it better. This is completely optional and you can use the app for free without any issues.',
   maybeLater: 'Maybe Later',
   oneTimeSupport: 'One-Time Support',
@@ -143,6 +142,15 @@ export default {
   arabic: 'Arabic',
   cacheCleared: 'Cache Cleared',
   cacheMessage: 'Prayer times data has been refreshed successfully!',
+  freshPrayerTimesLoaded: 'Fresh prayer times loaded',
+  clearCachedDataConfirm: 'This will remove cached audio files and extra translations. Bundled Arabic + English text will remain available.',
+  incompleteSelection: 'Incomplete Selection',
+  incompleteSelectionMessage: 'Please select a country, state, and city.',
+  noChange: 'No Change',
+  noChangeMessage: "You haven't changed your location.",
+  locationUpdated: 'Location Updated',
+  locationUpdatedMessage: 'Your location has been updated. The home page will refresh with new prayer times.',
+  failedUpdateLocation: 'Failed to update location. Please try again.',
   ok: 'OK',
   error: 'Error',
   failedCache: 'Failed to clear cache. Please try again.',
@@ -165,7 +173,6 @@ export default {
   searchMinChars: 'Enter at least 3 characters to search',
 
   // Quran reading
-  arabic: 'Arabic',
   translation: 'Translation',
   arabicOnly: 'Arabic Only',
   arabicAndEnglish: 'Arabic + English', arabicAndTranslation: 'Arabic + Translation',

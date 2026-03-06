@@ -2,7 +2,7 @@
   "expo": {
     "name": "Prayer Times by AADIL",
     "slug": "prayer-times",
-    "version": "4.0.1",
+    "version": "4.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "userInterfaceStyle": "dark",
@@ -19,7 +19,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.aadilnoufal.prayertimes",
       "googleServicesFile": "./GoogleService-Info.plist",
-      "buildNumber": "95",
+      "buildNumber": "96",
       "entitlements": {
         "aps-environment": "production"
       },
@@ -39,7 +39,7 @@
       },
       "googleServicesFile": "./google-services.json",
       "package": "com.yourcompany.prayertimes",
-      "versionCode": 90,
+      "versionCode": 96,
       "permissions": [
         "RECEIVE_BOOT_COMPLETED",
         "SCHEDULE_EXACT_ALARM",

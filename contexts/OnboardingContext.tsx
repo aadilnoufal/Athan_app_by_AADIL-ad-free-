@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ── Storage keys ──────────────────────────────────────
@@ -135,13 +135,13 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
     }
   }, []);
 
-  const value: OnboardingContextValue = {
+  const value: OnboardingContextValue = useMemo(() => ({
     ...state,
     completeWelcome,
     completeTooltip,
     shouldShowTooltip,
     resetOnboarding,
-  };
+  }), [state, completeWelcome, completeTooltip, shouldShowTooltip, resetOnboarding]);
 
   return (
     <OnboardingContext.Provider value={value}>

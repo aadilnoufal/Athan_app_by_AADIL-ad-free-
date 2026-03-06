@@ -373,8 +373,10 @@ const PRAYER_TIMES_CSV = `Date,Fajr,Sunrise,Dhuhr,Asr,Maghrib,Isha
 // Helper function to convert time to PM if needed (add 12 hours)
 const convertToPMIfNeeded = (timeStr, shouldConvertToPM) => {
   if (!shouldConvertToPM) return timeStr;
+  if (!timeStr) return '--:--';
   
   const [hours, minutes] = timeStr.split(':').map(Number);
+  if (isNaN(hours) || isNaN(minutes)) return timeStr;
   // If hours is less than 12, add 12 to make it PM
   if (hours < 12) {
     const pmHours = hours + 12;
@@ -412,7 +414,9 @@ const PRAYER_DATA_MAP = parseCSVData();
 
 // Helper function to convert 24h to 12h format
 const convertTo12HourFormat = (timeStr) => {
+  if (!timeStr || timeStr === '--:--') return timeStr || '--:--';
   const [hours, minutes] = timeStr.split(':').map(Number);
+  if (isNaN(hours) || isNaN(minutes)) return timeStr || '--:--';
   const period = hours >= 12 ? 'PM' : 'AM';
   const hours12 = hours % 12 || 12; // Convert 0 to 12
   return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`;
@@ -443,9 +447,10 @@ const getHijriDate = (gregorianDate) => {
   const HIJRI_EPOCH_MS = -42521846400000; // new Date('0622-07-16T00:00:00Z').getTime()
   const daysDiff = Math.floor((gregorianDate.getTime() - HIJRI_EPOCH_MS) / (1000 * 60 * 60 * 24));
   const hijriYear = Math.floor(daysDiff / 354.37) + 1; // Approximate Hijri year
-  const hijriDayOfYear = daysDiff % 354;
+  // Use consistent 354.37 constant for day-of-year (not integer 354) to avoid multi-month drift
+  const hijriDayOfYear = Math.max(0, Math.floor(daysDiff - (hijriYear - 1) * 354.37));
   const hijriMonth = Math.floor(hijriDayOfYear / 29.5) + 1;
-  const hijriDay = (hijriDayOfYear % 29) + 1;
+  const hijriDay = Math.floor(hijriDayOfYear - (hijriMonth - 1) * 29.5) + 1;
   
   const hijriMonths = [
     'Muharram', 'Safar', 'Rabi\' al-awwal', 'Rabi\' al-thani',

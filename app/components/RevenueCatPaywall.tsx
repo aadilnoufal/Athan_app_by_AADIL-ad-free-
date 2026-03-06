@@ -174,7 +174,10 @@ const RevenueCatPaywall: React.FC<RevenueCatPaywallProps> = ({ onClose }) => {
           </TouchableOpacity>
         ))}
 
-        {products.map((p) => (
+        {/* Show direct products only if not already in packages (avoid duplicates) */}
+        {products
+          .filter((p) => !packages.some((pkg) => pkg.product.identifier === p.identifier))
+          .map((p) => (
           <TouchableOpacity
             key={p.identifier}
             style={[s.row, { backgroundColor: surface, borderColor: gt(0.12) }, isPurchasing && s.disabled]}

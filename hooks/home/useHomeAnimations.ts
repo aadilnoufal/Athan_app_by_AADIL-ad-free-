@@ -29,7 +29,7 @@ export function useHomeAnimations(colors: any, isDark: boolean) {
   // ✨ MAGICAL ANIMATIONS SETUP ✨
   useEffect(() => {
     // TEMPORARILY DISABLED - All magical animations commented out to fix driver conflicts
-    console.log('🚫 Magical animations temporarily disabled to fix driver conflicts');
+    if (__DEV__) console.log('🚫 Magical animations temporarily disabled to fix driver conflicts');
   }, []);
 
   // Time-based gradient colors for dynamic backgrounds

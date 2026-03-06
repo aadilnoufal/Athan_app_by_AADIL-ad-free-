@@ -49,9 +49,17 @@ android/app/debug.keystore
 /*.aab
 app-release*.aab
 
+# Firebase config files (contain API keys - ok in APK but not in public repos)
+google-services.json
+GoogleService-Info.plist
+firebase_push_notif_docs/
+
 # Firebase Admin SDK service account keys (NEVER commit these!)
 *firebase-adminsdk*.json
 scripts/send-push.py
 
 # Python virtual environment
 .venv/
+
+# Admin dashboard (local push notification command center)
+admin-dashboard/

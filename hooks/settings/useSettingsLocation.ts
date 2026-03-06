@@ -20,14 +20,14 @@ import {
   parseRegionId,
 } from '../../app/config/prayerTimeConfig';
 import { updateCountryTopic } from '../../utils/pushNotifications';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 interface UseSettingsLocationOptions {
   /** Expo Router push — used to navigate home after a location update */
   navigateHome: () => void;
 }
 
-export function useSettingsLocation({ navigateHome }: UseSettingsLocationOptions) {
-  // ── State ────────────────────────────────────────────────────────────
+export function useSettingsLocation({ navigateHome }: UseSettingsLocationOptions) {  const { t } = useLanguage();  // ── State ────────────────────────────────────────────────────────────
   const [regionId, setRegionId] = useState(DEFAULT_REGION);
   const [selectedCountry, setSelectedCountry] = useState('');
   const [selectedState, setSelectedState] = useState('');
@@ -99,10 +99,16 @@ export function useSettingsLocation({ navigateHome }: UseSettingsLocationOptions
 
   const updateRegionId = async () => {
     try {
+      // Validate that all location components are selected
+      if (!selectedCountry || !selectedState || !selectedCity) {
+        Alert.alert(t('incompleteSelection'), t('incompleteSelectionMessage'), [{ text: t('ok') }]);
+        return;
+      }
+
       const newRegionId = `${selectedCountry}-${selectedState}-${selectedCity}`;
 
       if (newRegionId === regionId) {
-        Alert.alert('No Change', "You haven't changed your location.", [{ text: 'OK' }]);
+        Alert.alert(t('noChange'), t('noChangeMessage'), [{ text: t('ok') }]);
         return;
       }
 
@@ -111,6 +117,15 @@ export function useSettingsLocation({ navigateHome }: UseSettingsLocationOptions
 
       // Cancel ALL existing notifications so they can be rescheduled for the new location
       await notifee.cancelAllNotifications();
+      // Clear the scheduling flag so notifications will be rescheduled for the new region
+      await AsyncStorage.removeItem('last_notification_scheduled');
+      // Clear scheduler metadata to prevent stale-city race with in-flight scheduling
+      await AsyncStorage.multiRemove([
+        'prayer_sched_last_day',
+        'prayer_sched_tz_offset',
+        'prayer_sched_version',
+        'prayer_sched_sound_pref',
+      ]);
       console.log('Cancelled all scheduled notifications during region change');
 
       // Update FCM country topic subscription in case the country changed
@@ -133,11 +148,11 @@ export function useSettingsLocation({ navigateHome }: UseSettingsLocationOptions
       }
 
       Alert.alert(
-        'Location Updated',
-        'Your location has been updated. The home page will refresh with new prayer times.',
+        t('locationUpdated'),
+        t('locationUpdatedMessage'),
         [
           {
-            text: 'OK',
+            text: t('ok'),
             onPress: () => navigateHome(),
           },
         ],
@@ -145,7 +160,7 @@ export function useSettingsLocation({ navigateHome }: UseSettingsLocationOptions
       );
     } catch (error) {
       console.error('Error updating region:', error);
-      Alert.alert('Error', 'Failed to update location. Please try again.', [{ text: 'OK' }]);
+      Alert.alert(t('error'), t('failedUpdateLocation'), [{ text: t('ok') }]);
     }
   };
 

@@ -92,7 +92,10 @@ async function apiFetch<T>(path: string): Promise<T> {
         }
         const json = await res.json();
         if (json.code !== 200 || json.status !== 'OK') {
-            throw new Error(json.data ?? `Quran API returned status ${json.status}`);
+            const errMsg = typeof json.data === 'string'
+                ? json.data
+                : (json.data ? JSON.stringify(json.data) : `Quran API returned status ${json.status}`);
+            throw new Error(errMsg);
         }
         return json.data as T;
     } finally {

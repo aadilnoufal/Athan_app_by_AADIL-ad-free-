@@ -68,8 +68,12 @@ export default function OnboardingTooltips({
   // Animate in when index changes, calling onBeforeShow first
   useEffect(() => {
     const show = async () => {
-      if (onBeforeShow) {
-        await onBeforeShow(currentIndex);
+      try {
+        if (onBeforeShow) {
+          await onBeforeShow(currentIndex);
+        }
+      } catch (e) {
+        if (__DEV__) console.warn('[OnboardingTooltips] onBeforeShow failed:', e);
       }
       fadeAnim.setValue(0);
       scaleAnim.setValue(0.85);

@@ -94,23 +94,23 @@ export function useQuranData(): UseQuranDataReturn {
     useEffect(() => { currentSurahArInternalRef.current = currentSurahAr; }, [currentSurahAr]);
 
     // ── Theme derivations ────────────────────────────────────────
-    const getTimeBasedGradient = (): [string, string, string] => {
+    // Not memoized — depends on getHours() which changes with time, and the
+    // computation is trivial (a few if/else comparisons).
+    const gradientColors: [string, string, string] = (() => {
+        if (isDark) return [colors.background.primary, colors.background.secondary, colors.surface.primary] as [string, string, string];
         const hour = new Date().getHours();
         if (hour >= 5 && hour < 7)
-            return [colors.background.primary, colors.background.secondary, colors.surface.secondary];
+            return [colors.background.primary, colors.background.secondary, colors.surface.secondary] as [string, string, string];
         if (hour >= 7 && hour < 12)
-            return [colors.background.primary, colors.surface.elevated, colors.background.tertiary];
+            return [colors.background.primary, colors.surface.elevated, colors.background.tertiary] as [string, string, string];
         if (hour >= 12 && hour < 15)
-            return [colors.surface.elevated, colors.background.secondary, colors.surface.secondary];
+            return [colors.surface.elevated, colors.background.secondary, colors.surface.secondary] as [string, string, string];
         if (hour >= 15 && hour < 18)
-            return [colors.background.secondary, colors.background.tertiary, colors.surface.secondary];
+            return [colors.background.secondary, colors.background.tertiary, colors.surface.secondary] as [string, string, string];
         if (hour >= 18 && hour < 20)
-            return [colors.background.tertiary, colors.surface.secondary, colors.background.tertiary];
-        return [colors.surface.secondary, colors.background.tertiary, colors.surface.secondary];
-    };
-    const gradientColors: [string, string, string] = isDark
-        ? [colors.background.primary, colors.background.secondary, colors.surface.primary]
-        : getTimeBasedGradient();
+            return [colors.background.tertiary, colors.surface.secondary, colors.background.tertiary] as [string, string, string];
+        return [colors.surface.secondary, colors.background.tertiary, colors.surface.secondary] as [string, string, string];
+    })();
 
     const goldTint = (opacity: number) => centralGoldTint(opacity, colors);
     const cardBg = isDark ? 'rgba(255,255,255,0.038)' : colors.background.secondary;
@@ -160,7 +160,10 @@ export function useQuranData(): UseQuranDataReturn {
 
         const aliasHits = new Set<number>();
         for (const [alias, numbers] of Object.entries(SURAH_ALIASES)) {
-            if (alias.includes(q) || q.includes(alias)) {
+            // Forward: alias contains query (user typed partial alias name)
+            // Reverse: query contains alias, but only for aliases >= 4 chars
+            //          to avoid short-alias false positives (e.g. "balance" matching "ala")
+            if (alias.includes(q) || (alias.length >= 4 && q.includes(alias))) {
                 numbers.forEach(n => aliasHits.add(n));
             }
         }

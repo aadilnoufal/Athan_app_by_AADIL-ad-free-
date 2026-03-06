@@ -6,7 +6,6 @@
  */
 import { StyleSheet, StatusBar, Platform } from 'react-native';
 import { goldTint, withAlpha } from '../../../utils/colorHelpers';
-import { SepiaColors } from '../../../constants/sepiaColors';
 
 /**
  * Factory to create theme-aware styles so dark mode updates instantly.
@@ -654,7 +653,7 @@ export const createSettingsStyles = (colors: any, isDark: boolean) => {
       paddingVertical: 4,
     },
     locationValue: {
-      color: SepiaColors.accent.gold,
+      color: colors.accent.gold,
       fontSize: 15, // Reduced from 16
       fontWeight: '700', // Increased from 600
       marginRight: 6, // Reduced from 8
@@ -743,7 +742,7 @@ export const createSettingsStyles = (colors: any, isDark: boolean) => {
     supportButton: {
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: SepiaColors.accent.gold,
+      backgroundColor: colors.accent.gold,
       paddingHorizontal: 18, // Reduced from 20
       paddingVertical: 10, // Reduced from 12
       borderRadius: 20, // Reduced from 24
@@ -775,7 +774,7 @@ export const createSettingsStyles = (colors: any, isDark: boolean) => {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: SepiaColors.accent.gold,
+      backgroundColor: colors.accent.gold,
       paddingHorizontal: 14, // Reduced from 16
       paddingVertical: 8, // Reduced from 10
       borderRadius: 20, // Reduced from 24
@@ -812,7 +811,7 @@ export const createSettingsStyles = (colors: any, isDark: boolean) => {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: SepiaColors.accent.gold,
+      backgroundColor: colors.accent.gold,
       paddingHorizontal: 14, // Reduced from 16
       paddingVertical: 8, // Reduced from 10
       borderRadius: 20, // Reduced from 24

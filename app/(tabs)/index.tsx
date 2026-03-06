@@ -23,7 +23,6 @@ import { Stack, useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { getRegionConfig, DEFAULT_REGION } from '../config/prayerTimeConfig';
 import { useLanguage } from '../../contexts/LanguageContext';
-import { SepiaColors } from '../../constants/sepiaColors';
 import { useTheme } from '../../contexts/ThemeContext';
 import { goldTint } from '../../utils/colorHelpers';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -52,7 +51,7 @@ const { width: screenWidth } = Dimensions.get('window');
 export default function Home() {
   // Theme integration (phase 1)
   const { colors, isDark } = useTheme();
-  // Shorthand alias used during gradual migration from static SepiaColors styles
+  // Shorthand alias for theme colors
   const C = colors;
   // Theme-aware gold tint helper
   const gt = (alpha: number) => goldTint(alpha, colors);
@@ -96,7 +95,7 @@ export default function Home() {
     prayerTimes, setPrayerTimes, currentDate, setCurrentDate,
     loading, setLoading, currentDay, setCurrentDay,
     nextPrayer, setNextPrayer, countdown, setCountdown,
-    countdownLoading, lastPrayerTime, refreshing,
+    countdownLoading, refreshing,
     progressAnimation, progressPercent, lastRefreshDate, setLastRefreshDate,
     countdownMode, iqamaPrayerName,
     convertTo12HourFormat, fetchPrayerTimes, fetchAndCachePrayerTimes,
@@ -129,6 +128,14 @@ export default function Home() {
   });
 
   // Region change detection on screen focus
+  // Use refs for prayerTimes/loading so the callback identity only
+  // changes when regionId changes (prevents unnecessary re-invocations
+  // of useFocusEffect while the screen is focused).
+  const prayerTimesRef = useRef(prayerTimes);
+  prayerTimesRef.current = prayerTimes;
+  const loadingRef = useRef(loading);
+  loadingRef.current = loading;
+
   useFocusEffect(
     useCallback(() => {
       const checkForRegionChanges = async () => {
@@ -137,20 +144,20 @@ export default function Home() {
         if (regionToUse !== regionId) {
           await loadRegionConfig();
         } else {
-          if (prayerTimes) setLoading(false);
+          if (prayerTimesRef.current) setLoading(false);
         }
       };
       checkForRegionChanges();
 
       // Safety timeout: if still loading after 5s but data exists, clear loading
       const loadingTimeout = setTimeout(() => {
-        if (loading && prayerTimes) {
+        if (loadingRef.current && prayerTimesRef.current) {
           setLoading(false);
         }
       }, 5000);
 
       return () => clearTimeout(loadingTimeout);
-    }, [regionId, prayerTimes, loading])
+    }, [regionId])
   );
 
   // Modal management
@@ -279,16 +286,16 @@ export default function Home() {
 
   // Render the UI
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: isDark ? colors.background.primary : SepiaColors.background.primary }]} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background.primary }]} edges={['top', 'left', 'right']}>
       {Platform.OS === 'android' ? (
         <View style={{
           height: StatusBar.currentHeight || 20,
-          backgroundColor: isDark ? colors.background.primary : SepiaColors.background.primary
+          backgroundColor: colors.background.primary
         }} />
       ) : (
         <StatusBar
           barStyle={isDark ? 'light-content' : 'dark-content'}
-          backgroundColor={isDark ? colors.background.primary : SepiaColors.background.primary}
+          backgroundColor={colors.background.primary}
         />
       )}
 
@@ -313,6 +320,7 @@ export default function Home() {
         {/* Region Picker Modal */}
         <RegionPicker
           styles={styles}
+          colors={colors}
           t={t}
           showRegionPicker={showRegionPicker}
           setShowRegionPicker={setShowRegionPicker}
@@ -351,11 +359,11 @@ export default function Home() {
               router.push('/settings');
             }}
             disabled={regionChanging}
-            glowColor={SepiaColors.accent.amber}
+            glowColor={colors.accent.amber}
             {...mbShared}
           >
             <View style={styles.locationIconWrapper}>
-              <MaterialCommunityIcons name="map-marker" size={20} color={SepiaColors.accent.gold} />
+              <MaterialCommunityIcons name="map-marker" size={20} color={colors.accent.gold} />
             </View>
             <View style={styles.locationTextWrapper}>
               <Text style={styles.locationLabel}>{t('location')}</Text>
@@ -365,9 +373,9 @@ export default function Home() {
             </View>
             <View style={styles.locationActionWrapper}>
               {regionChanging ? (
-                <ActivityIndicator size="small" color={SepiaColors.accent.gold} />
+                <ActivityIndicator size="small" color={colors.accent.gold} />
               ) : (
-                <MaterialCommunityIcons name="chevron-right" size={20} color={SepiaColors.accent.gold} />
+                <MaterialCommunityIcons name="chevron-right" size={20} color={colors.accent.gold} />
               )}
             </View>
           </MagicalButton>
@@ -385,13 +393,13 @@ export default function Home() {
             </View>
             <MagicalArrowButton direction="right" onPress={goToNextDay} disabled={currentDay === 9} iconName="chevron-right" arrowBounceAnimation={arrowBounceAnimation} breathingAnimation={breathingAnimation} navButtonStyle={styles.navButton} mbShared={mbShared} />
           </View>
-          {currentDay > 1 && (
+          {currentDay >= 1 && (
             <TouchableOpacity
               style={styles.returnToTodayButton}
               onPress={goToToday}
               activeOpacity={0.7}
             >
-              <MaterialCommunityIcons name="calendar-today" size={14} color={SepiaColors.accent.gold} />
+              <MaterialCommunityIcons name="calendar-today" size={14} color={colors.accent.gold} />
               <Text style={styles.returnToTodayText}>{t('returnToToday')}</Text>
             </TouchableOpacity>
           )}
@@ -402,7 +410,7 @@ export default function Home() {
           {loading || regionChanging ? (
             <View style={styles.enhancedLoadingContainer}>
               <View style={styles.loadingIconWrapper}>
-                <ActivityIndicator size="large" color={SepiaColors.accent.gold} />
+                <ActivityIndicator size="large" color={colors.accent.gold} />
               </View>
               <Text style={styles.enhancedLoadingText}>
                 {regionChanging ? 'Loading prayer times for new location...' : t('loading')}
@@ -448,19 +456,23 @@ export default function Home() {
                       <MaterialCommunityIcons
                         name="clock-outline"
                         size={20}
-                        color={SepiaColors.accent.gold}
+                        color={colors.accent.gold}
                       />
                     </Animated.View>
                     <Text style={styles.timesHeaderText}>{t('prayerTimes')}</Text>
                   </View>
 
                   <View style={styles.prayerTimesGrid}>
-                    {Object.entries(prayerTimes.times).map(([prayer, time], index) => (
+                    {Object.entries(prayerTimes.times).map(([prayer, time], index) => {
+                      // Strip " (Tomorrow)" suffix so "Fajr (Tomorrow)" still highlights the Fajr row
+                      const nextPrayerBaseName = nextPrayer?.name?.replace(' (Tomorrow)', '') ?? '';
+                      const isNextPrayer = nextPrayerBaseName === prayer && currentDay === 0;
+                      return (
                       <Animated.View
                         key={prayer}
                         style={[
                           styles.enhancedPrayerItem,
-                          nextPrayer && nextPrayer.name === prayer && currentDay === 0
+                          nextPrayer && isNextPrayer
                             ? styles.enhancedNextPrayerItem
                             : null,
                           {
@@ -474,12 +486,12 @@ export default function Home() {
                         ]}
                       >
                         {/* Magical glow effect for next prayer */}
-                        {nextPrayer && nextPrayer.name === prayer && currentDay === 0 && (
+                        {nextPrayer && isNextPrayer && (
                           <Animated.View
                             style={[
                               StyleSheet.absoluteFillObject,
                               {
-                                backgroundColor: SepiaColors.accent.gold,
+                                backgroundColor: colors.accent.gold,
                                 opacity: shimmerAnimation.interpolate({
                                   inputRange: [0, 0.5, 1],
                                   outputRange: [0.05, 0.15, 0.05],
@@ -494,23 +506,23 @@ export default function Home() {
                         <View style={styles.prayerItemHeader}>
                           <View style={[
                             styles.enhancedIconContainer,
-                            nextPrayer && nextPrayer.name === prayer && currentDay === 0 && styles.activeEnhancedIconContainer
+                            nextPrayer && isNextPrayer && styles.activeEnhancedIconContainer
                           ]}>
                             <AnimatedPrayerIcon
                               prayer={prayer}
-                              active={!!(nextPrayer && nextPrayer.name === prayer && currentDay === 0)}
+                              active={!!(nextPrayer && isNextPrayer)}
                               size={24}
                               color={
-                                nextPrayer && nextPrayer.name === prayer && currentDay === 0
-                                  ? SepiaColors.accent.darkGold
-                                  : SepiaColors.accent.gold
+                                nextPrayer && isNextPrayer
+                                  ? colors.accent.darkGold
+                                  : colors.accent.gold
                               }
                             />
                           </View>
                           <Text style={[
                             styles.enhancedPrayerName,
                             // Apply active style for next prayer
-                            nextPrayer && nextPrayer.name === prayer && currentDay === 0 && styles.activeEnhancedPrayerName,
+                            nextPrayer && isNextPrayer && styles.activeEnhancedPrayerName,
                             // Dark mode accessibility: ensure strong contrast
                             isDark && { color: C.text.primary }
                           ]}>
@@ -521,24 +533,25 @@ export default function Home() {
                         <View style={styles.prayerTimeWrapper}>
                           <Text style={[
                             styles.enhancedPrayerTime,
-                            nextPrayer && nextPrayer.name === prayer && currentDay === 0 && styles.activeEnhancedPrayerTime,
-                            isDark && { color: nextPrayer && nextPrayer.name === prayer && currentDay === 0 ? C.accent.amber : C.text.secondary }
+                            nextPrayer && isNextPrayer && styles.activeEnhancedPrayerTime,
+                            isDark && { color: nextPrayer && isNextPrayer ? C.accent.amber : C.text.secondary }
                           ]}>
                             {prayerTimes.times12h ? prayerTimes.times12h[prayer] : convertTo12HourFormat(time)}
                           </Text>
-                          {nextPrayer && nextPrayer.name === prayer && currentDay === 0 && (
+                          {nextPrayer && isNextPrayer && (
                             <View style={styles.nextIndicator}>
                               <MaterialCommunityIcons
                                 name="clock-fast"
                                 size={12}
-                                color={SepiaColors.accent.darkGold}
+                                color={colors.accent.darkGold}
                               />
                               <Text style={styles.nextIndicatorText}>{t('next')}</Text>
                             </View>
                           )}
                         </View>
                       </Animated.View>
-                    ))}
+                    );
+                    })}
                   </View>
                 </View>
               )}

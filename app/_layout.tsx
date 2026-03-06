@@ -1,9 +1,8 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useColorScheme, Platform } from 'react-native';
 import notifee from '@notifee/react-native';
 import { useEffect, useState, useRef } from "react";
-import { View, Text, StyleSheet, Animated, TouchableOpacity, Vibration } from "react-native";
+import { Platform, View, Text, StyleSheet, Animated, TouchableOpacity, Vibration } from "react-native";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { playPrayerSound, preloadSounds, unloadSounds } from '../utils/audioHelper';
@@ -26,6 +25,7 @@ declare global {
 // Custom in-app notification component
 function InAppNotification({ title, body, onClose }: { title: string; body: string; onClose: () => void }) {
   const translateY = useRef(new Animated.Value(-100)).current;
+  const dismissedRef = useRef(false);
   
   useEffect(() => {
     console.log("In-app notification mounted with:", title, body);
@@ -45,6 +45,8 @@ function InAppNotification({ title, body, onClose }: { title: string; body: stri
   }, []);
   
   const dismiss = () => {
+    if (dismissedRef.current) return;
+    dismissedRef.current = true;
     Animated.timing(translateY, {
       toValue: -100,
       duration: 300,
@@ -77,8 +79,7 @@ function InnerLayout() {
   const lastReceivedAtRef = useRef(0); // Track when last notification was received (ref to avoid re-subscribing listener)
   // Removed blocking splash: we no longer delay initial render for assets
   const [assetsLoaded, setAssetsLoaded] = useState(true);
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark, colors: themeColors } = useTheme();
   const [shouldPromptSupport, setShouldPromptSupport] = useState(false);
   
   // Preload assets when the app loads
@@ -171,8 +172,10 @@ function InnerLayout() {
       // We won’t render the paywall here; each screen already has its own modal.
       // Instead, we can signal via AsyncStorage and the Home/Settings will respond if mounted.
       await AsyncStorage.setItem('support_trigger', String(Date.now()));
-    };
-  }, []);
+    };    return () => {
+      // @ts-ignore
+      global.__openSupportPaywall = undefined;
+    };  }, []);
 
   // Configure RevenueCat on app launch (following official best practices)
   useEffect(() => {
@@ -328,6 +331,9 @@ function InnerLayout() {
     const unsubscribe = notifee.onForegroundEvent(({ type, detail }) => {
       if (type === 1) { // EventType.PRESS
         console.log('Notification pressed:', detail.notification);
+        // Handle action based on data payload (e.g. open store for app-update)
+        const { handleNotificationAction } = require('../utils/pushNotifications');
+        handleNotificationAction(detail.notification?.data as Record<string, string>);
         } else if (type === 0) { // EventType.DISPLAYED
         console.log("Notification displayed in foreground:", detail.notification);
         const notification = detail.notification;
@@ -428,43 +434,40 @@ function InnerLayout() {
 
   // Don't render anything until onboarding state is loaded from storage
   if (!onboardingReady) {
-    return null;
+    return <View style={{ flex: 1, backgroundColor: isDark ? '#0E1317' : '#F5F1E6' }} />;
   }
 
   // Show welcome slides on first launch
   if (!welcomeComplete) {
     return (
-      <LanguageProvider>
-        <SafeAreaProvider>
-          <StatusBar
-            style={isDark ? 'light' : 'dark'}
-            backgroundColor={Platform.OS === 'android' ? 'transparent' : undefined}
-            translucent={true}
-          />
-          <WelcomeSlides onComplete={completeWelcome} />
-        </SafeAreaProvider>
-      </LanguageProvider>
+      <>
+        <StatusBar
+          style={isDark ? 'light' : 'dark'}
+          backgroundColor={Platform.OS === 'android' ? 'transparent' : undefined}
+          translucent={true}
+        />
+        <WelcomeSlides onComplete={completeWelcome} />
+      </>
     );
   }
 
   return (
-    <LanguageProvider>
-      <SafeAreaProvider>
-        <StatusBar 
-          style={isDark ? 'light' : 'dark'} 
-          backgroundColor={Platform.OS === 'android' ? 'transparent' : undefined}
-          translucent={true}
-        />
-        <Stack 
-          screenOptions={{
-            headerShown: false,
-            contentStyle: { 
-              backgroundColor: isDark ? '#121212' : '#FFFFFF'
-            },
-          }}
-        >
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        </Stack>
+    <>
+      <StatusBar 
+        style={isDark ? 'light' : 'dark'} 
+        backgroundColor={Platform.OS === 'android' ? 'transparent' : undefined}
+        translucent={true}
+      />
+      <Stack 
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { 
+            backgroundColor: themeColors.background.primary
+          },
+        }}
+      >
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      </Stack>
         {notification && (
           <InAppNotification
             title={notification.title}
@@ -472,19 +475,22 @@ function InnerLayout() {
             onClose={() => setNotification(null)}
           />
         )}
-      </SafeAreaProvider>
-    </LanguageProvider>
+    </>
   );
 }
 
 export default function RootLayout() {
   return (
     <ThemeProvider>
-      <PurchaseProvider>
-        <OnboardingProvider>
-          <InnerLayout />
-        </OnboardingProvider>
-      </PurchaseProvider>
+      <LanguageProvider>
+        <SafeAreaProvider>
+          <PurchaseProvider>
+            <OnboardingProvider>
+              <InnerLayout />
+            </OnboardingProvider>
+          </PurchaseProvider>
+        </SafeAreaProvider>
+      </LanguageProvider>
     </ThemeProvider>
   );
 }
