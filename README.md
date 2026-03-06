@@ -6,19 +6,37 @@
 
 Prayer Times by AADIL is a comprehensive, advertisement-free mobile application designed to help Muslims stay connected with their daily prayers. The app provides accurate prayer times, qibla direction, and notifications for prayer times with a clean, simple interface.
 
+## What’s New in v4.2
+
+- **Redesigned Dua experience** — The Dua tab now uses a cleaner category hub with full-screen reading views, smoother transitions, a dedicated back flow, and a `Read All` mode for long adhkar sessions.
+- **Dua–Quran font sync** — Arabic text in the Dua tab now follows the same font size and font family settings as the Quran reader.
+- **Smarter notification actions** — Notifications can now open app update links, web/deep links, and even jump directly into a Quran surah such as Surah Al-Kahf.
+- **Better notification tap reliability** — Background and cold-start notification taps are handled more reliably across Firebase and local notification flows.
+- **Admin dashboard delivery controls** — Push campaigns now support analytics labels, expiry/TTL, and collapse keys for better campaign management.
+
 ## Features
 
 ✨ **Ad-Free Experience** - Completely free from advertisements  
 🕐 **Accurate Prayer Times** - Precise prayer time calculations  
 📖 **Quran Reader** - Browse all 114 surahs with Arabic text and English translation (bundled offline — works without internet), keyword search, ayah reference jump (e.g. `2:14`), ayah-by-ayah audio streaming with rolling preload for seamless playback, floating audio controls, optional auto-scroll/highlight sync, choice of Arabic fonts (Amiri, Scheherazade New), ayah bookmarking, and optional audio download for offline listening  
+🤲 **Enhanced Dua Hub** - Dedicated category navigation, full-screen reading view, smoother expansion, `Read All` mode, and Quran-synced Arabic typography  
 🧭 **Qibla Direction** - Real-time qibla compass  
-🔔 **Smart Notifications** - Customizable prayer reminders  
+🔔 **Smart Notifications** - Customizable prayer reminders plus notification actions for app updates, URLs, deep links, and direct Quran opening  
 🌙 **Islamic Calendar** - Hijri and Gregorian calendar integration  
 🎨 **Beautiful UI** - Luxurious pearl-and-gold theme, user-friendly interface  
 🌍 **Multi-Language Support** - Arabic and English  
 ⚡ **Fast & Lightweight** - Smooth performance with minimal battery usage  
-🛡️ **Improved Resume Stability** - Hardened app resume behavior after backgrounding to reduce intermittent reopen crashes
+🛡️ **Improved Resume Stability** - Hardened app resume behavior after backgrounding to reduce intermittent reopen crashes  
 📱 **Home Screen Widgets** - Android (2×2 circular + 4×2 list) and iOS (small + medium) widgets showing next prayer countdown, theme-synced with the app
+
+## Push Notification Campaigns
+
+The companion admin dashboard supports richer notification campaigns with:
+
+- **Campaign analytics labels** for Firebase reporting
+- **Message expiry / TTL controls** for time-sensitive alerts
+- **Collapse keys** so repeat campaigns can replace older undelivered notifications
+- **Quick actions** such as Jummah reminders and app update notices
 
 Language selection is managed from the **Settings** tab.
 
