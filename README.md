@@ -8,10 +8,12 @@ Prayer Times by AADIL is a comprehensive, advertisement-free mobile application 
 
 ## What’s New in v4.2
 
-- **Redesigned Dua experience** — The Dua tab now uses a cleaner category hub with full-screen reading views, smoother transitions, a dedicated back flow, and a `Read All` mode for long adhkar sessions.
-- **Dua–Quran font sync** — Arabic text in the Dua tab now follows the same font size and font family settings as the Quran reader.
-- **Smarter notification actions** — Notifications can now open app update links, web/deep links, and even jump directly into a Quran surah such as Surah Al-Kahf.
-- **Better notification tap reliability** — Background and cold-start notification taps are handled more reliably across Firebase and local notification flows.
+-Added widget with both light and dark themes
+-Added iqama timing reminder notification and also a countdown in the app
+-Added remote push notification
+-Added onboarding screens so users can learn more about the features of the app on first launch in both English and Arabic languages
+-Fixed a lot of small bugs causing some edge cases that were missed earlier
+- improved dua page from user feedback
 
 ## Features
 
