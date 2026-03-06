@@ -614,22 +614,44 @@ function createCrossPlatformNotification(prayer, time, useAzanSound, isReminder 
 
 /**
  * Handle initial notification if app was opened by notification (cold start).
- * Checks the notification data payload and performs the appropriate action
- * (e.g. opening the store for app-update notifications).
+ * Checks BOTH Notifee and Firebase messaging for the initial notification:
+ *  - Notifee: covers locally-scheduled prayer notifications
+ *  - Firebase: covers push notifications (notification-type) auto-displayed by the OS
  */
 async function handleInitialNotification() {
   try {
+    let data = null;
+
+    // 1. Check Notifee (locally-created notifications)
     if (Platform.OS === 'android') {
       const initialNotification = await notifee.getInitialNotification();
       if (initialNotification) {
-        console.log('📱 App opened by notification:', initialNotification.notification?.title);
-        // Handle action based on data payload (e.g. open store for app-update)
-        try {
-          const { handleNotificationAction } = require('./pushNotifications');
-          await handleNotificationAction(initialNotification.notification?.data);
-        } catch (e) {
-          console.log('⚠️ Initial notification action handler failed:', e?.message);
+        console.log('📱 App opened by Notifee notification:', initialNotification.notification?.title);
+        data = initialNotification.notification?.data;
+      }
+    }
+
+    // 2. Check Firebase messaging (push notifications auto-displayed by OS)
+    if (!data) {
+      try {
+        const messaging = require('@react-native-firebase/messaging').default;
+        const initialMessage = await messaging().getInitialNotification();
+        if (initialMessage?.data) {
+          console.log('📱 App opened by FCM notification:', JSON.stringify(initialMessage.data));
+          data = initialMessage.data;
         }
+      } catch (e) {
+        console.log('⚠️ Firebase getInitialNotification check failed:', e?.message);
+      }
+    }
+
+    // 3. Handle the action if we found data
+    if (data) {
+      try {
+        const { handleNotificationAction } = require('./pushNotifications');
+        await handleNotificationAction(data);
+      } catch (e) {
+        console.log('⚠️ Initial notification action handler failed:', e?.message);
       }
     }
   } catch (error) {

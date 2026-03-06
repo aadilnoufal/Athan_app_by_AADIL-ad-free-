@@ -4,6 +4,62 @@ This document tracks mistakes made during development and how to avoid them in t
 
 ---
 
+## 2026-03-06: Dua Page UX Redesign — Full-Screen Navigation
+
+### Pattern 69: Inline expand/collapse in a list degrades reading experience
+
+- **Mistake**: Initially expanded categories inline within the main scroll. This meant the category hub content was pushed below the expanded content, making it hard to navigate back. The expanded area also competed for scroll space with the rest of the list, and content width was constrained by the category card's padding.
+- **How to avoid**: For content-heavy categories (e.g. 22 duas with Arabic text), use a full-screen detail view instead of inline expansion. The hub becomes a clean menu, and the detail view has maximum screen space for reading.
+- **Fix**: Replaced inline CategoryCard expand/collapse with a full-screen `CategoryDetailView` that slides in from the right using `Animated.spring`. Category cards are now simple tappable menu items with `onPress → openCategory()`. Detail view manages its own state (expandedDuas, readAll) and handles Android `BackHandler`. Animation is RTL-aware.
+
+### Pattern 67: Nested card containers waste horizontal space and feel congested
+
+- **Mistake**: Wrapped each individual dua in its own sub-card (borderRadius, padding, border) inside a category card that already had its own padding. Arabic text then had ANOTHER card wrapper inside that. Total padding consumed: ~88px (14+14 category + 14+14 sub-card + 16+16 arabic block). On a 375px phone, that's only ~287px for actual text — visibly cramped.
+- **How to avoid**: Limit visual containers to ONE level. Use dividers (hairline rules) to separate items within a container instead of nesting cards. For text blocks that need visual distinction, use a single-sided border accent (like a blockquote bar) instead of a full card.
+- **Fix**: Removed DuaCard sub-card wrapper entirely. Duas are now flat items with dividers inside the category card. Arabic text uses `borderLeftWidth: 3` with gold color instead of a card. Total padding: ~32px (16+16 category only). Content gets ~55px more width.
+
+### Pattern 68: Individual-only expand prevents "read all together" use case
+
+- **Mistake**: Each dua had its own internal expanded state, with no way to expand all at once. Users who recite all morning duas together (the most common use case for adhkar) had to manually tap each of the 22 duas individually. This made users abandon the dua page entirely.
+- **How to avoid**: When a category is a natural "reading list" (like morning/evening adhkar), always provide a bulk-expand option. Lift expanded state to the parent component so it can be controlled collectively.
+- **Fix**: Moved expanded state from individual DuaItem to CategoryCard (via `expandedDuas: Set<string>` + `readAll: boolean`). Added "Read All" / "Collapse All" button in the category action bar. When user manually expands all items, readAll auto-enables. When user collapses one, readAll auto-disables.
+
+## 2026-03-06: Dua Page Overhaul & LayoutAnimation Flickering
+
+### Pattern 65: LayoutAnimation causes flickering in nested expand/collapse
+
+- **Mistake**: Used `LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut)` inside every individual dua toggle handler. LayoutAnimation is a **global** mechanism — calling it triggers animated re-layout across the _entire_ view tree, not just the expanding item. In nested UIs (category card → dua sub-card → content), this caused brief white/transparent flashes as the system animated intermediate layout states.
+- **How to avoid**: Only use `LayoutAnimation` for large structural changes (e.g. a top-level category expanding). For leaf-level content reveals (individual items toggling), use `Animated.timing` with `useNativeDriver: true` for opacity/transform transitions — this doesn't trigger global layout recomputation.
+- **Fix**: Replaced `LayoutAnimation` in `DuaCard.toggle()` with `Animated.timing` on an opacity value. Content fades in (280ms) and out (150ms) without affecting the rest of the layout tree. `LayoutAnimation` is retained only for the category-level `toggleCategory()` function.
+
+### Pattern 66: Async state updates in useFocusEffect trigger unwanted LayoutAnimations
+
+- **Mistake**: `useFocusEffect` loaded font scale and family asynchronously on every focus. If a `LayoutAnimation.configureNext` was still pending from a recent interaction, the font state update triggered unintended animated layout reflows.
+- **How to avoid**: Gate `useFocusEffect` callbacks behind a "ready" flag from the initial `useEffect` load. This ensures the first load completes with correct values before focus-refresh attempts to update them.
+- **Fix**: Added `fontsReady` state variable. The initial `useEffect` sets `fontsReady = true` after loading. The `useFocusEffect` early-returns if `!fontsReady`.
+
+## 2026-03-06: Notification Deep Links & Dua Font Sync
+
+### Pattern 64: FCM notification-type messages bypass Notifee event handlers
+
+- **Mistake**: The app only listened to Notifee's `onForegroundEvent(PRESS)`, `onBackgroundEvent(PRESS)`, and `notifee.getInitialNotification()` for notification taps. But push notifications from the dashboard are FCM **notification-type** messages (they include a `notification` field with title/body). Android auto-displays these via the system tray — Notifee never sees them. So background/cold-start taps on push notifications just opened the app and did nothing.
+- **How to avoid**: When using FCM notification-type messages, ALWAYS add Firebase's own tap handlers: `messaging().onNotificationOpenedApp()` for background and `messaging().getInitialNotification()` for cold-start. Notifee events only fire for Notifee-created notifications (local prayer notifications, foreground-displayed remote pushes). For FCM data-only messages displayed via Notifee, both handlers fire.
+- **Fix**: Added `messaging().onNotificationOpenedApp()` and `messaging().getInitialNotification()` in `_layout.tsx`'s push notification `useEffect`. Updated `handleInitialNotification()` in `notifeePrayerService.js` to check both Notifee AND Firebase.
+
+### Pattern 62: Linking.canOpenURL returns false for valid HTTPS URLs on some Android devices
+
+- **Mistake**: Used `Linking.canOpenURL(url)` as a guard before `Linking.openURL(url)` for store URLs. On some Android devices/versions this returns `false` even for valid `https://play.google.com/...` URLs, because the app needs `<queries>` entries in `AndroidManifest.xml` for intent resolution. The notification tap silently did nothing.
+- **How to avoid**: For HTTPS URLs that you control (store links, known domains), skip `canOpenURL` entirely. Just call `openURL` inside a try-catch. `openURL` itself throws if the URL truly can't be opened, which is a better signal.
+- **Fix**: Removed `canOpenURL` pre-checks from all cases in `handleNotificationAction`. Each case now wraps `openURL` in try-catch directly.
+
+### Pattern 63: Cold-start notification handlers fire before React components mount
+
+- **Mistake**: `handleInitialNotification()` fires when the app is opened from a killed state by tapping a notification. At that point, `DeviceEventEmitter.emit()` has no listeners (React tree hasn't mounted yet) and `router.navigate()` may fail (expo-router not ready).
+- **How to avoid**: For cold-start scenarios, persist the pending action to AsyncStorage and let the target screen consume it on mount. Add a staleness check (e.g. 30s expiry) to avoid acting on ancient pending actions.
+- **Fix**: `handleNotificationAction` now writes `{ type, surahNumber, timestamp }` to `@pending_notification_action` in AsyncStorage. `consumePendingNotificationAction()` reads, removes, and returns it (or null if stale/missing). Quran tab calls this on mount.
+
+---
+
 ## 2026-03-06: Admin Dashboard — Delivery & Analytics Features
 
 ### Pattern 61: Emoji characters in Python print() crash on Windows cp1252

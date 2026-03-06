@@ -1,22 +1,44 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   Monochrome notification icon for Prayer Times app.
-  Uses a crescent moon silhouette (white on transparent).
+  Mosque silhouette: two tall pointed minarets with shoulder accents,
+  a large prominent central dome, and an arched doorway cutout.
   Android notification smallIcon MUST be single-color + alpha only.
-  Based on Material Design icon path (Apache 2.0 license).
+  Designed for maximum clarity at 24×24dp notification size.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
-  <!-- scaleX=-1 with pivotX=12 mirrors the crescent horizontally -->
-  <group
-      android:scaleX="-1"
-      android:pivotX="12"
-      android:pivotY="12">
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M9.5,2c-1.82,0 -3.53,0.5 -5,1.35c2.99,1.73 5,4.95 5,8.65s-2.01,6.92 -5,8.65C5.97,21.5 7.68,22 9.5,22c5.52,0 10,-4.48 10,-10S15.02,2 9.5,2z"/>
-  </group>
+
+  <!--
+    Left minaret: base column → gallery shoulder overhang → narrow shaft → pointed tip.
+    Tracing clockwise: wide base (1–4, y22–16) → flare out to 0.5 at shoulder (y13) →
+    taper in for shaft (y10) → spike tip at (2.5, 5).
+  -->
+  <path
+      android:fillColor="#FFFFFF"
+      android:pathData="M1,22 L1,16 L0.5,13 L1.5,10 L2.5,5 L3.5,10 L4.5,13 L4,16 L4,22 Z"/>
+
+  <!--
+    Right minaret: exact mirror of left around x=12.
+  -->
+  <path
+      android:fillColor="#FFFFFF"
+      android:pathData="M23,22 L23,16 L23.5,13 L22.5,10 L21.5,5 L20.5,10 L19.5,13 L20,16 L20,22 Z"/>
+
+  <!--
+    Central dome + building body with arched door cutout.
+    Outer shape: rectangle base (x4–20, y16–22) topped by a large symmetric
+    cubic-bezier dome peaking at ~(12, 8.5).
+    Door punch-out (evenOdd): 3dp-wide pointed arch centred at x=12 (x10.5–13.5, y19.5–22).
+    fillType="evenOdd" makes the door region transparent.
+  -->
+  <path
+      android:fillColor="#FFFFFF"
+      android:fillType="evenOdd"
+      android:pathData="M4,22 L4,16 C4,6 20,6 20,16 L20,22 Z
+                        M10.5,22 L10.5,19.5 A1.5,1.5 0 0 1 13.5,19.5 L13.5,22 Z"/>
+
 </vector>

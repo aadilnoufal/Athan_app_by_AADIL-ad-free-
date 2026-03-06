@@ -22,13 +22,14 @@
  *   taps. It reads data.type to decide what to do:
  *     "app-update" → opens Play Store / App Store
  *     "url" / "deep-link" → opens data.url
+ *     "open-surah" → emits navigate-to-surah event (for Quran tab deep link)
  *   Called from _layout.tsx (foreground), index.ts (background), and
  *   notifeePrayerService.js (cold start / initial notification).
  *
  * Source: https://rnfirebase.io/messaging/usage
  */
 
-import { Linking, Platform } from 'react-native';
+import { DeviceEventEmitter, Linking, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ─── Storage Keys ───────────────────────────────────────────────────────────
@@ -37,11 +38,26 @@ const PUSH_COUNTRY_KEY = 'push_country_code';
 const PUSH_VERSION_KEY = 'push_version_topic';
 const PUSH_INIT_DONE_KEY = 'push_init_done';
 
+/**
+ * AsyncStorage key for cold-start pending action.
+ * When a notification tap triggers an in-app navigation but the React tree
+ * isn't mounted yet, we persist the action here so the target screen can
+ * pick it up on mount.
+ */
+const PENDING_NOTIF_ACTION_KEY = '@pending_notification_action';
+
 // ─── Store URLs ─────────────────────────────────────────────────────────────
 const STORE_URLS = {
   ios: 'https://apps.apple.com/qa/app/prayer-times-by-aadil-noufal/id6751736180',
   android: 'https://play.google.com/store/apps/details?id=com.yourcompany.prayertimes',
 };
+
+// ─── Notification Event Names ───────────────────────────────────────────────
+/** Event names emitted via DeviceEventEmitter for in-app navigation from notification taps. */
+export const NOTIFICATION_EVENTS = {
+  /** Emitted when user taps a notification that should open a specific surah. Payload: { surahNumber: number } */
+  NAVIGATE_TO_SURAH: 'navigate-to-surah',
+} as const;
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 interface PushInitResult {
@@ -120,6 +136,9 @@ export function getAppVersion(): string | null {
  * - "app-update": Opens the platform-specific app store page so the user
  *   can update. If a custom `url` field is in the data, opens that instead.
  * - "url" / "deep-link": Opens a custom URL from `data.url`.
+ * - "open-surah": Emits a DeviceEventEmitter event so the Quran tab
+ *   can open the specified surah (e.g. Surah Al-Kahf = 18). Also
+ *   navigates to the Quran tab via expo-router.
  * - Default: No action (app opens normally).
  *
  * Called from foreground PRESS, background PRESS, and cold-start initial
@@ -133,19 +152,23 @@ export async function handleNotificationAction(
 ): Promise<boolean> {
   if (!data?.type) return false;
 
+  console.log('🔔 handleNotificationAction called with type:', data.type, 'data:', JSON.stringify(data));
+
   try {
     switch (data.type) {
       case 'app-update': {
         // Custom URL in payload takes priority, otherwise use platform store URL
         const url = data.url || (Platform.OS === 'ios' ? STORE_URLS.ios : STORE_URLS.android);
         console.log(`🔗 App update notification tapped — opening store: ${url}`);
-        const canOpen = await Linking.canOpenURL(url);
-        if (canOpen) {
+        // Skip canOpenURL for https URLs — it can return false on some devices
+        // due to missing <queries> or intent filter config, but openURL still works
+        try {
           await Linking.openURL(url);
           return true;
+        } catch (openErr) {
+          console.log('⚠️ Failed to open store URL:', url, (openErr as any)?.message);
+          return false;
         }
-        console.log('⚠️ Cannot open store URL:', url);
-        return false;
       }
 
       case 'url':
@@ -153,14 +176,46 @@ export async function handleNotificationAction(
         // Generic URL action — opens whatever URL is in data.url
         if (data.url) {
           console.log(`🔗 Opening URL from notification: ${data.url}`);
-          const canOpen = await Linking.canOpenURL(data.url);
-          if (canOpen) {
+          try {
             await Linking.openURL(data.url);
             return true;
+          } catch (openErr) {
+            console.log('⚠️ Failed to open URL:', data.url, (openErr as any)?.message);
           }
-          console.log('⚠️ Cannot open URL:', data.url);
         }
         return false;
+      }
+
+      case 'open-surah': {
+        // Navigate to Quran tab and open a specific surah
+        const surahNumber = parseInt(data.surahNumber, 10);
+        if (isNaN(surahNumber) || surahNumber < 1 || surahNumber > 114) {
+          console.log('⚠️ Invalid surah number in notification:', data.surahNumber);
+          return false;
+        }
+        console.log(`📖 Opening Surah ${surahNumber} from notification tap`);
+
+        // Persist pending action for cold-start (Quran tab checks on mount)
+        try {
+          await AsyncStorage.setItem(
+            PENDING_NOTIF_ACTION_KEY,
+            JSON.stringify({ type: 'open-surah', surahNumber, timestamp: Date.now() }),
+          );
+        } catch { /* best effort */ }
+
+        // Navigate to the Quran tab first, then emit event for surah opening
+        try {
+          const router = require('expo-router').router;
+          router.navigate('/(tabs)/quran');
+        } catch (e) {
+          console.log('⚠️ Could not navigate to Quran tab:', (e as any)?.message);
+        }
+
+        // Small delay to let tab switch complete, then emit event
+        setTimeout(() => {
+          DeviceEventEmitter.emit(NOTIFICATION_EVENTS.NAVIGATE_TO_SURAH, { surahNumber });
+        }, 500);
+        return true;
       }
 
       default:
@@ -170,6 +225,31 @@ export async function handleNotificationAction(
   } catch (e) {
     console.error('❌ Error handling notification action:', e);
     return false;
+  }
+}
+
+/**
+ * Check for and consume a pending notification action stored during cold start.
+ * Call this from the target screen's mount effect (e.g., Quran tab).
+ * Returns the pending action or null if none exists.
+ */
+export async function consumePendingNotificationAction(): Promise<{
+  type: string;
+  surahNumber?: number;
+  [key: string]: any;
+} | null> {
+  try {
+    const raw = await AsyncStorage.getItem(PENDING_NOTIF_ACTION_KEY);
+    if (!raw) return null;
+    await AsyncStorage.removeItem(PENDING_NOTIF_ACTION_KEY);
+    const action = JSON.parse(raw);
+    // Discard stale actions (older than 30 seconds)
+    if (action.timestamp && Date.now() - action.timestamp > 30_000) {
+      return null;
+    }
+    return action;
+  } catch {
+    return null;
   }
 }
 

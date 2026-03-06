@@ -396,6 +396,7 @@ function InnerLayout() {
   useEffect(() => {
     let foregroundUnsub: (() => void) | null = null;
     let tokenRefreshUnsub: (() => void) | null = null;
+    let onOpenedAppUnsub: (() => void) | null = null;
 
     const initPush = async () => {
       try {
@@ -403,11 +404,34 @@ function InnerLayout() {
           initializePushNotifications,
           setupForegroundHandler,
           setupTokenRefreshListener,
+          handleNotificationAction,
         } = require('../utils/pushNotifications');
+        const messaging = require('@react-native-firebase/messaging').default;
 
         await initializePushNotifications();
         foregroundUnsub = setupForegroundHandler();
         tokenRefreshUnsub = setupTokenRefreshListener();
+
+        // ── Background → foreground: user tapped a system-displayed FCM notification ──
+        // Notifee's onForegroundEvent only tracks Notifee-created notifications.
+        // FCM notification-type messages are auto-displayed by the OS, so we must
+        // use Firebase's own listener to detect taps when the app was backgrounded.
+        onOpenedAppUnsub = messaging().onNotificationOpenedApp(
+          async (remoteMessage: any) => {
+            console.log('🔔 Firebase onNotificationOpenedApp:', remoteMessage?.data);
+            if (remoteMessage?.data) {
+              await handleNotificationAction(remoteMessage.data as Record<string, string>);
+            }
+          },
+        );
+
+        // ── Cold start: app was killed, user tapped a system-displayed FCM notification ──
+        // messaging().getInitialNotification() returns the message that opened the app.
+        const initialMessage = await messaging().getInitialNotification();
+        if (initialMessage?.data) {
+          console.log('🔔 Firebase getInitialNotification:', initialMessage.data);
+          await handleNotificationAction(initialMessage.data as Record<string, string>);
+        }
       } catch (e) {
         console.log('⚠️ Push notification init skipped:', e);
       }
@@ -418,6 +442,7 @@ function InnerLayout() {
     return () => {
       foregroundUnsub?.();
       tokenRefreshUnsub?.();
+      onOpenedAppUnsub?.();
     };
   }, []);
   

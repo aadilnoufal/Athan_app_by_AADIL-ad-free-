@@ -4,6 +4,64 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased] - 2026-03-06
 
+### Redesigned (Dua Page — Full-Screen Category Navigation)
+
+- **Full-screen detail view** — Tapping a category card now opens a dedicated full-screen view (slides in from the right like iOS navigation). Back button or Android hardware back returns to the category hub. Gives maximum reading space.
+- **Category hub with menu cards** — Main dua screen shows a clean list of category cards with icon, title, description, count badge, and chevron-right. No inline expand — each card navigates to the full-screen detail.
+- **Animated slide transition** — Detail view uses `Animated.spring` slide-from-right on open and `Animated.timing` slide-out on close. RTL-aware (slides from left for Arabic).
+- **Android hardware back button support** — `BackHandler` listener in detail view ensures pressing the Android back button smoothly closes the detail and returns to the hub.
+- **Premium category cards** — Larger icon circles (42px) with gold-tinted backgrounds and borders, category descriptions, and dua count badges.
+- **Flat dua layout** — Duas flow directly in the detail view with simple dividers (no nested cards), reclaiming ~60px of horizontal content width.
+- **"Read All" mode** — Detail view header has a "Read All" / "Collapse All" button. Tapping it expands every dua in the category at once for continuous reading (e.g. all morning adhkar together). Individual toggle still works alongside it.
+- **Arabic text blockquote style** — Arabic text uses a gold left-border accent (blockquote style) instead of a full card wrapper.
+- **Structured expanded content** — Labeled "TRANSLITERATION" and "MEANING" sections with uppercase gold headers; reference sources in pill badges with book icon.
+- **Info items** — Instructional items (e.g. Janazah steps) display inline with an info icon.
+- **Decorative dividers** — Star-four-points ornaments in both hub header and detail header.
+- **Category info bar** — Detail view shows description + dua count below the header.
+- **iOS shadows** — Cards get subtle box shadows on iOS for depth; elevation on Android.
+- **State management** — Dua expanded state (expandedDuas Set + readAll boolean) managed in CategoryDetailView. Resets each time a category is opened.
+
+### Fixed (Dua Flickering on Expand)
+
+- **Root cause**: `LayoutAnimation.configureNext()` was called inside every `DuaItem.toggle()`, triggering a global layout animation that briefly flashed background colors (white flicker) during the view hierarchy re-layout. Additionally, `useFocusEffect` reloading font sizes asynchronously could trigger unintended LayoutAnimation frames.
+- **Fix**: Replaced `LayoutAnimation` in individual dua toggles with `Animated.timing` (native-driver opacity fade). `LayoutAnimation` is now only used for category-level expand/collapse (structural height changes). Added `fontsReady` gate so `useFocusEffect` font refresh doesn't fire before initial load.
+
+### Added (Dua–Quran Font Sync)
+
+- **Dua Arabic text now uses the same font size and family as the Quran screen.** Changing the Quran font scale or font family in Settings automatically updates the Dua tab's Arabic text on next focus. Uses `getQuranFontScale()` and `getQuranFontFamily()` from `quranStorage`.
+- Dua Arabic font weight changed from `'600'` to `'400'` to match Quran screen styling.
+- Added `useFocusEffect` in `dua.tsx` to refresh font settings when tab is focused (picks up settings changes without restart).
+
+### Added (Notification Deep Link — open-surah)
+
+- **New `open-surah` notification action type** — Tapping a notification with `data.type = "open-surah"` and `data.surahNumber = "18"` navigates directly to the Quran tab and opens the specified surah.
+- **Cold-start pending action mechanism** — Persists the pending `open-surah` action to AsyncStorage so it works even when the app was killed. The Quran tab checks for and consumes pending actions on mount (30-second expiry).
+- **`consumePendingNotificationAction()` utility** exported from `pushNotifications.ts` for any screen that needs to handle cold-start deep links.
+- **`NOTIFICATION_EVENTS` constant** exported from `pushNotifications.ts` — used for cross-component event bus via `DeviceEventEmitter`.
+
+### Added (Jummah / Friday Notification)
+
+- **Dashboard "Jummah Mubarak" quick action** now auto-fills body "Don't forget to read Surah Al-Kahf today! Tap to open it now.", sets `data.type = "open-surah"`, `data.surahNumber = "18"`, and `collapse_key = "jummah-kahf"`.
+
+### Fixed (Background / Cold-Start Notification Taps)
+
+- **Root cause**: Dashboard push notifications are FCM notification-type messages, which Android auto-displays via the system tray — NOT via Notifee. Tapping these only triggers Firebase's own `onNotificationOpenedApp()` / `getInitialNotification()`, not Notifee's event handlers. The app was only listening to Notifee events, so background/cold-start taps just opened the app without performing any action.
+- **Added `messaging().onNotificationOpenedApp()` listener** in `_layout.tsx` — fires when user taps a push notification while the app was backgrounded. Calls `handleNotificationAction(remoteMessage.data)`.
+- **Added `messaging().getInitialNotification()` check** in `_layout.tsx` — fires once on mount when the app was cold-started by tapping a push notification.
+- **Updated `handleInitialNotification()` in `notifeePrayerService.js`** — Now checks BOTH `notifee.getInitialNotification()` (for locally-scheduled prayer notifications) AND `messaging().getInitialNotification()` (for push notifications).
+
+### Improved (Notification Tap Robustness)
+
+- **Removed `Linking.canOpenURL` pre-check** for `app-update`, `url`, and `deep-link` action types. Some Android devices incorrectly return `false` for valid HTTPS URLs due to missing `<queries>` config; we now try `openURL` directly with try-catch fallback.
+- **Increased `DeviceEventEmitter` delay** from 300ms to 500ms in `open-surah` handler to improve reliability on slower devices.
+- **Added console logging** to `handleNotificationAction` for easier debugging — logs action type and data payload.
+
+### Tests
+
+- **11 new tests** for `open-surah` notification handling: valid surah navigation, invalid surah numbers (0, 115, non-numeric, missing), router throw resilience, AsyncStorage persistence for cold-start.
+- **4 new tests** for `consumePendingNotificationAction`: null when no pending, consume and clear, discard stale actions, handle storage errors.
+- All **45 tests pass** in `pushNotifications.test.ts`.
+
 ### Added (Admin Dashboard — Delivery & Analytics)
 
 - **Analytics Tracking (Campaign Labels)** — Notifications sent from the dashboard now include an `analytics_label` via `messaging.FCMOptions`. This enables Firebase Console → Cloud Messaging → Reports to track opens/impressions per campaign. Labels are auto-generated from the notification title (format: `pryr_{slug}_{YYYYMMDD_HHMMSS}`) or can be set manually.
@@ -13,6 +71,15 @@ All notable changes to this project will be documented in this file.
 - **Updated DB schema** — Added `analytics_label`, `ttl_seconds`, and `collapse_key` columns to `notification_history` table.
 - **Delivery & Analytics UI card** — Collapsible card in the Send Notification page with Campaign Label input, TTL preset selector with custom option, and Collapse Key input. Confirmation modal and history detail view show all three fields.
 - **Analytics hint toast** — After successful send, a delayed info toast tells the user where to find campaign reports in Firebase Console.
+
+### Added (Notification Tap → Store Redirect)
+
+- **`handleNotificationAction()` in `pushNotifications.ts`** — Centralized handler for notification tap actions based on `data.type` payload:
+  - `"app-update"` → Opens Play Store (Android) or App Store (iOS) automatically. Custom URL override supported via `data.url`.
+  - `"url"` / `"deep-link"` → Opens any URL from `data.url` (for future use like promo pages).
+- **Wired into all 3 press locations** — Foreground (`_layout.tsx` + `notifeePrayerService.js`), background (`index.ts` `onBackgroundEvent`), and cold start (`handleInitialNotification()`).
+- **Dashboard "App Update" quick action** now auto-fills `collapse_key: "app-update"` (so repeated update notifications replace each other on device).
+- **11 new unit tests** for `handleNotificationAction` covering Android/iOS store URLs, custom URL override, deep-link, missing data, canOpenURL failure, and error handling. All 34 tests pass.
 
 ### Fixed (Admin Dashboard)
 

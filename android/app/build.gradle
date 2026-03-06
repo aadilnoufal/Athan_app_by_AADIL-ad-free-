@@ -100,8 +100,8 @@ android {
         applicationId 'com.yourcompany.prayertimes'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 96
-        versionName "4.1"
+        versionCode 97
+        versionName "4.2"
         
         // Use Google Play Store flavor for react-native-iap
         missingDimensionStrategy 'store', 'play'

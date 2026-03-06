@@ -10,8 +10,6 @@ import {
   UIManager,
   StatusBar,
   Animated,
-  Dimensions,
-  BackHandler,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -30,8 +28,6 @@ import { useFocusEffect } from '@react-navigation/native';
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // ─── Helpers ─────────────────────────────────────────────────────
 const getCategoryIcon = (id: string): string => {
@@ -349,35 +345,79 @@ const DuaItem = ({
   );
 };
 
-// ─── Category Hub Card (tap to open full-screen) ────────────────
+// ─── Category Section ───────────────────────────────────────────
 const CategoryCard = ({
   category,
-  onPress,
+  isExpanded,
+  onToggle,
+  onLayout,
   colors,
   isDark,
   language,
   goldTint,
+  duaArabicFontSize,
+  duaArabicLineHeight,
+  arabicFontFamily,
 }: any) => {
   const isRTL = language === 'ar';
   const categoryTitle = isRTL && category.titleAr ? category.titleAr : category.title;
   const duaCount = category.duas.length;
   const description = getCategoryDescription(category.id, isRTL);
 
+  // Track which duas are expanded & "read all" mode
+  const [expandedDuas, setExpandedDuas] = useState<Set<string>>(new Set());
+  const [readAll, setReadAll] = useState(false);
+
+  // Reset state when category collapses
+  useEffect(() => {
+    if (!isExpanded) {
+      setExpandedDuas(new Set());
+      setReadAll(false);
+    }
+  }, [isExpanded]);
+
+  const toggleDua = useCallback((duaId: string) => {
+    setExpandedDuas(prev => {
+      const next = new Set(prev);
+      if (next.has(duaId)) {
+        next.delete(duaId);
+        // If all were expanded and user collapses one, exit readAll
+        if (readAll) setReadAll(false);
+      } else {
+        next.add(duaId);
+        // If user manually expanded all, turn on readAll
+        if (next.size === category.duas.length) setReadAll(true);
+      }
+      return next;
+    });
+  }, [readAll, category.duas.length]);
+
+  const handleReadAll = useCallback(() => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    if (readAll) {
+      // Collapse all
+      setExpandedDuas(new Set());
+      setReadAll(false);
+    } else {
+      // Expand all
+      const allIds = new Set<string>(category.duas.map((d: any) => d.id));
+      setExpandedDuas(allIds);
+      setReadAll(true);
+    }
+  }, [readAll, category.duas]);
+
   const cardBg = isDark ? 'rgba(255,255,255,0.035)' : colors.surface.primary;
   const cardBorder = isDark ? goldTint(0.18) : goldTint(0.12);
 
   return (
-    <TouchableOpacity
-      onPress={onPress}
-      activeOpacity={0.65}
+    <View
       style={{
         backgroundColor: cardBg,
         borderRadius: 18,
         marginBottom: 14,
         borderWidth: 0.5,
-        borderColor: cardBorder,
+        borderColor: isExpanded ? goldTint(0.25) : cardBorder,
         overflow: 'hidden',
-        padding: 16,
         ...Platform.select({
           ios: {
             shadowColor: isDark ? '#000' : 'rgba(45,40,36,0.12)',
@@ -390,322 +430,158 @@ const CategoryCard = ({
           },
         }),
       }}
+      onLayout={onLayout}
     >
-      <View style={{
-        flexDirection: isRTL ? 'row-reverse' : 'row',
-        alignItems: 'center',
-      }}>
-        {/* Icon circle */}
-        <View style={{
-          width: 42,
-          height: 42,
-          borderRadius: 21,
-          backgroundColor: isDark ? goldTint(0.10) : goldTint(0.07),
-          alignItems: 'center',
-          justifyContent: 'center',
-          marginRight: isRTL ? 0 : 14,
-          marginLeft: isRTL ? 14 : 0,
-          borderWidth: 0.5,
-          borderColor: goldTint(0.20),
-        }}>
-          <MaterialCommunityIcons
-            name={getCategoryIcon(category.id) as any}
-            size={21}
-            color={colors.accent.gold}
-          />
-        </View>
-
-        {/* Title + subtitle */}
-        <View style={{ flex: 1 }}>
-          <Text style={{
-            fontSize: 17,
-            fontWeight: '700',
-            color: colors.accent.gold,
-            letterSpacing: 0.3,
-            textAlign: isRTL ? 'right' : 'left',
-          }}>
-            {categoryTitle}
-          </Text>
-          {description ? (
-            <Text style={{
-              fontSize: 12,
-              color: colors.text.tertiary,
-              marginTop: 3,
-              letterSpacing: 0.2,
-              textAlign: isRTL ? 'right' : 'left',
-              lineHeight: 16,
-            }}>
-              {description}
-            </Text>
-          ) : null}
-        </View>
-
-        {/* Count badge + arrow */}
+      {/* ── Category header ── */}
+      <TouchableOpacity
+        onPress={onToggle}
+        activeOpacity={0.65}
+        style={{ padding: 16 }}
+      >
         <View style={{
           flexDirection: isRTL ? 'row-reverse' : 'row',
           alignItems: 'center',
         }}>
+          {/* Icon circle */}
           <View style={{
-            backgroundColor: isDark ? goldTint(0.10) : goldTint(0.06),
-            paddingHorizontal: 8,
-            paddingVertical: 3,
-            borderRadius: 10,
-            marginRight: isRTL ? 0 : 8,
-            marginLeft: isRTL ? 8 : 0,
-            minWidth: 24,
-            alignItems: 'center',
-          }}>
-            <Text style={{
-              fontSize: 11,
-              fontWeight: '700',
-              color: colors.accent.gold,
-              includeFontPadding: false,
-            }}>
-              {duaCount}
-            </Text>
-          </View>
-          <MaterialCommunityIcons
-            name={isRTL ? 'chevron-left' : 'chevron-right'}
-            size={22}
-            color={colors.text.secondary}
-          />
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
-};
-
-// ─── Full-Screen Category Detail View ───────────────────────────
-const CategoryDetailView = ({
-  category,
-  onBack,
-  colors,
-  isDark,
-  language,
-  goldTint,
-  duaArabicFontSize,
-  duaArabicLineHeight,
-  arabicFontFamily,
-}: any) => {
-  const isRTL = language === 'ar';
-  const categoryTitle = isRTL && category.titleAr ? category.titleAr : category.title;
-  const description = getCategoryDescription(category.id, isRTL);
-  const duaCount = category.duas.length;
-
-  const [expandedDuas, setExpandedDuas] = useState<Set<string>>(new Set());
-  const [readAll, setReadAll] = useState(false);
-  const scrollRef = useRef<ScrollView>(null);
-
-  const toggleDua = useCallback((duaId: string) => {
-    setExpandedDuas(prev => {
-      const next = new Set(prev);
-      if (next.has(duaId)) {
-        next.delete(duaId);
-        if (readAll) setReadAll(false);
-      } else {
-        next.add(duaId);
-        if (next.size === category.duas.length) setReadAll(true);
-      }
-      return next;
-    });
-  }, [readAll, category.duas.length]);
-
-  const handleReadAll = useCallback(() => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    if (readAll) {
-      setExpandedDuas(new Set());
-      setReadAll(false);
-      scrollRef.current?.scrollTo({ y: 0, animated: true });
-    } else {
-      const allIds = new Set<string>(category.duas.map((d: any) => d.id));
-      setExpandedDuas(allIds);
-      setReadAll(true);
-    }
-  }, [readAll, category.duas]);
-
-  // Handle Android hardware back button
-  useEffect(() => {
-    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
-      onBack();
-      return true;
-    });
-    return () => backHandler.remove();
-  }, [onBack]);
-
-  return (
-    <View style={{ flex: 1 }}>
-      {/* ── Header ── */}
-      <View style={{
-        flexDirection: isRTL ? 'row-reverse' : 'row',
-        alignItems: 'center',
-        paddingHorizontal: 14,
-        paddingTop: Platform.OS === 'android' ? Math.max((StatusBar.currentHeight || 0) - 2, 0) : 4,
-        paddingBottom: 12,
-      }}>
-        {/* Back button */}
-        <TouchableOpacity
-          onPress={onBack}
-          activeOpacity={0.6}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          style={{
-            width: 36,
-            height: 36,
-            borderRadius: 18,
-            backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : goldTint(0.06),
+            width: 42,
+            height: 42,
+            borderRadius: 21,
+            backgroundColor: isDark ? goldTint(0.10) : goldTint(0.07),
             alignItems: 'center',
             justifyContent: 'center',
-            marginRight: isRTL ? 0 : 12,
-            marginLeft: isRTL ? 12 : 0,
-          }}
-        >
-          <MaterialCommunityIcons
-            name={isRTL ? 'arrow-right' : 'arrow-left'}
-            size={20}
-            color={colors.text.primary}
-          />
-        </TouchableOpacity>
+            marginRight: isRTL ? 0 : 14,
+            marginLeft: isRTL ? 14 : 0,
+            borderWidth: 0.5,
+            borderColor: goldTint(0.20),
+          }}>
+            <MaterialCommunityIcons
+              name={getCategoryIcon(category.id) as any}
+              size={21}
+              color={colors.accent.gold}
+            />
+          </View>
 
-        {/* Category icon + title */}
-        <View style={{
-          flex: 1,
-          flexDirection: isRTL ? 'row-reverse' : 'row',
-          alignItems: 'center',
-        }}>
-          <MaterialCommunityIcons
-            name={getCategoryIcon(category.id) as any}
-            size={18}
-            color={colors.accent.gold}
-            style={{ marginRight: isRTL ? 0 : 8, marginLeft: isRTL ? 8 : 0 }}
-          />
-          <Text style={{
-            fontSize: 17,
-            fontWeight: '700',
-            color: colors.text.primary,
-            letterSpacing: 0.3,
-            textAlign: isRTL ? 'right' : 'left',
-          }} numberOfLines={1}>
-            {categoryTitle}
-          </Text>
-        </View>
+          {/* Title + subtitle */}
+          <View style={{ flex: 1 }}>
+            <Text style={{
+              fontSize: 17,
+              fontWeight: '700',
+              color: colors.accent.gold,
+              letterSpacing: 0.3,
+              textAlign: isRTL ? 'right' : 'left',
+            }}>
+              {categoryTitle}
+            </Text>
+            {description ? (
+              <Text style={{
+                fontSize: 12,
+                color: colors.text.tertiary,
+                marginTop: 3,
+                letterSpacing: 0.2,
+                textAlign: isRTL ? 'right' : 'left',
+                lineHeight: 16,
+              }}>
+                {description}
+              </Text>
+            ) : null}
+          </View>
 
-        {/* Read All / Collapse All */}
-        <TouchableOpacity
-          onPress={handleReadAll}
-          activeOpacity={0.6}
-          style={{
+          {/* Count badge + chevron */}
+          <View style={{
             flexDirection: isRTL ? 'row-reverse' : 'row',
             alignItems: 'center',
-            paddingHorizontal: 10,
-            paddingVertical: 6,
-            borderRadius: 12,
-            backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : goldTint(0.06),
-          }}
-        >
-          <MaterialCommunityIcons
-            name={readAll ? 'collapse-all-outline' : 'expand-all-outline'}
-            size={14}
-            color={colors.accent.gold}
-            style={{ marginRight: isRTL ? 0 : 4, marginLeft: isRTL ? 4 : 0 }}
-          />
-          <Text style={{
-            fontSize: 11,
-            fontWeight: '600',
-            color: colors.accent.gold,
-            letterSpacing: 0.3,
           }}>
-            {readAll
-              ? (isRTL ? 'طي الكل' : 'Collapse All')
-              : (isRTL ? 'قراءة الكل' : 'Read All')
-            }
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* ── Category info bar ── */}
-      <View style={{
-        flexDirection: isRTL ? 'row-reverse' : 'row',
-        alignItems: 'center',
-        paddingHorizontal: 16,
-        paddingBottom: 10,
-      }}>
-        {description ? (
-          <Text style={{
-            fontSize: 12,
-            color: colors.text.tertiary,
-            flex: 1,
-            textAlign: isRTL ? 'right' : 'left',
-            letterSpacing: 0.2,
-          }}>
-            {description}
-          </Text>
-        ) : <View style={{ flex: 1 }} />}
-        <View style={{
-          backgroundColor: isDark ? goldTint(0.10) : goldTint(0.06),
-          paddingHorizontal: 8,
-          paddingVertical: 2,
-          borderRadius: 8,
-          marginLeft: isRTL ? 0 : 8,
-          marginRight: isRTL ? 8 : 0,
-        }}>
-          <Text style={{
-            fontSize: 10,
-            fontWeight: '600',
-            color: colors.accent.gold,
-          }}>
-            {duaCount} {isRTL ? 'دعاء' : duaCount === 1 ? 'dua' : 'duas'}
-          </Text>
+            <View style={{
+              backgroundColor: isDark ? goldTint(0.10) : goldTint(0.06),
+              paddingHorizontal: 8,
+              paddingVertical: 3,
+              borderRadius: 10,
+              marginRight: isRTL ? 0 : 8,
+              marginLeft: isRTL ? 8 : 0,
+              minWidth: 24,
+              alignItems: 'center',
+            }}>
+              <Text style={{
+                fontSize: 11,
+                fontWeight: '700',
+                color: colors.accent.gold,
+                includeFontPadding: false,
+              }}>
+                {duaCount}
+              </Text>
+            </View>
+            <MaterialCommunityIcons
+              name={isExpanded ? 'chevron-up' : 'chevron-down'}
+              size={22}
+              color={isExpanded ? colors.accent.gold : colors.text.secondary}
+            />
+          </View>
         </View>
-      </View>
+      </TouchableOpacity>
 
-      {/* ── Decorative divider ── */}
-      <View style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 16,
-        marginBottom: 4,
-      }}>
-        <View style={{
-          flex: 1,
-          height: StyleSheet.hairlineWidth,
-          backgroundColor: goldTint(0.15),
-        }} />
-        <MaterialCommunityIcons
-          name="star-four-points"
-          size={8}
-          color={goldTint(0.25)}
-          style={{ marginHorizontal: 8 }}
-        />
-        <View style={{
-          flex: 1,
-          height: StyleSheet.hairlineWidth,
-          backgroundColor: goldTint(0.15),
-        }} />
-      </View>
+      {/* ── Expanded duas list ── */}
+      {isExpanded && (
+        <View style={{ paddingBottom: 6 }}>
+          {/* ── Action bar: gold divider + Read All button ── */}
+          <View style={{ paddingHorizontal: 16 }}>
+            <View style={{
+              height: StyleSheet.hairlineWidth,
+              backgroundColor: goldTint(0.15),
+            }} />
+            <TouchableOpacity
+              onPress={handleReadAll}
+              activeOpacity={0.6}
+              style={{
+                flexDirection: isRTL ? 'row-reverse' : 'row',
+                alignItems: 'center',
+                alignSelf: isRTL ? 'flex-start' : 'flex-end',
+                paddingVertical: 10,
+                paddingHorizontal: 2,
+              }}
+            >
+              <MaterialCommunityIcons
+                name={readAll ? 'collapse-all-outline' : 'expand-all-outline'}
+                size={15}
+                color={colors.accent.gold}
+                style={{ marginRight: isRTL ? 0 : 5, marginLeft: isRTL ? 5 : 0 }}
+              />
+              <Text style={{
+                fontSize: 12,
+                fontWeight: '600',
+                color: colors.accent.gold,
+                letterSpacing: 0.3,
+              }}>
+                {readAll
+                  ? (isRTL ? 'طي الكل' : 'Collapse All')
+                  : (isRTL ? 'قراءة الكل' : 'Read All')
+                }
+              </Text>
+            </TouchableOpacity>
+          </View>
 
-      {/* ── Duas list (full-width, maximum reading space) ── */}
-      <ScrollView
-        ref={scrollRef}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 100 }}
-        showsVerticalScrollIndicator={false}
-      >
-        {category.duas.map((dua: any, index: number) => (
-          <DuaItem
-            key={dua.id}
-            dua={dua}
-            index={index}
-            isLast={index === category.duas.length - 1}
-            isExpanded={expandedDuas.has(dua.id)}
-            onToggle={() => toggleDua(dua.id)}
-            colors={colors}
-            isDark={isDark}
-            language={language}
-            goldTint={goldTint}
-            duaArabicFontSize={duaArabicFontSize}
-            duaArabicLineHeight={duaArabicLineHeight}
-            arabicFontFamily={arabicFontFamily}
-          />
-        ))}
-      </ScrollView>
+          {/* ── Duas list (flat — no sub-cards, just dividers) ── */}
+          <View style={{ paddingHorizontal: 16 }}>
+            {category.duas.map((dua: any, index: number) => (
+              <DuaItem
+                key={dua.id}
+                dua={dua}
+                index={index}
+                isLast={index === category.duas.length - 1}
+                isExpanded={expandedDuas.has(dua.id)}
+                onToggle={() => toggleDua(dua.id)}
+                colors={colors}
+                isDark={isDark}
+                language={language}
+                goldTint={goldTint}
+                duaArabicFontSize={duaArabicFontSize}
+                duaArabicLineHeight={duaArabicLineHeight}
+                arabicFontFamily={arabicFontFamily}
+              />
+            ))}
+          </View>
+        </View>
+      )}
     </View>
   );
 };
@@ -714,11 +590,9 @@ const CategoryDetailView = ({
 export default function DuaScreen() {
   const { colors, isDark } = useTheme();
   const { t, language } = useLanguage();
-  const isRTL = language === 'ar';
-
-  // ── Navigation state ───────────────────────────────────────────
-  const [selectedCategory, setSelectedCategory] = useState<typeof DUA_CATEGORIES[0] | null>(null);
-  const slideAnim = useRef(new Animated.Value(SCREEN_WIDTH)).current;
+  const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
+  const scrollRef = useRef<ScrollView | null>(null);
+  const categoryPositions = useRef<Record<string, number>>({});
 
   // ── Arabic text settings (synced with Quran settings) ──────────
   const [fontScale, setFontScale] = useState(1.2);
@@ -809,34 +683,30 @@ export default function DuaScreen() {
     ? [colors.background.primary, colors.background.secondary, colors.surface.primary]
     : getTimeBasedGradient();
 
+  const recordLayout = (id: string, y: number) => {
+    categoryPositions.current[id] = y;
+  };
+
+  const toggleCategory = (id: string) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    const willExpand = expandedCategory !== id;
+    setExpandedCategory(prev => (prev === id ? null : id));
+    if (willExpand) {
+      setTimeout(() => {
+        const y = categoryPositions.current[id];
+        if (y !== undefined && scrollRef.current) {
+          scrollRef.current.scrollTo({ y: Math.max(y - 12, 0), animated: true });
+        }
+      }, 120);
+    }
+  };
+
   // Helper function for dynamic gold color
   const goldTint = (opacity: number) => centralGoldTint(opacity, colors);
-
-  // ── Navigation: open / close category ──────────────────────────
-  const openCategory = useCallback((category: typeof DUA_CATEGORIES[0]) => {
-    setSelectedCategory(category);
-    slideAnim.setValue(isRTL ? -SCREEN_WIDTH : SCREEN_WIDTH);
-    Animated.spring(slideAnim, {
-      toValue: 0,
-      useNativeDriver: true,
-      tension: 68,
-      friction: 12,
-    }).start();
-  }, [slideAnim, isRTL]);
-
-  const closeCategory = useCallback(() => {
-    Animated.timing(slideAnim, {
-      toValue: isRTL ? -SCREEN_WIDTH : SCREEN_WIDTH,
-      duration: 250,
-      useNativeDriver: true,
-    }).start(() => setSelectedCategory(null));
-  }, [slideAnim, isRTL]);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background.primary }} edges={['top']}>
       <ExpoLinearGradient colors={gradientColors} style={StyleSheet.absoluteFill} />
-
-      {/* ── Hub View (category list) ── */}
       <View style={{
         flex: 1,
         paddingHorizontal: 12,
@@ -891,8 +761,9 @@ export default function DuaScreen() {
           }} />
         </View>
 
-        {/* ── Category cards (hub menu) ── */}
+        {/* ── Category list ── */}
         <ScrollView
+          ref={scrollRef}
           contentContainerStyle={{ paddingTop: 8, paddingBottom: 40 }}
           showsVerticalScrollIndicator={false}
         >
@@ -900,40 +771,20 @@ export default function DuaScreen() {
             <CategoryCard
               key={category.id}
               category={category}
-              onPress={() => openCategory(category)}
+              isExpanded={expandedCategory === category.id}
+              onToggle={() => toggleCategory(category.id)}
+              onLayout={(e: any) => recordLayout(category.id, e.nativeEvent.layout.y)}
               colors={colors}
               isDark={isDark}
               language={language}
               goldTint={goldTint}
+              duaArabicFontSize={duaArabicFontSize}
+              duaArabicLineHeight={duaArabicLineHeight}
+              arabicFontFamily={arabicFontFamily}
             />
           ))}
         </ScrollView>
       </View>
-
-      {/* ── Full-Screen Detail View (slides in from the side) ── */}
-      {selectedCategory && (
-        <Animated.View style={{
-          ...StyleSheet.absoluteFillObject,
-          transform: [{ translateX: slideAnim }],
-        }}>
-          <ExpoLinearGradient colors={gradientColors} style={StyleSheet.absoluteFill} />
-          <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-            <View style={{ flex: 1, paddingBottom: 90 }}>
-              <CategoryDetailView
-                category={selectedCategory}
-                onBack={closeCategory}
-                colors={colors}
-                isDark={isDark}
-                language={language}
-                goldTint={goldTint}
-                duaArabicFontSize={duaArabicFontSize}
-                duaArabicLineHeight={duaArabicLineHeight}
-                arabicFontFamily={arabicFontFamily}
-              />
-            </View>
-          </SafeAreaView>
-        </Animated.View>
-      )}
 
       {/* Onboarding tooltips overlay */}
       {showTooltips && (

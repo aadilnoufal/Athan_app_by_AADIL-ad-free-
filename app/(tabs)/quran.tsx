@@ -11,6 +11,7 @@ import {
     Platform,
     StatusBar,
     ScrollView,
+    DeviceEventEmitter,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -41,6 +42,7 @@ import FloatingAudioPlayer from '../components/quran/FloatingAudioPlayer';
 import QuranSearchResults from '../components/quran/QuranSearchResults';
 import { useOnboarding } from '../../contexts/OnboardingContext';
 import OnboardingTooltips, { QURAN_TOOLTIPS } from '../../components/OnboardingTooltips';
+import { NOTIFICATION_EVENTS, consumePendingNotificationAction } from '../../utils/pushNotifications';
 
 export default function QuranScreen() {
     const tabBarHeight = useBottomTabBarHeight();
@@ -226,6 +228,31 @@ export default function QuranScreen() {
         topVisibleAyahRef.current = 0;
         scrollToAyahRef.current = null;
     }, []);
+
+    // ── Listen for notification-driven surah navigation ───────────
+    useEffect(() => {
+        const subscription = DeviceEventEmitter.addListener(
+            NOTIFICATION_EVENTS.NAVIGATE_TO_SURAH,
+            ({ surahNumber }: { surahNumber: number }) => {
+                console.log(`📖 Notification deep-link: opening surah ${surahNumber}`);
+                openSurah(surahNumber);
+            },
+        );
+        return () => subscription.remove();
+    }, [openSurah]);
+
+    // ── Check for pending notification action on mount (cold-start) ──
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            const pending = await consumePendingNotificationAction();
+            if (!cancelled && pending?.type === 'open-surah' && pending.surahNumber) {
+                console.log(`📖 Cold-start: opening pending surah ${pending.surahNumber}`);
+                openSurah(pending.surahNumber);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [openSurah]);
 
     // ── Scroll to saved ayah after surah data loads ───────────────
     useEffect(() => {

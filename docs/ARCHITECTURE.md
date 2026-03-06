@@ -170,7 +170,7 @@ utils/
   iqamaConfig.ts       Iqama offset configuration (per-prayer offsets, getIqamaTime, hasIqama)
   notifeePrayerService.js   Notification scheduling via Notifee (smallIcon: ic_notification)
   prayerNotificationScheduler.ts  High-level notification orchestration (prayer + iqama scheduling)
-  pushNotifications.ts FCM token retrieval, topic subscription (all-users, country, version), foreground push display, version-based targeting
+  pushNotifications.ts FCM token retrieval, topic subscription (all-users, country, version), foreground push display, version-based targeting, notification tap action handling (app-update → store, url/deep-link → browser, open-surah → Quran tab deep link), cold-start pending action persistence via AsyncStorage, DeviceEventEmitter event bus for cross-component navigation
   backgroundTask.js    Expo background fetch registration
   localPrayerData.js   Bundled prayer time dataset
   audioHelper.js       Sound playback helpers

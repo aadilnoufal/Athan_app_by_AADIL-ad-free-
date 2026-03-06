@@ -17,9 +17,11 @@
  * - handleNotificationAction opens store for app-update type
  * - handleNotificationAction opens custom URL for url/deep-link type
  * - handleNotificationAction ignores unknown types
+ * - handleNotificationAction navigates to surah for open-surah type
+ * - consumePendingNotificationAction retrieves and clears pending actions
  */
 
-import { Linking, Platform } from 'react-native';
+import { Linking, Platform, DeviceEventEmitter } from 'react-native';
 
 // ── Mocks ────────────────────────────────────────────────────────────────
 
@@ -85,6 +87,11 @@ jest.mock('expo-constants', () => ({
   },
 }));
 
+const mockRouterNavigate = jest.fn();
+jest.mock('expo-router', () => ({
+  router: { navigate: (...args: any[]) => mockRouterNavigate(...args) },
+}));
+
 // ── Import after mocks ──────────────────────────────────────────────────
 
 import {
@@ -96,6 +103,8 @@ import {
   updateCountryTopic,
   getAppVersion,
   handleNotificationAction,
+  consumePendingNotificationAction,
+  NOTIFICATION_EVENTS,
 } from '../../utils/pushNotifications';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -477,8 +486,9 @@ describe('pushNotifications', () => {
 
   describe('handleNotificationAction', () => {
     beforeEach(() => {
-      (Linking.canOpenURL as jest.Mock).mockResolvedValue(true);
       (Linking.openURL as jest.Mock).mockResolvedValue(undefined);
+      mockRouterNavigate.mockClear();
+      (AsyncStorage.setItem as jest.Mock).mockResolvedValue(undefined);
     });
 
     it('returns false for null/undefined data', async () => {
@@ -522,6 +532,12 @@ describe('pushNotifications', () => {
       expect(Linking.openURL).toHaveBeenCalledWith(customUrl);
     });
 
+    it('returns false when openURL throws for app-update', async () => {
+      (Linking.openURL as jest.Mock).mockRejectedValueOnce(new Error('fail'));
+      const result = await handleNotificationAction({ type: 'app-update' });
+      expect(result).toBe(false);
+    });
+
     it('opens URL for url type', async () => {
       const result = await handleNotificationAction({
         type: 'url',
@@ -548,24 +564,147 @@ describe('pushNotifications', () => {
       expect(Linking.openURL).not.toHaveBeenCalled();
     });
 
-    it('returns false when URL cannot be opened', async () => {
-      (Linking.canOpenURL as jest.Mock).mockResolvedValue(false);
-      const result = await handleNotificationAction({ type: 'app-update' });
-
-      expect(result).toBe(false);
-      expect(Linking.openURL).not.toHaveBeenCalled();
-    });
-
     it('returns false for unknown type', async () => {
       const result = await handleNotificationAction({ type: 'some-unknown' });
       expect(result).toBe(false);
     });
 
     it('handles errors gracefully', async () => {
-      (Linking.canOpenURL as jest.Mock).mockRejectedValue(new Error('fail'));
+      (Linking.openURL as jest.Mock).mockRejectedValue(new Error('fail'));
       const result = await handleNotificationAction({ type: 'app-update' });
-
       expect(result).toBe(false);
+    });
+
+    // ── open-surah tests ────────────────────────────────────────────────
+
+    it('navigates to Quran tab and emits event for open-surah', async () => {
+      jest.useFakeTimers();
+      const emitSpy = jest.spyOn(DeviceEventEmitter, 'emit');
+
+      const result = await handleNotificationAction({
+        type: 'open-surah',
+        surahNumber: '18',
+      });
+
+      expect(result).toBe(true);
+      expect(mockRouterNavigate).toHaveBeenCalledWith('/(tabs)/quran');
+      expect(AsyncStorage.setItem).toHaveBeenCalledWith(
+        '@pending_notification_action',
+        expect.stringContaining('"surahNumber":18')
+      );
+
+      // Event is emitted after timeout
+      jest.advanceTimersByTime(500);
+      expect(emitSpy).toHaveBeenCalledWith(
+        NOTIFICATION_EVENTS.NAVIGATE_TO_SURAH,
+        { surahNumber: 18 }
+      );
+
+      emitSpy.mockRestore();
+      jest.useRealTimers();
+    });
+
+    it('returns false for invalid surah number (0)', async () => {
+      const result = await handleNotificationAction({
+        type: 'open-surah',
+        surahNumber: '0',
+      });
+      expect(result).toBe(false);
+    });
+
+    it('returns false for invalid surah number (115)', async () => {
+      const result = await handleNotificationAction({
+        type: 'open-surah',
+        surahNumber: '115',
+      });
+      expect(result).toBe(false);
+    });
+
+    it('returns false for non-numeric surah number', async () => {
+      const result = await handleNotificationAction({
+        type: 'open-surah',
+        surahNumber: 'abc',
+      });
+      expect(result).toBe(false);
+    });
+
+    it('returns false for missing surahNumber', async () => {
+      const result = await handleNotificationAction({
+        type: 'open-surah',
+      });
+      expect(result).toBe(false);
+    });
+
+    it('still returns true even if router.navigate throws', async () => {
+      jest.useFakeTimers();
+      mockRouterNavigate.mockImplementationOnce(() => {
+        throw new Error('router not ready');
+      });
+
+      const result = await handleNotificationAction({
+        type: 'open-surah',
+        surahNumber: '1',
+      });
+
+      expect(result).toBe(true);
+      jest.advanceTimersByTime(500);
+      jest.useRealTimers();
+    });
+
+    it('persists pending action to AsyncStorage for cold-start', async () => {
+      jest.useFakeTimers();
+      await handleNotificationAction({
+        type: 'open-surah',
+        surahNumber: '36',
+      });
+
+      expect(AsyncStorage.setItem).toHaveBeenCalledWith(
+        '@pending_notification_action',
+        expect.stringContaining('"type":"open-surah"')
+      );
+      expect(AsyncStorage.setItem).toHaveBeenCalledWith(
+        '@pending_notification_action',
+        expect.stringContaining('"surahNumber":36')
+      );
+      jest.advanceTimersByTime(500);
+      jest.useRealTimers();
+    });
+  });
+
+  // ── consumePendingNotificationAction ──────────────────────────────────
+
+  describe('consumePendingNotificationAction', () => {
+    it('returns null when no pending action exists', async () => {
+      (AsyncStorage.getItem as jest.Mock).mockResolvedValueOnce(null);
+      const result = await consumePendingNotificationAction();
+      expect(result).toBeNull();
+    });
+
+    it('returns and clears a valid pending action', async () => {
+      const action = { type: 'open-surah', surahNumber: 18, timestamp: Date.now() };
+      (AsyncStorage.getItem as jest.Mock).mockResolvedValueOnce(JSON.stringify(action));
+
+      const result = await consumePendingNotificationAction();
+
+      expect(result).toEqual(action);
+      expect(AsyncStorage.removeItem).toHaveBeenCalledWith('@pending_notification_action');
+    });
+
+    it('discards actions older than 30 seconds', async () => {
+      const staleAction = { type: 'open-surah', surahNumber: 18, timestamp: Date.now() - 60_000 };
+      (AsyncStorage.getItem as jest.Mock).mockResolvedValueOnce(JSON.stringify(staleAction));
+
+      const result = await consumePendingNotificationAction();
+
+      expect(result).toBeNull();
+      // Still removed from storage
+      expect(AsyncStorage.removeItem).toHaveBeenCalledWith('@pending_notification_action');
+    });
+
+    it('returns null on AsyncStorage error', async () => {
+      (AsyncStorage.getItem as jest.Mock).mockRejectedValueOnce(new Error('storage error'));
+      const result = await consumePendingNotificationAction();
+      expect(result).toBeNull();
     });
   });
 });
