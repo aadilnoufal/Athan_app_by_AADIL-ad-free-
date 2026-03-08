@@ -15,6 +15,9 @@ Prayer Times by AADIL is a comprehensive, advertisement-free mobile application 
 -Fixed a lot of small bugs causing some edge cases that were missed earlier
 - improved dua page from user feedback
 
+**app store link**  : https://apps.apple.com/qa/app/prayer-times-by-aadil-noufal/id6751736180
+**play store link** : https://play.google.com/store/apps/details?id=com.yourcompany.prayertimes
+
 ## Features
 
 ✨ **Ad-Free Experience** - Completely free from advertisements  
