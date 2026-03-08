@@ -48,8 +48,8 @@ Language selection is managed from the **Settings** tab.
 
 The app is available on:
 
-- Google Play Store (Android)
-- App Store (iOS)
+**app store link**  : https://apps.apple.com/qa/app/prayer-times-by-aadil-noufal/id6751736180
+**play store link** : https://play.google.com/store/apps/details?id=com.yourcompany.prayertimes
 
 ## Technology Stack
 
