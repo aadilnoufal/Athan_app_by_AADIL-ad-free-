@@ -16,6 +16,7 @@ Prayer Times by AADIL is a comprehensive, advertisement-free mobile application 
 - improved dua page from user feedback
 
 **app store link**  : https://apps.apple.com/qa/app/prayer-times-by-aadil-noufal/id6751736180
+
 **play store link** : https://play.google.com/store/apps/details?id=com.yourcompany.prayertimes
 
 ## Features
@@ -48,8 +49,9 @@ Language selection is managed from the **Settings** tab.
 
 The app is available on:
 
-**app store link**  : https://apps.apple.com/qa/app/prayer-times-by-aadil-noufal/id6751736180
-**play store link** : https://play.google.com/store/apps/details?id=com.yourcompany.prayertimes
+**app store**  : https://apps.apple.com/qa/app/prayer-times-by-aadil-noufal/id6751736180
+
+**play store** : https://play.google.com/store/apps/details?id=com.yourcompany.prayertimes
 
 ## Technology Stack
 
