@@ -1,4 +1,5 @@
 // Utility functions for handling prayer time calculations and timezone issues
+import { getPrayerTimesFromLocalData } from './localPrayerData';
 
 /**
  * Creates a proper Date object for prayer time that handles timezone correctly
@@ -71,15 +72,23 @@ export const findNextPrayer = (prayerTimes, prayerTimes12h = null, dayOffset = 0
       return nextPrayer;
     }
     
-    // All prayers passed, return tomorrow's Fajr
-    const fajrPrayer = prayers.find(p => p.name === 'Fajr');
-    if (fajrPrayer) {
-      const tomorrowFajr = createPrayerDate(fajrPrayer.timeRaw, 1);
+    // All prayers passed — return tomorrow's Fajr using TOMORROW's actual data.
+    // Using today's Fajr entry here would show the wrong (today's) time.
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowData = getPrayerTimesFromLocalData(tomorrow);
+    const tomorrowFajrRaw =
+      tomorrowData?.times?.Fajr && tomorrowData.times.Fajr !== '--:--'
+        ? tomorrowData.times.Fajr
+        : prayers.find(p => p.name === 'Fajr')?.timeRaw; // last-resort fallback
+
+    if (tomorrowFajrRaw) {
+      const tomorrowFajrDate = createPrayerDate(tomorrowFajrRaw, 1);
       return {
         name: 'Fajr (Tomorrow)',
-        time: fajrPrayer.time,
-        timeRaw: fajrPrayer.timeRaw,
-        date: tomorrowFajr
+        time: convertTo12HourFormat(tomorrowFajrRaw),
+        timeRaw: tomorrowFajrRaw,
+        date: tomorrowFajrDate,
       };
     }
   }

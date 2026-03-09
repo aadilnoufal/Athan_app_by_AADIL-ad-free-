@@ -82,7 +82,18 @@ try {
         const prayerData = notification?.data;
         
         // Check for both prayer-time and prayer-reminder types
-        if (prayerData?.type === 'prayer-time' || prayerData?.type === 'prayer-reminder') {
+        if (prayerData?.type === 'prayer-time' || prayerData?.type === 'prayer-reminder' || prayerData?.type === 'iqama-reminder') {
+          // Staleness guard: suppress notifications that fire >5 min late
+          // (e.g. after a clock change or timezone hop)
+          const scheduledTs = Number(prayerData?.scheduledTimestamp);
+          if (scheduledTs && (Date.now() - scheduledTs) > 5 * 60 * 1000) {
+            console.log(`🗑️ Suppressing stale background ${prayerData.prayerName} notification`);
+            if (notification?.id) {
+              notifee.cancelDisplayedNotification(notification.id);
+            }
+            return;
+          }
+
           console.log(`✅ ${prayerData.prayerName} notification delivered in background (top-level handler)`);
           
           // Top up rolling window

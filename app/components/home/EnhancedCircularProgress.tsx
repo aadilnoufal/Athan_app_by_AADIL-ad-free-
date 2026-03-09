@@ -45,7 +45,12 @@ export const EnhancedCircularProgress = ({
 }: EnhancedCircularProgressProps) => {
     const isIqamaMode = countdownMode === 'iqama' && iqamaPrayerName;
     const displayLabel = isIqamaMode ? t('iqamaLabel') : t('nextPrayer');
-    const displayPrayerName = isIqamaMode ? t(iqamaPrayerName!) : (nextPrayer ? t(nextPrayer.name) : '');
+    // Handle "Fajr (Tomorrow)" → translate "Fajr" part, keep "(Tomorrow)" suffix localised
+    const isTomorrow = nextPrayer?.name?.includes('(Tomorrow)');
+    const basePrayerName = isTomorrow ? nextPrayer!.name.replace(' (Tomorrow)', '') : nextPrayer?.name ?? '';
+    const displayPrayerName = isIqamaMode
+      ? t(iqamaPrayerName!)
+      : (nextPrayer ? (isTomorrow ? `${t(basePrayerName)} (${t('tomorrow')})` : t(nextPrayer.name)) : '');
 
     return (
     <View style={styles.enhancedCircularContainer}>
@@ -113,7 +118,7 @@ export const EnhancedCircularProgress = ({
                 <>
                     <AnimatedPrayerIcon
                         key={isIqamaMode ? `iqama-${iqamaPrayerName}` : nextPrayer.name}
-                        prayer={isIqamaMode ? iqamaPrayerName! : nextPrayer.name}
+                        prayer={isIqamaMode ? iqamaPrayerName! : basePrayerName}
                         active={true}
                         size={32}
                         color={isIqamaMode ? SepiaColors.accent.amber : SepiaColors.accent.gold}

@@ -464,9 +464,10 @@ export default function Home() {
 
                   <View style={styles.prayerTimesGrid}>
                     {Object.entries(prayerTimes.times).map(([prayer, time], index) => {
-                      // Strip " (Tomorrow)" suffix so "Fajr (Tomorrow)" still highlights the Fajr row
-                      const nextPrayerBaseName = nextPrayer?.name?.replace(' (Tomorrow)', '') ?? '';
-                      const isNextPrayer = nextPrayerBaseName === prayer && currentDay === 0;
+                      // When next prayer is "Fajr (Tomorrow)", don't highlight today's Fajr row
+                      // — none of today's prayers are "next" in that scenario
+                      const isTomorrow = nextPrayer?.name?.includes('(Tomorrow)') ?? false;
+                      const isNextPrayer = !isTomorrow && nextPrayer?.name === prayer && currentDay === 0;
                       return (
                       <Animated.View
                         key={prayer}

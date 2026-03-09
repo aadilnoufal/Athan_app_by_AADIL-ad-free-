@@ -1106,7 +1106,18 @@ export function setupNotifeeEventHandlers() {
         const prayerData = notification?.data;
 
         // Check for both prayer-time and prayer-reminder types
-        if (prayerData?.type === 'prayer-time' || prayerData?.type === 'prayer-reminder') {
+        if (prayerData?.type === 'prayer-time' || prayerData?.type === 'prayer-reminder' || prayerData?.type === 'iqama-reminder') {
+          // Staleness guard: if a notification fires >5 minutes after its intended
+          // time (e.g. clock change, timezone hop) suppress it silently.
+          const scheduledTs = Number(prayerData.scheduledTimestamp);
+          if (scheduledTs && (Date.now() - scheduledTs) > 5 * 60 * 1000) {
+            console.log(`🗑️ Suppressing stale ${prayerData.prayerName} notification (scheduled ${new Date(scheduledTs).toISOString()}, now ${new Date().toISOString()})`);
+            if (notification?.id) {
+              notifee.cancelDisplayedNotification(notification.id);
+            }
+            break;
+          }
+
           console.log(`✅ ${prayerData.prayerName} prayer notification delivered - Channel played ${prayerData.soundType} sound automatically`);
 
           // Top up rolling window for iOS

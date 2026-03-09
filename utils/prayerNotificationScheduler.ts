@@ -167,7 +167,7 @@ async function scheduleDay(date: Date, settings: any, cityId: string = 'doha', p
           title: notificationTitle,
           body: notificationBody,
           // Use unified type 'prayer-time' for scheduled prayer notifications
-          data: sanitizeNotifeeData({ type: 'prayer-time', prayerName: prayer, soundType: useAzanForPrayer ? 'azan' : 'beep', useAzanSound: useAzanSound.toString() }),
+          data: sanitizeNotifeeData({ type: 'prayer-time', prayerName: prayer, soundType: useAzanForPrayer ? 'azan' : 'beep', useAzanSound: useAzanSound.toString(), scheduledTimestamp: when.getTime().toString() }),
           android,
           ios,
         },
@@ -259,7 +259,7 @@ async function scheduleDay(date: Date, settings: any, cityId: string = 'doha', p
             id,
             title: notifTitle,
             body: notifBody,
-            data: sanitizeNotifeeData({ type: 'iqama-reminder', prayerName: prayer }),
+            data: sanitizeNotifeeData({ type: 'iqama-reminder', prayerName: prayer, scheduledTimestamp: notifTime.getTime().toString() }),
             android,
             ios,
           },
@@ -320,6 +320,26 @@ async function _ensurePrayerNotificationWindowImpl() {
     if (version !== SCHEDULER_VERSION) {
       await cancelAll();
     }
+
+    // Dismiss any already-displayed prayer notifications that are stale (>5 min old).
+    // This catches cases where the clock changed while the app was killed and
+    // AlarmManager fired multiple past notifications into the notification shade.
+    try {
+      const displayed = await notifee.getDisplayedNotifications();
+      const staleThreshold = 5 * 60 * 1000;
+      for (const n of displayed) {
+        const ts = Number(n.notification?.data?.scheduledTimestamp);
+        if (ts && (Date.now() - ts) > staleThreshold) {
+          if (n.id) {
+            await notifee.cancelDisplayedNotification(n.id);
+            console.log(`🗑️ Dismissed stale displayed notification: ${n.id}`);
+          }
+        }
+      }
+    } catch (e) {
+      console.log('⚠️ Stale notification cleanup failed (non-critical):', e);
+    }
+
     const settings = await getNotificationSettings();
     const today = new Date();
     today.setHours(0,0,0,0);
