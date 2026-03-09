@@ -101,17 +101,10 @@ class PrayerWidget : AppWidgetProvider() {
             val now = Calendar.getInstance().timeInMillis
             val nextUpdate = now + 60000 // 1 minute
 
-            try {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, nextUpdate, pendingIntent)
-                } else {
-                    alarmManager.setExact(AlarmManager.RTC_WAKEUP, nextUpdate, pendingIntent)
-                }
-            } catch (e: SecurityException) {
-                // Fallback for Android 12+ if permission not granted, though for widgets it's usually fine or ignored
-                // Just use set() which is inexact but better than crash
-                alarmManager.set(AlarmManager.RTC_WAKEUP, nextUpdate, pendingIntent)
-            }
+            // Use RTC (not RTC_WAKEUP) so the widget doesn't wake the device
+            // when the screen is off — nobody is looking at it then anyway.
+            // The alarm fires as soon as the device wakes naturally.
+            alarmManager.set(AlarmManager.RTC, nextUpdate, pendingIntent)
         }
 
         private fun cancelUpdate(context: Context) {

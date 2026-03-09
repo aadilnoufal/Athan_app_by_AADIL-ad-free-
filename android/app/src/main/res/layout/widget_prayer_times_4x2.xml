@@ -33,9 +33,10 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Fajr"
-                    android:textSize="12sp"
+                    android:textSize="11sp"
                     android:textColor="@color/midnight_text_secondary"
-                    android:textStyle="bold"/>
+                    android:textStyle="bold"
+                    android:maxLines="1"/>
                 <TextView
                     android:id="@+id/prayer_time_0"
                     android:layout_width="wrap_content"
@@ -58,10 +59,11 @@
                     android:id="@+id/prayer_name_1"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Sun"
-                    android:textSize="12sp"
+                    android:text="Sunrise"
+                    android:textSize="11sp"
                     android:textColor="@color/midnight_text_secondary"
-                    android:textStyle="bold"/>
+                    android:textStyle="bold"
+                    android:maxLines="1"/>
                 <TextView
                     android:id="@+id/prayer_time_1"
                     android:layout_width="wrap_content"
@@ -85,9 +87,10 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Dhuhr"
-                    android:textSize="12sp"
+                    android:textSize="11sp"
                     android:textColor="@color/midnight_text_secondary"
-                    android:textStyle="bold"/>
+                    android:textStyle="bold"
+                    android:maxLines="1"/>
                 <TextView
                     android:id="@+id/prayer_time_2"
                     android:layout_width="wrap_content"
@@ -111,9 +114,10 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Asr"
-                    android:textSize="12sp"
+                    android:textSize="11sp"
                     android:textColor="@color/midnight_text_secondary"
-                    android:textStyle="bold"/>
+                    android:textStyle="bold"
+                    android:maxLines="1"/>
                 <TextView
                     android:id="@+id/prayer_time_3"
                     android:layout_width="wrap_content"
@@ -136,10 +140,11 @@
                     android:id="@+id/prayer_name_4"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Magh"
-                    android:textSize="12sp"
+                    android:text="Maghrib"
+                    android:textSize="11sp"
                     android:textColor="@color/midnight_text_secondary"
-                    android:textStyle="bold"/>
+                    android:textStyle="bold"
+                    android:maxLines="1"/>
                 <TextView
                     android:id="@+id/prayer_time_4"
                     android:layout_width="wrap_content"
@@ -163,9 +168,10 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Isha"
-                    android:textSize="12sp"
+                    android:textSize="11sp"
                     android:textColor="@color/midnight_text_secondary"
-                    android:textStyle="bold"/>
+                    android:textStyle="bold"
+                    android:maxLines="1"/>
                 <TextView
                     android:id="@+id/prayer_time_5"
                     android:layout_width="wrap_content"

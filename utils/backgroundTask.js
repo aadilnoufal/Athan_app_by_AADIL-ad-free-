@@ -28,10 +28,11 @@ export async function setupBackgroundTask() {
     const { startPrayerNotificationWindowMaintainer } = require('./prayerNotificationScheduler');
     startPrayerNotificationWindowMaintainer();
     started = true;
-    // Register background fetch (approx every 3 hours, system decides)
+    // Register background fetch as insurance (rolling window is maintained on
+    // app resume + prayer delivery, so this only needs to run infrequently)
     try {
       await BackgroundFetch.registerTaskAsync(TASK_ID, {
-        minimumInterval: 3 * 60 * 60, // 3 hours
+        minimumInterval: 12 * 60 * 60, // 12 hours
         stopOnTerminate: false,
         startOnBoot: true
       });
