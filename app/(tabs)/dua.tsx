@@ -37,6 +37,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const getCategoryIcon = (id: string): string => {
   switch (id) {
     case 'morning':              return 'weather-sunset-up';
+    case 'evening':              return 'weather-sunset-down';
     case 'azan':                 return 'mosque';
     case 'sleeping':             return 'weather-night';
     case 'visiting_deceased':    return 'grave-stone';
@@ -51,6 +52,7 @@ const getCategoryIcon = (id: string): string => {
 const getCategoryDescription = (id: string, isRTL: boolean): string => {
   switch (id) {
     case 'morning':              return isRTL ? 'أذكار وأدعية الصباح والمساء' : 'Morning remembrance & protection';
+    case 'evening':              return isRTL ? 'أذكار وأدعية المساء' : 'Evening remembrance & protection';
     case 'azan':                 return isRTL ? 'دعاء بعد الأذان' : 'Supplication after the call to prayer';
     case 'sleeping':             return isRTL ? 'أذكار النوم وآيات قرآنية' : 'Night prayers & Quranic recitations';
     case 'visiting_deceased':    return isRTL ? 'ما يقال عند زيارة القبور' : 'What to say when visiting graves';
@@ -495,8 +497,48 @@ const CategoryDetailView = ({
   const [expandedDuas, setExpandedDuas] = useState<Set<string>>(new Set());
   const [readAll, setReadAll] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
+  const [showReadAllHint, setShowReadAllHint] = useState(true);
+  const readAllGlowAnim = useRef(new Animated.Value(0)).current;
+
+  const dismissReadAllHint = useCallback(() => {
+    setShowReadAllHint(false);
+  }, []);
+
+  // Re-show the hint each time this detail view opens for a category.
+  useEffect(() => {
+    setShowReadAllHint(true);
+  }, [category.id]);
+
+  useEffect(() => {
+    if (!showReadAllHint) {
+      readAllGlowAnim.stopAnimation();
+      readAllGlowAnim.setValue(0);
+      return;
+    }
+
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(readAllGlowAnim, {
+          toValue: 1,
+          duration: 950,
+          useNativeDriver: false,
+        }),
+        Animated.timing(readAllGlowAnim, {
+          toValue: 0,
+          duration: 950,
+          useNativeDriver: false,
+        }),
+      ])
+    );
+
+    loop.start();
+    return () => {
+      loop.stop();
+    };
+  }, [showReadAllHint, readAllGlowAnim]);
 
   const toggleDua = useCallback((duaId: string) => {
+    dismissReadAllHint();
     setExpandedDuas(prev => {
       const next = new Set(prev);
       if (next.has(duaId)) {
@@ -508,9 +550,10 @@ const CategoryDetailView = ({
       }
       return next;
     });
-  }, [readAll, category.duas.length]);
+  }, [dismissReadAllHint, readAll, category.duas.length]);
 
   const handleReadAll = useCallback(() => {
+    dismissReadAllHint();
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     if (readAll) {
       setExpandedDuas(new Set());
@@ -521,7 +564,7 @@ const CategoryDetailView = ({
       setExpandedDuas(allIds);
       setReadAll(true);
     }
-  }, [readAll, category.duas]);
+  }, [dismissReadAllHint, readAll, category.duas]);
 
   // Handle Android hardware back button
   useEffect(() => {
@@ -533,7 +576,13 @@ const CategoryDetailView = ({
   }, [onBack]);
 
   return (
-    <View style={{ flex: 1 }}>
+    <View
+      style={{ flex: 1 }}
+      onStartShouldSetResponderCapture={() => {
+        dismissReadAllHint();
+        return false;
+      }}
+    >
       {/* ── Header ── */}
       <View style={{
         flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -589,36 +638,58 @@ const CategoryDetailView = ({
         </View>
 
         {/* Read All / Collapse All */}
-        <TouchableOpacity
-          onPress={handleReadAll}
-          activeOpacity={0.6}
-          style={{
-            flexDirection: isRTL ? 'row-reverse' : 'row',
-            alignItems: 'center',
-            paddingHorizontal: 10,
-            paddingVertical: 6,
-            borderRadius: 12,
-            backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : goldTint(0.06),
-          }}
-        >
-          <MaterialCommunityIcons
-            name={readAll ? 'collapse-all-outline' : 'expand-all-outline'}
-            size={14}
-            color={colors.accent.gold}
-            style={{ marginRight: isRTL ? 0 : 4, marginLeft: isRTL ? 4 : 0 }}
-          />
-          <Text style={{
-            fontSize: 11,
-            fontWeight: '600',
-            color: colors.accent.gold,
-            letterSpacing: 0.3,
-          }}>
-            {readAll
-              ? (isRTL ? 'طي الكل' : 'Collapse All')
-              : (isRTL ? 'قراءة الكل' : 'Read All')
-            }
-          </Text>
-        </TouchableOpacity>
+        <View style={{ position: 'relative' }}>
+          {showReadAllHint && (
+            <Animated.View
+              pointerEvents="none"
+              style={{
+                position: 'absolute',
+                top: -3,
+                right: -3,
+                bottom: -3,
+                left: -3,
+                borderRadius: 14,
+                backgroundColor: goldTint(0.10),
+                borderWidth: 1,
+                borderColor: goldTint(0.25),
+                opacity: readAllGlowAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0.25, 0.65],
+                }),
+              }}
+            />
+          )}
+          <TouchableOpacity
+            onPress={handleReadAll}
+            activeOpacity={0.6}
+            style={{
+              flexDirection: isRTL ? 'row-reverse' : 'row',
+              alignItems: 'center',
+              paddingHorizontal: 10,
+              paddingVertical: 6,
+              borderRadius: 12,
+              backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : goldTint(0.06),
+            }}
+          >
+            <MaterialCommunityIcons
+              name={readAll ? 'collapse-all-outline' : 'expand-all-outline'}
+              size={14}
+              color={colors.accent.gold}
+              style={{ marginRight: isRTL ? 0 : 4, marginLeft: isRTL ? 4 : 0 }}
+            />
+            <Text style={{
+              fontSize: 11,
+              fontWeight: '600',
+              color: colors.accent.gold,
+              letterSpacing: 0.3,
+            }}>
+              {readAll
+                ? (isRTL ? 'طي الكل' : 'Collapse All')
+                : (isRTL ? 'قراءة الكل' : 'Read All')
+              }
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* ── Category info bar ── */}
@@ -685,6 +756,7 @@ const CategoryDetailView = ({
       {/* ── Duas list (full-width, maximum reading space) ── */}
       <ScrollView
         ref={scrollRef}
+        onScrollBeginDrag={dismissReadAllHint}
         contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
       >
