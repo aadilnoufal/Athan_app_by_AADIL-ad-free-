@@ -23,6 +23,7 @@ import { getPrayerTimesFromLocalData } from '../../utils/localPrayerData';
 import { updateWidgetData, updateWidgetDataImmediate, type WidgetData } from '../../utils/widgetDataBridge';
 import { findNextPrayer, isSamePrayerTime } from '../../utils/timeUtils';
 import { getIqamaTime, hasIqama } from '../../utils/iqamaConfig';
+import { getWidgetLocalizedLabels } from '../../utils/notificationTextResolver';
 import type { PrayerData, NextPrayer } from '../../app/components/home/homeTypes';
 
 type TFunc = (key: string) => string;
@@ -88,7 +89,7 @@ export function useHomePrayerData(params: UseHomePrayerDataParams) {
   nextPrayerRef.current = nextPrayer;
   // Ref to hold the latest updateCountdown function so the setInterval doesn't
   // need to be torn down and rebuilt every time the callback identity changes.
-  const updateCountdownRef = useRef<() => void>(() => {});
+  const updateCountdownRef = useRef<() => void>(() => { });
   // Ref mirror of notificationsEnabled so long-lived closures always read the latest value
   const notificationsEnabledLocalRef = useRef(notificationsEnabled);
   useEffect(() => { notificationsEnabledLocalRef.current = notificationsEnabled; }, [notificationsEnabled]);
@@ -187,6 +188,13 @@ export function useHomePrayerData(params: UseHomePrayerDataParams) {
               console.log('ℹ️ Could not fetch tomorrow Fajr for widget (non-critical)');
             }
 
+            // Read current language for widget localization
+            let widgetLang = 'en';
+            try {
+              const storedLang = await AsyncStorage.getItem('app_language');
+              if (storedLang === 'ar') widgetLang = 'ar';
+            } catch { }
+
             const widgetPayload: WidgetData = {
               times: timings,
               times12h: formattedTimes.times12h as any,
@@ -195,6 +203,8 @@ export function useHomePrayerData(params: UseHomePrayerDataParams) {
               themeMode: currentTheme,
               lastUpdated: Date.now(),
               tomorrowFajrMinutes,
+              language: widgetLang,
+              localizedLabels: getWidgetLocalizedLabels(widgetLang),
             };
             // Use immediate update on first load, debounced for subsequent updates
             if (isFirstFetchRef.current) {
@@ -732,7 +742,8 @@ export function useHomePrayerData(params: UseHomePrayerDataParams) {
 
       await fetchAndCachePrayerTimes();
 
-      if (notificationsEnabledLocalRef.current) {        const lastScheduled = await AsyncStorage.getItem('last_notification_scheduled');
+      if (notificationsEnabledLocalRef.current) {
+        const lastScheduled = await AsyncStorage.getItem('last_notification_scheduled');
         const now = Date.now();
         const parsedTimestamp = lastScheduled ? parseInt(lastScheduled, 10) : NaN;
         if (!lastScheduled || isNaN(parsedTimestamp) || now - parsedTimestamp > 60000) {

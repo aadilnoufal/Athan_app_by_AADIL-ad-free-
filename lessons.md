@@ -4,6 +4,22 @@ This document tracks mistakes made during development and how to avoid them in t
 
 ---
 
+## Arabic Localization — Notifications & Widgets
+
+### Pattern 70: jest-expo does not auto-mock @react-native-async-storage/async-storage
+
+- **Mistake**: Assumed `jest-expo` preset would auto-mock AsyncStorage (like it does for many RN core modules). Test suite failed with `NativeModule: AsyncStorage is null` when `notificationTextResolver.ts` imported AsyncStorage.
+- **How to avoid**: Always add an explicit `jest.mock('@react-native-async-storage/async-storage', () => ({ getItem: jest.fn(), setItem: jest.fn(), removeItem: jest.fn() }))` at the top of any test file whose module graph touches AsyncStorage — even indirectly (e.g. widgetDataBridge → notificationTextResolver → AsyncStorage).
+- **Fix**: Added explicit `jest.mock` to both `notificationTextResolver.test.ts` and `widgetDataBridge.test.ts`.
+
+### Pattern 71: Background schedulers cannot use React hooks for language/preferences
+
+- **Mistake**: Initially considered passing language through React context or hook callbacks for background notification scheduling. Background tasks (AlarmManager, headless JS) have no React tree — hooks are unavailable.
+- **How to avoid**: For any value needed by background tasks (language, sound preferences, etc.), always read directly from AsyncStorage at scheduling time. Create a standalone utility function (like `getStoredLanguage()`) that reads the raw stored value with a safe fallback.
+- **Fix**: Created `notificationTextResolver.ts` with `getStoredLanguage()` that reads `app_language` from AsyncStorage directly (returns `'en'` on any failure). All schedulers call this at entry and pass the language string through.
+
+---
+
 ## 2026-03-06: Dua Page UX Redesign — Full-Screen Navigation
 
 ### Pattern 69: Inline expand/collapse in a list degrades reading experience

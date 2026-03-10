@@ -72,7 +72,9 @@ class PrayerWidget : AppWidgetProvider() {
                 views.setTextColor(R.id.widget_time_remaining, colors.textPrimary)
                 views.setTextColor(R.id.widget_next_prayer_time, colors.accentGold)
             } else {
-                views.setTextViewText(R.id.widget_next_prayer_name, "PRAYER")
+                val localLabels = PrayerTimeRepository.getLocalizedLabels(context)
+                val fallbackLabel = PrayerTimeRepository.getNextPrayerLabel(localLabels)
+                views.setTextViewText(R.id.widget_next_prayer_name, fallbackLabel.uppercase())
                 views.setTextViewText(R.id.widget_next_prayer_time, "--:--")
                 views.setTextViewText(R.id.widget_time_remaining, "No Data")
                 views.setProgressBar(R.id.widget_progress_bar, 100, 0, false)
@@ -98,13 +100,20 @@ class PrayerWidget : AppWidgetProvider() {
             
             val pendingIntent = PendingIntent.getBroadcast(context, 0, intent, flags)
 
+            // Align to 30s into the next minute so the countdown updates
+            // promptly when the minute rolls over.
+            val nextMinute = Calendar.getInstance().apply {
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+                add(Calendar.MINUTE, 1)
+            }.timeInMillis
+            // Fire 30s before the next minute boundary too, for smoother updates
             val now = Calendar.getInstance().timeInMillis
-            val nextUpdate = now + 60000 // 1 minute
+            val nextUpdate = if (nextMinute - now > 30000) now + 30000 else nextMinute
 
-            // Use RTC (not RTC_WAKEUP) so the widget doesn't wake the device
-            // when the screen is off — nobody is looking at it then anyway.
-            // The alarm fires as soon as the device wakes naturally.
-            alarmManager.set(AlarmManager.RTC, nextUpdate, pendingIntent)
+            // setExact(RTC) = precise when screen is on, does NOT wake device
+            // when screen is off. Best of both worlds for widget countdowns.
+            alarmManager.setExact(AlarmManager.RTC, nextUpdate, pendingIntent)
         }
 
         private fun cancelUpdate(context: Context) {

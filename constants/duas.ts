@@ -38,7 +38,7 @@ export const DUA_CATEGORIES = [
         arabic: 'اَللّٰهُمَّ عَالِمَ الْغَيْبِ وَالشَّهَادَةِ ، فَاطِرَ السَّمٰوَاتِ وَالْأَرْضِ ، رَبَّ كُلِّ شَيْءٍ وَمَلِيْكَهُ ، أَشْهَدُ أَنْ لَّا إِلٰهَ إِلَّا أَنْتَ ، أَعُوْذُ بِكَ مِنْ شَرِّ نَفْسِيْ ، وَمِنْ شَرِّ الشَّيْطَانِ وَشِرْكِهِ ، وَأَنْ أَقْتَرِفَ عَلَىٰ نَفْسِيْ سُوْءًا ، أَوْ أَجُرَّهُ إِلَىٰ مُسْلِمٍ',
         transliteration: 'Allahumma \'Alimal-ghaybi wash-shahadah, Fatiras-samawati wal-ard, Rabba kulli shay\'in wa Malikah, ashhadu an la ilaha illa Ant, a\'udhu bika min sharri nafsi wa min sharrish-shaytani wa shirkih, wa an aqtarifa \'ala nafsi su\'an aw ajurrahu ila Muslim.',
         translation: 'O Allah, Knower of the unseen and the seen, Creator of the heavens and the earth, Lord and Sovereign of all things, I bear witness that there is no god but You. I seek refuge in You from the evil of my own soul and from the evil of Satan and his shirk, and from committing wrong against myself or bringing such upon another Muslim.',
-        reference: 'Tirmidhi'
+        reference: 'Al-Tirmidhi'
       },
       {
         id: 'morning_5',
@@ -47,7 +47,7 @@ export const DUA_CATEGORIES = [
         arabic: 'يَا حَيُّ يَا قَيُّوْمُ ، بِرَحْمَتِكَ أَسْتَغِيْثُ ، أَصْلِحْ لِيْ شَأْنِيْ كُلَّهُ ، وَلَا تَكِلْنِيْ إِلَىٰ نَفْسِيْ طَرْفَةَ عَيْنٍ',
         transliteration: 'Ya Hayyu Ya Qayyum, bi-Rahmatika astaghith, aslih li sha\'ni kullah, wa la takilni ila nafsi tarfata \'ayn.',
         translation: 'O Ever Living One, O Eternal One, by Your mercy I call on You to set right all my affairs. Do not place me in charge of my soul even for the blinking of an eye.',
-        reference: 'Hakim'
+        reference: 'Al-Hakim'
       },
       {
         id: 'morning_6',
@@ -74,7 +74,7 @@ export const DUA_CATEGORIES = [
         arabic: 'أَصْبَحْتُ أُثْنِيْ عَلَيْكَ حَمْدًا ، وَأَشْهَدُ أَنْ لَّا إِلٰهَ إِلَّا اللّٰهُ',
         transliteration: 'Asbahtu uthni \'alayka hamdan, wa ashhadu an la ilaha illallah.',
         translation: 'I have entered the morning praising You, and I bear witness that there is no god but Allah.',
-        reference: 'Nasai'
+        reference: 'Al-Nasa\'i'
       },
       {
         id: 'morning_9',
@@ -110,7 +110,7 @@ export const DUA_CATEGORIES = [
         arabic: 'اَللّٰهُمَّ بِكَ أَصْبَحْنَا وَبِكَ أَمْسَيْنَا وَبِكَ نَحْيَا وَبِكَ نَمُوْتُ وَإِلَيْكَ النُّشُوْرُ',
         transliteration: 'Allahumma bika asbahna wa bika amsayna, wa bika nahya wa bika namutu wa ilaykan-nushur.',
         translation: 'O Allah, by You we enter the morning and by You we enter the evening, by You we live and by You we die, and to You is the Final Return.',
-        reference: 'Tirmidhi'
+        reference: 'Al-Tirmidhi'
       },
       {
         id: 'morning_13',
@@ -146,7 +146,7 @@ export const DUA_CATEGORIES = [
         arabic: 'بِسْمِ اللّٰهِ الَّذِيْ لَا يَضُرُّ مَعَ اسْمِهِ شَيْءٌ فِي الْأَرْضِ وَلَا فِي السَّمَاءِ ، وَهُوَ السَّمِيْعُ الْعَلِيْمُ',
         transliteration: 'Bismillahil-ladhi la yadurru ma\'as-mihi shay\'un fil-ardi wa la fis-sama\'i wa Huwas-Sami\'ul-\'Alim.',
         translation: 'In the Name of Allah, with Whose Name nothing on earth or in the heaven can cause harm, and He is the All-Hearing, the All-Knowing.',
-        reference: 'Tirmidhi'
+        reference: 'Al-Tirmidhi'
       },
       {
         id: 'morning_17',
@@ -200,6 +200,220 @@ export const DUA_CATEGORIES = [
         arabic: 'سُبْحَانَ اللّٰهِ وَبِحَمْدِهِ ، عَدَدَ خَلْقِهِ ، وَرِضَا نَفْسِهِ ، وَزِنَةَ عَرْشِهِ ، وَمِدَادَ كَلِمَاتِهِ',
         transliteration: 'Subhanallahi wa bihamdihi, \'adada khalqihi, wa rida nafsihi, wa zinata \'arshihi, wa midada kalimatih.',
         translation: 'Glory is to Allah and all praise is to Him, by the multitude of His creation, by His Pleasure, by the weight of His Throne, and by the extent of His Words.',
+        reference: 'Muslim'
+      }
+    ]
+  },
+  {
+    id: 'evening',
+    title: 'Evening Prayers',
+    titleAr: 'أذكار المساء',
+    duas: [
+      {
+        id: 'evening_1',
+        title: 'Ayat al-Kursi: The Greatest Protection (1x)',
+        titleAr: 'آية الكرسي: أعظم حماية (مرة واحدة)',
+        arabic: 'أَعُوْذُ بِاللّٰهِ مِنَ الشَّيْطَانِ الرَّجِيْمِ. اَللّٰهُ لَآ إِلٰهَ إِلَّا هُوَ الْحَىُّ الْقَيُّوْمُ ، لَا تَأْخُذُهُۥ سِنَةٌ وَّلَا نَوْمٌ ، لَهُ مَا فِى السَّمٰـوٰتِ وَمَا فِى الْأَرْضِ ، مَنْ ذَا الَّذِىْ يَشْفَعُ عِنْدَهُ إِلَّا بِإِذْنِهِۦ ، يَعْلَمُ مَا بَيْنَ أَيْدِيْهِمْ وَمَا خَلْفَهُمْ ، وَلَا يُحِيْطُوْنَ بِشَىْءٍ مِّنْ عِلْمِهِٓ إِلَّا بِمَا شَآءَ ، وَسِعَ كُرْسِيُّهُ السَّمٰـوٰتِ وَالْأَرْضَ، وَلَا يَئُوْدُهُۥ حِفْظُهُمَا ، وَهُوَ الْعَلِىُّ الْعَظِيْمُ',
+        transliteration: 'Aʿūdhu bi-llāhi mina-sh-Shayṭāni-r-rajīm. Allāhu lā ilāha illā Huwa-l-Ḥayyu-l-Qayyūm, lā ta\'khudhuhū sinatuw-wa lā nawm, lahū mā fi-s-samāwāti wa mā fi-l-arḍ, man dhā\'lladhī yashfaʿu ʿindahū illā bi-idhnih, yaʿlamu mā bayna aydīhim wa mā khalfahum, wa lā yuḥīṭūna bi-shay\'im-min ʿilmihī illā bi-mā shā\', wasiʿa kursiyyuhu-s-samāwāti wa-l-arḍ, wa lā ya\'ūduhū ḥifẓuhumā wa Huwa-l-ʿAlliyu-l-ʿAẓīm.',
+        translation: 'I seek the protection of Allah from the accursed Shayṭān. Allah, there is no god worthy of worship but He, the Ever Living, The Sustainer of all. Neither drowsiness overtakes Him nor sleep. To Him Alone belongs whatever is in the heavens and whatever is on the earth. Who is it that can intercede with Him except with His permission? He knows what is before them and what will be after them, and they encompass not a thing of His knowledge except for what He wills. His Kursī extends over the heavens and the earth, and their preservation does not tire Him. And He is the Most High, the Magnificent.',
+        reference: 'Quran 2:255'
+      },
+      {
+        id: 'evening_2',
+        title: '3 Quls: To Suffice You in All Matters (3x)',
+        titleAr: 'القلاقل الثلاث: تكفيك في كل أمورك (3 مرات)',
+        arabic: 'بِسْمِ اللّٰهِ الرَّحْمٰنِ الرَّحِيْمِ. قُلْ هُوَ اللّٰهُ أَحَدٌ ، اَللّٰهُ الصَّمَدُ ، لَمْ يَلِدْ وَلَمْ يُوْلَدْ ، وَلَمْ يَكُنْ لَّهُ كُفُوًا أَحَدٌ.\n\nبِسْمِ اللّٰهِ الرَّحْمٰنِ الرَّحِيْمِ. قُلْ أَعُوْذُ بِرَبِّ الْفَلَقِ ، مِنْ شَرِّ مَا خَلَقَ ، وَمِنْ شَرِّ غَاسِقٍ إِذَا وَقَبَ ، وَمِنْ شَرِّ النَّفَّاثَاتِ فِي الْعُقَدِ ، وَمِنْ شَرِّ حَاسِدٍ إِذَا حَسَدَ.\n\nبِسْمِ اللّٰهِ الرَّحْمٰنِ الرَّحِيْمِ. قُلْ أَعُوْذُ بِرَبِّ النَّاسِ ، مَلِكِ النَّاسِ ، إِلٰهِ النَّاسِ ، مِنْ شَرِّ الْوَسْوَاسِ الْخَنَّاسِ ، اَلَّذِيْ يُوَسْوِسُ فِيْ صُدُوْرِ النَّاسِ ، مِنَ الْجِنَّةِ وَالنَّاسِ',
+        transliteration: 'Bismillāhi-r-Raḥmāni-r-Raḥīm. Qul Huwa-llāhu Aḥad. Allāhu-ṣ-Ṣamad. Lam yalid wa lam yūlad. Wa lam yakul-lahū kufuwan aḥad.\n\nBismillāhi-r-Raḥmāni-r-Raḥīm. Qul aʿūdhu bi-Rabbi-l-falaq. Min sharri mā khalaq. Wa min sharri ghāsiqin idhā waqab. Wa min sharri-n-naffāthāti fi-l-ʿuqad. Wa min sharri ḥāsidin idhā ḥasad.\n\nBismillāhi-r-Raḥmāni-r-Raḥīm. Qul aʿūdhu bi-Rabbi-n-nās. Maliki-n-nās. Ilāhi-n-nās. Min sharri-l-waswāsi-l-khannās. Alladhī yuwaswisu fī ṣudūri-n-nās. Mina-l-jinnati wa-n-nās.',
+        translation: 'In the Name of Allah, the Most Gracious, the Most Merciful. Say, "He is Allah, the One. Allah, the Eternal Refuge. He neither begets nor is born. Nor is there to Him any equivalent."\n\nIn the Name of Allah, the Most Gracious, the Most Merciful. Say, "I seek refuge in the Lord of daybreak. From the evil of that which He created. And from the evil of darkness when it settles. And from the evil of the blowers in knots. And from the evil of an envier when he envies."\n\nIn the Name of Allah, the Most Gracious, the Most Merciful. Say, "I seek refuge in the Lord of mankind. The Sovereign of mankind. The God of mankind. From the evil of the retreating whisperer. Who whispers in the breasts of mankind. From among the jinn and mankind."',
+        reference: 'Abu Dawud'
+      },
+      {
+        id: 'evening_3',
+        title: 'Sayyid al-Istighfar: The Best Way of Seeking Forgiveness (1x)',
+        titleAr: 'سيد الاستغفار (مرة واحدة)',
+        arabic: 'اَللّٰهُمَّ أَنْتَ رَبِّيْ لَا إِلٰهَ إِلَّا أَنْتَ ، خَلَقْتَنِيْ وَأَنَا عَبْدُكَ ، وَأَنَا عَلَىٰ عَهْدِكَ وَوَعْدِكَ مَا اسْتَطَعْتُ ، أَعُوْذُ بِكَ مِنْ شَرِّ مَا صَنَعْتُ ، أَبُوْءُ لَكَ بِنِعْمَتِكَ عَلَيَّ وَأَبُوْءُ لَكَ بِذَنْبِيْ ، فَاغْفِرْ لِيْ فَإِنَّهُ لَا يَغْفِرُ الذُّنُوْبَ إِلَّا أَنْتَ',
+        transliteration: 'Allāhumma Anta Rabbī, lā ilāha illā Ant, khalaqtanī wa ana ʿabduk, wa ana ʿalā ʿahdika wa waʿdika mā\'staṭaʿt, aʿūdhu bika min sharri mā ṣanaʿt, abū\'u laka bi niʿmatika ʿalayya wa abū\'u laka bi-dhambī fa-ghfir lī fa-innahū lā yaghfiru-dh-dhunūba illā Ant.',
+        translation: 'O Allah, You are my Lord. There is no god worthy of worship except You. You have created me, and I am Your slave, and I am under Your covenant and pledge (to fulfil it) to the best of my ability. I seek Your protection from the evil that I have done. I acknowledge the favours that You have bestowed upon me, and I admit my sins. Forgive me, for none forgives sins but You.',
+        reference: 'Bukhari'
+      },
+      {
+        id: 'evening_4',
+        title: 'Protection from Anxiety & Debt (1x)',
+        titleAr: 'الحماية من الهم والدين (مرة واحدة)',
+        arabic: 'اَللّٰهُمَّ إِنِّيْ أَعُوْذُ بِكَ مِنَ الْهَمِّ وَالْحَزَنِ ، وَأَعُوْذُ بِكَ مِنَ الْعَجْزِ وَالْكَسَلِ، وَأَعُوْذُ بِكَ مِنَ الْجُبْنِ وَالْبُخْلِ ، وَأَعُوْذُ بِكَ مِنْ غَلَبَةِ الدَّيْنِ وَقَهْرِ الرِّجَالِ',
+        transliteration: 'Allāhumma innī aʿūdhu bika min-l-hammi wa-l-ḥazan, wa aʿūdhu bika min-l-ʿajzi wa-l-kasal, wa aʿūdhu bika min-l-jubni wa-l-bukhl, wa aʿūdhu bika min ghalabati-d-dayni wa qahri-r-rijāl.',
+        translation: 'O Allah, I seek Your protection from anxiety and grief. I seek Your protection from inability and laziness. I seek Your protection from cowardice and miserliness, and I seek Your protection from being overcome by debt and being overpowered by men.',
+        reference: 'Bukhari'
+      },
+      {
+        id: 'evening_5',
+        title: 'Well-being in Both Worlds (1x)',
+        titleAr: 'العافية في الدنيا والآخرة (مرة واحدة)',
+        arabic: 'اَللّٰهُمَّ إِنِّيْ أَسْأَلُكَ الْعَافِيَةَ فِي الدُّنْيَا وَالْآخِرَةِ ، اَللّٰهُمَّ إِنِّيْ أَسْأَلُكَ الْعَفْوَ وَالْعَافِيَةَ فِيْ دِيْنِيْ وَدُنْيَايَ وَأَهْلِيْ وَمَالِيْ ، اَللّٰهُمَّ اسْتُرْ عَوْرَاتِيْ وَآمِنْ رَوْعَاتِيْ ، اَللّٰهُمَّ احْفَظْنِيْ مِنْ بَيْنِ يَدَيَّ ، وَمِنْ خَلْفِيْ ، وَعَنْ يَّمِيْنِيْ ، وَعَنْ شِمَالِيْ ، وَمِنْ فَوْقِيْ ، وَأَعُوْذُ بِعَظَمَتِكَ أَنْ أُغْتَالَ مِنْ تَحْتِيْ',
+        transliteration: 'Allāhumma innī as\'aluka-l-ʿāfiyata fi-d-dunyā wa-l-ākhirah. Allāhumma innī as\'aluka-l-ʿafwa wa-l-ʿāfiyata fī dīnī wa dunyāya wa ahlī wa mālī, Allāhumma-stur ʿawrātī wa āmin rawʿātī. Allāhumma-ḥfaẓnī mim bayni yadayya wa min khalfī, wa ʿay-yamīnī wa ʿan shimālī wa min fawqī, wa aʿūdhu bi-ʿaẓamatika an ughtāla min taḥtī.',
+        translation: 'O Allah, I ask You for well-being in this world and the next. O Allah, I ask You for forgiveness and well-being in my religion, in my worldly affairs, in my family and in my wealth. O Allah, conceal my faults and calm my fears. O Allah, guard me from in front of me and behind me, from my right, and from my left, and from above me. I seek protection in Your Greatness from being unexpectedly destroyed from beneath me.',
+        reference: 'Abu Dawud'
+      },
+      {
+        id: 'evening_6',
+        title: 'Protection from the 4 Evils (1x)',
+        titleAr: 'الحماية من الشرور الأربعة (مرة واحدة)',
+        arabic: 'اَللّٰهُمَّ عَالِمَ الْغَيْبِ وَالشَّهَادَةِ ، فَاطِرَ السَّمٰوَاتِ وَالْأَرْضِ ، رَبَّ كُلِّ شَيْءٍ وَمَلِيْكَهُ ، أَشْهَدُ أَنْ لَّا إِلٰهَ إِلَّا أَنْتَ ، أَعُوْذُ بِكَ مِنْ شَرِّ نَفْسِيْ ، وَمِنْ شَرِّ الشَّيْطَانِ وَشِرْكِهِ ، وَأَنْ أَقْتَرِفَ عَلَىٰ نَفْسِيْ سُوْءًا ، أَوْ أَجُرَّهُ إِلَىٰ مُسْلِمٍ',
+        transliteration: 'Allāhumma ʿālima-l-ghaybi wa-sh-shahādah, fāṭir-as-samāwāti wa-l-arḍi, rabba kulli shay\'iw-wa malīkah, ash-hadu al-lā ilāha illā Anta, aʿūdhu bika min sharri nafsī wa min sharri-sh-shayṭāni wa shirkihī wa an aqtarifa ʿalā nafsī sū\'an aw ajurrahū ilā muslim.',
+        translation: 'O Allah, Knower of the unseen and the seen, Creator of the heavens and the earth, the Lord and Sovereign of everything; I bear witness that there is no god worthy of worship but You. I seek Your protection from the evil of my own self, from the evil of Shayṭān and from the evil of polytheism to which he calls, and from inflicting evil on myself, or bringing it upon a Muslim.',
+        reference: 'Al-Tirmidhi'
+      },
+      {
+        id: 'evening_7',
+        title: 'Entrusting Matters to Allah (1x)',
+        titleAr: 'تفويض الأمر لله (مرة واحدة)',
+        arabic: 'يَا حَيُّ يَا قَيُّوْمُ ، بِرَحْمَتِكَ أَسْتَغِيْثُ ، أَصْلِحْ لِيْ شَأْنِيْ كُلَّهُ ، وَلَا تَكِلْنِيْ إِلَىٰ نَفْسِيْ طَرْفَةَ عَيْنٍ',
+        transliteration: 'Yā Ḥayyu yā Qayyūm, bi-raḥmatika astaghīth, aṣliḥ lī sha\'nī kullah, wa lā takilnī ilā nafsī ṭarfata ʿayn.',
+        translation: 'O The Ever Living, The Sustainer of all; I seek assistance through Your mercy. Rectify all of my affairs and do not entrust me to myself for the blink of an eye.',
+        reference: 'Al-Hakim'
+      },
+      {
+        id: 'evening_8',
+        title: 'Fulfilling Gratitude (1x)',
+        titleAr: 'أداء الشكر (مرة واحدة)',
+        arabic: 'اَللّٰهُمَّ مَا أَمْسَىٰ بِيْ مِنْ نِّعْمَةٍ أَوْ بِأَحَدٍ مِّنْ خَلْقِكَ ، فَمِنْكَ وَحْدَكَ لَا شَرِيْكَ لَكَ ، فَلَكَ الْحَمْدُ وَلَكَ الشُّكْرُ',
+        transliteration: 'Allāhumma mā amsā bī min niʿmatin aw bi-aḥadin min khalqik, fa-minka waḥdaka lā sharīka lak, fa laka-l-ḥamdu wa laka-sh-shukr.',
+        translation: 'O Allah, all the favours that I or anyone from Your creation has received in the evening, are from You Alone. You have no partner. To You Alone belong all praise and all thanks.',
+        reference: 'Abu Dawud'
+      },
+      {
+        id: 'evening_9',
+        title: 'Renewing Tawhid (1x)',
+        titleAr: 'تجديد التوحيد (مرة واحدة)',
+        arabic: 'أَمْسَيْنَا عَلَىٰ فِطْرَةِ الْإِسْلَامِ ، وَعَلَىٰ كَلِمَةِ الْإِخْلَاصِ ، وَعَلَىٰ دِيْنِ نَبِيِّنَا مُحَمَّدٍ ، وَعَلَىٰ مِلَّةِ أَبِيْنَا إِبْرَاهِيْمَ حَنِيْفًا مُّسْلِمًا وَّمَا كَانَ مِنَ الْمُشْرِكِيْنَ',
+        transliteration: 'Amsaynā ʿalā fiṭrati-l-islām, wa ʿalā kalimati-l-ikhlāṣ, wa ʿalā dīni Nabiyyinā Muḥammadin ṣallallāhu ʿalayhi wa sallam, wa ʿalā millati abīnā Ibrāhīma ḥanīfam-muslima, wa mā kāna mina-l-mushrikīn.',
+        translation: 'We have entered the evening upon the natural religion of Islam, the statement of pure faith (i.e. Shahādah), the religion of our Prophet Muhammad ﷺ and upon the way of our father Ibrāhīm, who turned away from all that is false, having surrendered to Allah, and he was not of the polytheists.',
+        reference: 'Al-Nasa\'i'
+      },
+      {
+        id: 'evening_10',
+        title: 'Evening Praise (3x)',
+        titleAr: 'ثناء المساء (3 مرات)',
+        arabic: 'أَمْسَيْتُ أُثْنِيْ عَلَيْكَ حَمْدًا ، وَأَشْهَدُ أَنْ لَّا إِلٰهَ إِلَّا اللّٰهُ',
+        transliteration: 'Amsaytu uthnī ʿalayka ḥamdā, wa ash-hadu al-lā ilāha illāl-llāh.',
+        translation: 'I have entered the evening praising You, and I bear witness that there is no god worthy of worship but Allah.',
+        reference: 'Al-Nasa\'i'
+      },
+      {
+        id: 'evening_11',
+        title: 'Asking for a Good Evening (1x)',
+        titleAr: 'سؤال خير المساء (مرة واحدة)',
+        arabic: 'أَمْسَيْنَا وَأَمْسَى الْمُلْكُ لِلّٰهِ وَالْحَمْدُ لِلّٰهِ ، لَا إِلٰهَ إِلَّا اللّٰهُ وَحْدَهُ لَا شَرِيْكَ لَهُ ، لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ ، وَهُوَ عَلَىٰ كُلِّ شَيْءٍ قَدِيْرٌ ، رَبِّ أَسْأَلُكَ خَيْرَ مَا فِيْ هٰذِهِ اللَّيْلَةِ وَخَيْرَ مَا بَعْدَهَا ، وَأَعُوْذُ بِكَ مِنْ شَرِّ مَا فِيْ هٰذِهِ اللَّيْلَةِ وَشَرِّ مَا بَعْدَهَا ، رَبِّ أَعُوْذُ بِكَ مِنَ الْكَسَلِ وَسُوْءِ الْكِبَرِ ، رَبِّ أَعُوْذُ بِكَ مِنْ عَذَابٍ فِي النَّارِ وَعَذَابٍ فِي الْقَبْرِ',
+        transliteration: 'Amsaynā wa amsa-l-mulku li-llāh, wa-l-ḥamdu li-llāh, lā ilāha illa-llāhu waḥdahū lā sharīka lah, lahu-l-mulku wa lahu-l-ḥamd, wa huwa ʿalā kulli shay\'in Qadīr, Rabbi as\'aluka khayra mā fī hādhihi-l-laylati wa khayra mā baʿdah, wa aʿūdhu bika min sharri mā fī hādhihi-l-laylati wa sharri mā baʿdah. Rabbi aʿūdhu bika mina-l-kasali wa sū\'i-l-kibar, Rabbi aʿūdhu bika min ʿadhābin fi-n-nāri wa ʿadhābin fi-l-qabr.',
+        translation: 'We have entered the evening and at this very time the whole kingdom belongs to Allah. All praise is due to Allah. There is no god worthy of worship except Allah, the One; He has no partner with Him. The entire kingdom belongs solely to Him, to Him is all praise due, and He is All-Powerful over everything. My Lord, I ask You for the good that is in this night and the good that follows it, and I seek Your protection from the evil that is in this night and from the evil that follows it. My Lord, I seek Your protection from laziness and the misery of old age. My Lord, I seek Your protection from the torment of the Hell-fire and the punishment of the grave.',
+        reference: 'Muslim'
+      },
+      {
+        id: 'evening_12',
+        title: 'Blessing for the Evening (1x)',
+        titleAr: 'بركة المساء (مرة واحدة)',
+        arabic: 'أَمْسَيْنَا وَأَمْسَى الْمُلْكُ لِلّٰهِ رَبِّ الْعَالَمِيْنَ ، اَللّٰهُمَّ إِنِّيْ أَسْأَلُكَ خَيْرَ هـٰذِهِ اللَّيْلَةِ ، فَتْحَهَا وَنَصْرَهَا وَنُوْرَهَا وَبَرَكَتَهَا وَهُدَاهَا ، وَأَعُوْذُ بِكَ مِنْ شَرِّ مَا فِيْهَا وَشَرِّ مَا بَعْدَهَا',
+        transliteration: 'Amsaynā wa amsa-l-mulku li-llāhi Rabbi-l-ʿālamīn, Allāhumma innī as\'aluka khayra hādhihi-l-laylah, fatḥahā wa naṣrahā wa nūrahā wa barakatahā wa hudāhā, wa aʿūdhu bika min sharri mā fīhā wa sharri mā baʿdahā.',
+        translation: 'We have entered the evening and at this very time the whole kingdom belongs to Allah, Lord of the Worlds. O Allah, I ask You for the goodness of this night: its victory, its help, its light, and its blessings and guidance. I seek Your protection from the evil that is in it and from the evil that follows it.',
+        reference: 'Abu Dawud'
+      },
+      {
+        id: 'evening_13',
+        title: 'Freedom from Hell-fire (4x)',
+        titleAr: 'العتق من النار (4 مرات)',
+        arabic: 'اَللّٰهُمَّ إِنِّيْ أَمْسَيْتُ أُشْهِدُكَ وَأُشْهِدُ حَمَلَةَ عَرْشِكَ وَمَلَائِكَتَكَ وَجَمِيْعَ خَلْقِكَ ، أَنَّكَ أَنْتَ اللّٰهُ لَا إِلٰهَ إِلَّا أَنْتَ وَحْدَكَ لَا شَرِيْكَ لَكَ ، وَأَنَّ مُحَمَّدًا عَبْدُكَ وَرَسُوْلُكَ',
+        transliteration: 'Allāhumma innī amsaytu ush-hiduka, wa ush-hidu ḥamlata ʿarshika, wa malā\'ikatika, wa jamī\'a khalqika, annaka Anta-llāhu lā ilāha illā Anta waḥdak, lā sharīka lak, wa an-na Muḥammadan ʿabduka wa rasūluk.',
+        translation: 'O Allah, I have entered the evening, and I call upon You, the bearers of Your Throne, Your angels and all creation, to bear witness that surely You are Allah. There is no god worthy of worship except You Alone. You have no partners, and that Muḥammad ﷺ is Your slave and Your Messenger.',
+        reference: 'Abu Dawud'
+      },
+      {
+        id: 'evening_14',
+        title: 'Upon Entering the Evening (1x)',
+        titleAr: 'عند المساء (مرة واحدة)',
+        arabic: 'اَللّٰهُمَّ بِكَ أَمْسَيْنَا وَبِكَ أَصْبَحْنَا وَبِكَ نَحْيَا وَبِكَ نَمُوْتُ وَإِلَيْكَ الْمَصِيْرُ',
+        transliteration: 'Allāhumma bika amsaynā wa bika aṣbaḥnā wa bika naḥyā wa bika namūtu wa ilayka-l-maṣīr.',
+        translation: 'O Allah, by You we have entered the evening and by You we enter upon the morning. By You, we live and we die, and to You is the resurrection/return.',
+        reference: 'Al-Tirmidhi'
+      },
+      {
+        id: 'evening_15',
+        title: 'Health & Protection (3x)',
+        titleAr: 'الصحة والحفظ (3 مرات)',
+        arabic: 'اَللّٰهُمَّ عَافِنِيْ فِيْ بَدَنِيْ ، اَللّٰهُمَّ عَافِنِيْ فِيْ سَمْعِيْ ، اَللّٰهُمَّ عَافِنِيْ فِيْ بَصَرِيْ ، لَا إِلٰهَ إِلَّا أَنْتَ ، اَللّٰهُمَّ إِنِّيْ أَعُوْذُ بِكَ مِنَ الْكُفْرِ وَالْفَقْرِ، وأَعُوْذُ بِكَ مِنْ عَذَابِ الْقَبْرِ، لَا إِلٰهَ إِلَّا أَنْتَ',
+        transliteration: 'Allāhumma ʿāfinī fī badanī, Allāhumma ʿāfinī fī samʿī, Allāhumma ʿāfinī fī baṣarī, lā ilāha illā Ant, Allāhumma innī aʿūdhu bika mina-l-kufri wa-l-faqr, wa aʿūdhu bika min ʿadhābi-l-qabr, lā ilāha illā Ant.',
+        translation: 'O Allah, grant me well-being in my body. O Allah, grant me well-being in my hearing. O Allah, grant me well-being in my sight. There is no god worthy of worship except You. O Allah, I seek Your protection from disbelief and poverty and I seek Your protection from the punishment of the grave. There is no god worthy of worship except You.',
+        reference: 'Abu Dawud'
+      },
+      {
+        id: 'evening_16',
+        title: 'Allah is Sufficient (7x)',
+        titleAr: 'حسبي الله (7 مرات)',
+        arabic: 'حَسْبِيَ اللّٰهُ لَا إِلٰهَ إِلَّا هُوَ ، عَلَيْهِ تَوَكَّلْتُ ، وَهُوَ رَبُّ الْعَرْشِ الْعَظِيْمِ',
+        transliteration: 'Ḥasbiya-Allāhu lā ilāha illā Huwa, ʿalayhi tawakkaltu, wa Huwa Rabbu-l-ʿArshi-l-ʿaẓīm.',
+        translation: 'Allah is sufficient for me. There is no god worthy of worship except Him. I have placed my trust in Him only and He is the Lord of the Magnificent Throne.',
+        reference: 'Abu Dawud'
+      },
+      {
+        id: 'evening_17',
+        title: 'Pleased with Islam (3x)',
+        titleAr: 'رضيت بالله ربا (3 مرات)',
+        arabic: 'رَضِيْتُ بِاللّٰهِ رَبًّا ، وَبِالْإِسْلَامِ دِيْنًا ، وَبِمُحَمَّدٍ نَّبِيًّا',
+        transliteration: 'Raḍītu bi-llāhi Rabbā, wa bi-l-islāmi dīnā, wa bi Muḥammadin-Nabiyyā.',
+        translation: 'I am pleased with Allah as my Lord, with Islām as my religion and with Muhammad ﷺ as my Prophet.',
+        reference: 'Abu Dawud'
+      },
+      {
+        id: 'evening_18',
+        title: 'Protection from Harm (3x)',
+        titleAr: 'الحماية من الضرر (3 مرات)',
+        arabic: 'بِسْمِ اللّٰهِ الَّذِيْ لَا يَضُرُّ مَعَ اسْمِهِ شَيْءٌ فِي الْأَرْضِ وَلَا فِي السَّمَاءِ ، وَهُوَ السَّمِيْعُ الْعَلِيْمُ',
+        transliteration: 'Bismi-llāhi-lladhī lā yaḍurru maʿsmihi shay\'un fi-l-arḍi wa lā fi-s-samā\', wa Huwa-s-Samīʿu-l-ʿAlīm.',
+        translation: 'In the Name of Allah, with whose Name nothing can harm in the earth nor in the sky. He is The All-Hearing and All-Knowing.',
+        reference: 'Al-Tirmidhi'
+      },
+      {
+        id: 'evening_19',
+        title: 'Forgiveness of Sins (100x)',
+        titleAr: 'مغفرة الذنوب (100 مرة)',
+        arabic: 'سُبْحَانَ اللّٰهِ وَبِحَمْدِهِ',
+        transliteration: 'Subḥāna-llāhi wa bi ḥamdih.',
+        translation: 'Allah is free from imperfection, and all praise is due to Him.',
+        reference: 'Bukhari'
+      },
+      {
+        id: 'evening_20',
+        title: 'Unparalleled Reward (100x)',
+        titleAr: 'أجر لا يضاهى (100 مرة)',
+        arabic: 'لَا إِلٰهَ إِلَّا اللّٰهُ وَحْدَهُ لَا شَرِيْكَ لَهُ ، لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ ، وَهُوَ عَلَىٰ كُلِّ شَيْءٍ قَدِيْرٌ',
+        transliteration: 'Lā ilāha illā-Allāh, waḥdahū lā sharīka lah, lahu-l-mulk, wa lahu-l-ḥamd, wa Huwa ʿalā kulli shay\'in Qadīr.',
+        translation: 'There is no god but Allah. He is Alone and He has no partner whatsoever. To Him Alone belong all sovereignty and all praise. He is over all things All-Powerful.',
+        reference: 'Bukhari'
+      },
+      {
+        id: 'evening_21',
+        title: 'Tasbih, Tahmid, Takbir (33x)',
+        titleAr: 'تسبيح وتحميد وتكبير (33 مرة)',
+        arabic: 'سُبْحَانَ اللّٰهِ ، اَلْحَمْدُ لِلّٰهِ ، اَللّٰهُ أَكْبَرُ',
+        transliteration: 'Subḥāna-llāh. Alḥamdu li-llāh, Allāhu akbar.',
+        translation: 'Allah is free from imperfection. All praise be to Allah. Allah is the Greatest.',
+        reference: 'Muslim'
+      },
+      {
+        id: 'evening_22',
+        title: 'Salawat on Prophet (10x)',
+        titleAr: 'الصلاة على النبي (10 مرات)',
+        arabic: 'اَللّٰهُمَّ صَلِّ عَلَىٰ مُحَمَّدٍ وَّعَلَىٰ اٰلِ مُحَمَّدٍ ، كَمَا صَلَّيْتَ عَلَىٰ إِبْرَاهِيْمَ وَعَلَىٰ اٰلِ إِبْرَاهِيْمَ ، إِنَّكَ حَمِيْدٌ مَّجِيْدٌ ، اَللّٰهُمَّ بَارِكْ عَلَىٰ مُحَمَّدٍ وَّعَلَىٰ اٰلِ مُحَمَّدٍ ، كَمَا بَارَكْتَ عَلَىٰ إِبْرَاهِيْمَ وَعَلَىٰ اٰلِ إِبْرَاهِيْمَ ، إِنَّكَ حَمِيْدٌ مَّجِيْدٌ',
+        transliteration: 'Allāhumma ṣalli ʿalā Muḥammad wa ʿalā āli Muḥammad, kamā ṣallayta ʿalā Ibrāhīma wa ʿalā āli Ibrāhīm, innaka Ḥamīdu-m-Majīd, Allāhumma bārik ʿalā Muḥammad, wa ʿalā āli Muḥammad, kamā bārakta ʿalā Ibrāhīma wa ʿalā āli Ibrāhīm, innaka Ḥamīdu-m-Majīd.',
+        translation: 'O Allah, honour and have mercy upon Muhammad and the family of Muhammad as You have honoured and had mercy upon Ibrāhīm and the family of Ibrāhīm. Indeed, You are the Most Praiseworthy, the Most Glorious. O Allah, bless Muhammad and the family of Muhammad as You have blessed Ibrāhīm and the family of Ibrāhīm. Indeed, You are the Most Praiseworthy, the Most Glorious.',
+        reference: 'Bukhari'
+      },
+      {
+        id: 'evening_23',
+        title: 'Protection from all Evil (3x)',
+        titleAr: 'الحماية من كل شر (3 مرات)',
+        arabic: 'أَعُوْذُ بِكَلِمَاتِ اللّٰهِ التَّامَّاتِ مِنْ شَرِّ مَا خَلَقَ',
+        transliteration: 'Aʿūdhu bi kalimāti-l-llāhi-t-tāmmāti min sharri mā khalaq.',
+        translation: 'I seek protection in Allah\'s perfect words from the evil of whatever He has created.',
         reference: 'Muslim'
       }
     ]
@@ -391,7 +605,7 @@ export const DUA_CATEGORIES = [
         arabic: 'اللَّهُمَّ اغْفِرْ لِحَيِّنَا وَمَيِّتِنَا وَشَاهِدِنَا وَغَائِبِنَا وَصَغِيرِنَا وَكَبِيرِنَا وَذَكَرِنَا وَأُنْثَانَا، اللَّهُمَّ مَنْ أَحْيَيْتَهُ مِنَّا فَأَحْيِهِ عَلَى الْإِسْلَامِ، وَمَنْ تَوَفَّيْتَهُ مِنَّا فَتَوَفَّهُ عَلَى الْإِيمَانِ، اللَّهُمَّ لَا تَحْرِمْنَا أَجْرَهُ وَلَا تُضِلَّنَا بَعْدَهُ',
         transliteration: 'Allahummaghfir lihayyina wa mayyitina, wa shahidina wa gha\'ibina, wa saghirina wa kabirina, wa dhakarina wa unthana. Allahumma man ahyaitahu minna fa ahyihi \'alal-Islam, wa man tawaffaitahu minna fa tawaffahu \'alal-Iman. Allahumma la tahrimna ajrahu wa la tudillana ba\'dah.',
         translation: 'O Allah, forgive our living and our dead, those present and those absent, our young and our old, our males and our females. O Allah, whom among us You keep alive, then let such a life be upon Islam, and whom among us You take unto Yourself, then let such a death be upon faith. O Allah, do not deprive us of his reward and do not let us stray after him.',
-        reference: 'Tirmidhi'
+        reference: 'Al-Tirmidhi'
       },
       {
         id: 'janazah_step8',

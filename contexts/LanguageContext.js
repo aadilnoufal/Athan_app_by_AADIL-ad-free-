@@ -1,6 +1,8 @@
 import React, { createContext, useState, useContext, useEffect, useCallback, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { languages, getAllTranslations } from '../translations';
+import { forceRescheduleAllNotifications } from '../utils/prayerNotificationScheduler';
+import { updateWidgetLanguage } from '../utils/widgetDataBridge';
 
 // Create the language context
 const LanguageContext = createContext();
@@ -28,7 +30,7 @@ export const LanguageProvider = ({ children }) => {
         console.error('Error loading language preference:', error);
       }
     };
-    
+
     loadLanguage();
   }, []);
 
@@ -38,12 +40,20 @@ export const LanguageProvider = ({ children }) => {
       if (languages[langId]) {
         // Save to storage
         await AsyncStorage.setItem('app_language', langId);
-        
+
         // Update state
         setCurrentLang(langId);
         setTranslations(getAllTranslations(langId));
         // RTL is always disabled to prevent UI mirroring
         setIsRTL(false);
+
+        // Reschedule notifications with new language (fire-and-forget)
+        forceRescheduleAllNotifications().catch((err) =>
+          console.log('⚠️ Notification reschedule after language change failed:', err)
+        );
+
+        // Push new language to widget native storage
+        updateWidgetLanguage(langId);
       }
     } catch (error) {
       console.error('Error changing language:', error);

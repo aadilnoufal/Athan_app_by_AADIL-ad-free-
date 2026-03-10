@@ -1,14 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Static preview image for the full (4x2) widget in widget picker.
      Used on pre-Android 12 devices where previewLayout is not supported. -->
-<shape xmlns:android="http://schemas.android.com/apk/res/android"
-    android:shape="rectangle">
-    <gradient
-        android:startColor="#0F1419"
-        android:endColor="#131A20"
-        android:angle="135" />
-    <corners android:radius="24dp" />
-    <stroke
-        android:width="1dp"
-        android:color="#1E2A33" />
-</shape>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Dark background matching the widget -->
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:startColor="#0F1419"
+                android:endColor="#131A20"
+                android:angle="135" />
+            <corners android:radius="24dp" />
+            <stroke
+                android:width="1dp"
+                android:color="#1E2A33" />
+        </shape>
+    </item>
+    <!-- Subtle separator line hint -->
+    <item
+        android:top="72dp"
+        android:left="18dp"
+        android:right="18dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#223039" />
+            <size android:height="1dp" />
+        </shape>
+    </item>
+</layer-list>

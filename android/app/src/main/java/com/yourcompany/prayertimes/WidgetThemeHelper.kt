@@ -18,7 +18,8 @@ object WidgetThemeHelper {
         val textSecondary: Int,        // Secondary text (labels, prayer names)
         val accentGold: Int,           // Gold accent (next prayer highlight)
         val separatorColor: Int,       // Divider line color
-        val subtleText: Int            // Subtle/muted text
+        val subtleText: Int,           // Subtle/muted text
+        val prayerHighlightRes: Int    // Drawable for highlighted prayer column
     )
 
     /**
@@ -37,7 +38,8 @@ object WidgetThemeHelper {
             textSecondary = resolveColor(context, R.color.midnight_text_secondary),
             accentGold = resolveColor(context, R.color.midnight_accent_gold),
             separatorColor = resolveColor(context, R.color.midnight_progress_background),
-            subtleText = resolveColor(context, R.color.midnight_text_secondary)
+            subtleText = resolveColor(context, R.color.midnight_text_secondary),
+            prayerHighlightRes = R.drawable.widget_prayer_highlight
         )
     }
 
@@ -49,7 +51,8 @@ object WidgetThemeHelper {
             textSecondary = resolveColor(context, R.color.sepia_text_secondary),
             accentGold = resolveColor(context, R.color.sepia_accent_gold),
             separatorColor = resolveColor(context, R.color.sepia_progress_background),
-            subtleText = resolveColor(context, R.color.sepia_text_secondary)
+            subtleText = resolveColor(context, R.color.sepia_text_secondary),
+            prayerHighlightRes = R.drawable.widget_prayer_highlight_sepia
         )
     }
 

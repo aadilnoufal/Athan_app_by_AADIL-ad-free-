@@ -36,30 +36,30 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 // ─── Helpers ─────────────────────────────────────────────────────
 const getCategoryIcon = (id: string): string => {
   switch (id) {
-    case 'morning':              return 'weather-sunset-up';
-    case 'evening':              return 'weather-sunset-down';
-    case 'azan':                 return 'mosque';
-    case 'sleeping':             return 'weather-night';
-    case 'visiting_deceased':    return 'grave-stone';
-    case 'death_news_category':  return 'alert-circle-outline';
-    case 'eid':                  return 'star-crescent';
-    case 'guidance':             return 'compass-outline';
-    case 'funeral':              return 'account-group';
-    default:                     return 'book-open-variant';
+    case 'morning': return 'weather-sunset-up';
+    case 'evening': return 'weather-sunset-down';
+    case 'azan': return 'mosque';
+    case 'sleeping': return 'weather-night';
+    case 'visiting_deceased': return 'grave-stone';
+    case 'death_news_category': return 'alert-circle-outline';
+    case 'eid': return 'star-crescent';
+    case 'guidance': return 'compass-outline';
+    case 'funeral': return 'account-group';
+    default: return 'book-open-variant';
   }
 };
 
 const getCategoryDescription = (id: string, isRTL: boolean): string => {
   switch (id) {
-    case 'morning':              return isRTL ? 'أذكار وأدعية الصباح والمساء' : 'Morning remembrance & protection';
-    case 'evening':              return isRTL ? 'أذكار وأدعية المساء' : 'Evening remembrance & protection';
-    case 'azan':                 return isRTL ? 'دعاء بعد الأذان' : 'Supplication after the call to prayer';
-    case 'sleeping':             return isRTL ? 'أذكار النوم وآيات قرآنية' : 'Night prayers & Quranic recitations';
-    case 'visiting_deceased':    return isRTL ? 'ما يقال عند زيارة القبور' : 'What to say when visiting graves';
-    case 'death_news_category':  return isRTL ? 'ما يقال عند سماع خبر الوفاة' : 'Words upon hearing of a death';
-    case 'guidance':             return isRTL ? 'دعاء طلب الهداية والاستخارة' : 'Seeking divine guidance in decisions';
-    case 'funeral':              return isRTL ? 'خطوات صلاة الجنازة الكاملة' : 'Step-by-step funeral prayer guide';
-    default:                     return '';
+    case 'morning': return isRTL ? 'أذكار وأدعية الصباح والمساء' : 'Morning remembrance & protection';
+    case 'evening': return isRTL ? 'أذكار وأدعية المساء' : 'Evening remembrance & protection';
+    case 'azan': return isRTL ? 'دعاء بعد الأذان' : 'Supplication after the call to prayer';
+    case 'sleeping': return isRTL ? 'أذكار النوم وآيات قرآنية' : 'Night prayers & Quranic recitations';
+    case 'visiting_deceased': return isRTL ? 'ما يقال عند زيارة القبور' : 'What to say when visiting graves';
+    case 'death_news_category': return isRTL ? 'ما يقال عند سماع خبر الوفاة' : 'Words upon hearing of a death';
+    case 'guidance': return isRTL ? 'دعاء طلب الهداية والاستخارة' : 'Seeking divine guidance in decisions';
+    case 'funeral': return isRTL ? 'خطوات صلاة الجنازة الكاملة' : 'Step-by-step funeral prayer guide';
+    default: return '';
   }
 };
 

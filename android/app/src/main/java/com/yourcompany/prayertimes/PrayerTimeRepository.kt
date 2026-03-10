@@ -43,6 +43,56 @@ object PrayerTimeRepository {
     private val PRAYER_NAMES = listOf("Fajr", "Sunrise", "Dhuhr", "Asr", "Maghrib", "Isha")
 
     // ========================================================================
+    // Localisation helpers
+    // ========================================================================
+
+    /**
+     * Read the localizedLabels map from SharedPreferences JSON.
+     * Returns empty map if not present (English fallback is handled by caller).
+     * Keys: "Fajr","Sunrise",…,"Isha","nextPrayer","tomorrow"
+     */
+    fun getLocalizedLabels(context: Context): Map<String, String> {
+        try {
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val jsonStr = prefs.getString(KEY_WIDGET_DATA, null) ?: return emptyMap()
+            val json = JSONObject(jsonStr)
+            val labelsObj = json.optJSONObject("localizedLabels") ?: return emptyMap()
+            val result = mutableMapOf<String, String>()
+            val iter = labelsObj.keys()
+            while (iter.hasNext()) {
+                val key = iter.next()
+                result[key] = labelsObj.getString(key)
+            }
+            return result
+        } catch (e: Exception) {
+            return emptyMap()
+        }
+    }
+
+    /**
+     * Resolve a prayer name from the localized labels map,
+     * falling back to the English key if no translation is available.
+     */
+    private fun localizedPrayerName(englishKey: String, labels: Map<String, String>): String {
+        return labels[englishKey] ?: englishKey
+    }
+
+    /**
+     * Resolve the "tomorrow" label (e.g. "(tmrw)" → "(غداً)").
+     */
+    fun getTomorrowLabel(labels: Map<String, String>): String {
+        val word = labels["tomorrow"] ?: "tmrw"
+        return "($word)"
+    }
+
+    /**
+     * Resolve the "Next Prayer" / "الصلاة القادمة" label.
+     */
+    fun getNextPrayerLabel(labels: Map<String, String>): String {
+        return labels["nextPrayer"] ?: "Next Prayer"
+    }
+
+    // ========================================================================
     // Public API
     // ========================================================================
 
@@ -64,12 +114,13 @@ object PrayerTimeRepository {
      * Tries SharedPreferences first, falls back to CSV.
      */
     fun getTodaysPrayers(context: Context): TodaysPrayers? {
+        val labels = getLocalizedLabels(context)
         // Try SharedPreferences first (has city-tuned times)
-        val fromPrefs = getTodaysPrayersFromPrefs(context)
+        val fromPrefs = getTodaysPrayersFromPrefs(context, labels)
         if (fromPrefs != null) return fromPrefs
 
         // Fallback to CSV (raw Doha times)
-        return getTodaysPrayersFromCSV(context)
+        return getTodaysPrayersFromCSV(context, labels)
     }
 
     /**
@@ -77,26 +128,27 @@ object PrayerTimeRepository {
      * Tries SharedPreferences first, falls back to CSV.
      */
     fun getNextPrayer(context: Context): PrayerInfo? {
+        val labels = getLocalizedLabels(context)
         // Try SharedPreferences first (has city-tuned times)
-        val fromPrefs = getNextPrayerFromPrefs(context)
+        val fromPrefs = getNextPrayerFromPrefs(context, labels)
         if (fromPrefs != null) return fromPrefs
 
         // Fallback to CSV (raw Doha times)
-        return getNextPrayerFromCSV(context)
+        return getNextPrayerFromCSV(context, labels)
     }
 
     // ========================================================================
     // SharedPreferences data source (primary — city-tuned times from JS app)
     // ========================================================================
 
-    private fun getTodaysPrayersFromPrefs(context: Context): TodaysPrayers? {
+    private fun getTodaysPrayersFromPrefs(context: Context, labels: Map<String, String>): TodaysPrayers? {
         val prayerMinutes = getPrayerTimesFromPrefs(context) ?: return null
-        return buildTodaysPrayers(context, prayerMinutes)
+        return buildTodaysPrayers(context, prayerMinutes, labels)
     }
 
-    private fun getNextPrayerFromPrefs(context: Context): PrayerInfo? {
+    private fun getNextPrayerFromPrefs(context: Context, labels: Map<String, String>): PrayerInfo? {
         val prayerMinutes = getPrayerTimesFromPrefs(context) ?: return null
-        return buildNextPrayer(context, prayerMinutes)
+        return buildNextPrayer(context, prayerMinutes, labels)
     }
 
     /**
@@ -169,14 +221,14 @@ object PrayerTimeRepository {
     // CSV data source (fallback — raw Doha times, no city tuning)
     // ========================================================================
 
-    private fun getTodaysPrayersFromCSV(context: Context): TodaysPrayers? {
+    private fun getTodaysPrayersFromCSV(context: Context, labels: Map<String, String>): TodaysPrayers? {
         val prayerMinutes = getPrayerTimesFromCSV(context) ?: return null
-        return buildTodaysPrayers(context, prayerMinutes)
+        return buildTodaysPrayers(context, prayerMinutes, labels)
     }
 
-    private fun getNextPrayerFromCSV(context: Context): PrayerInfo? {
+    private fun getNextPrayerFromCSV(context: Context, labels: Map<String, String>): PrayerInfo? {
         val prayerMinutes = getPrayerTimesFromCSV(context) ?: return null
-        return buildNextPrayer(context, prayerMinutes)
+        return buildNextPrayer(context, prayerMinutes, labels)
     }
 
     /**
@@ -264,7 +316,7 @@ object PrayerTimeRepository {
     /**
      * Build TodaysPrayers from a list of 6 prayer time values (in total minutes).
      */
-    private fun buildTodaysPrayers(context: Context, prayerMinutes: List<Int>): TodaysPrayers? {
+    private fun buildTodaysPrayers(context: Context, prayerMinutes: List<Int>, labels: Map<String, String> = emptyMap()): TodaysPrayers? {
         val now = Calendar.getInstance()
         val currentTimeMinutes = now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE)
         val currentSecond = now.get(Calendar.SECOND)
@@ -281,7 +333,7 @@ object PrayerTimeRepository {
         for (i in prayerMinutes.indices) {
             val displayTime = prefs12h?.get(PRAYER_NAMES[i])
                 ?: minutesTo12h(prayerMinutes[i])
-            allPrayers.add(PrayerInfo(PRAYER_NAMES[i], displayTime, "", 0))
+            allPrayers.add(PrayerInfo(localizedPrayerName(PRAYER_NAMES[i], labels), displayTime, "", 0))
 
             if (nextPrayerIndex == -1 && prayerMinutes[i] > currentTimeMinutes) {
                 nextPrayerIndex = i
@@ -301,13 +353,12 @@ object PrayerTimeRepository {
                 ?: minutesTo12h(nextPrayerTimeMinutes)
             val progress = calcProgress(previousPrayerTimeMinutes, nextPrayerTimeMinutes, currentTimeMinutes)
 
-            val nextPrayerInfo = PrayerInfo(PRAYER_NAMES[nextPrayerIndex], displayTime, timeRemaining, progress)
+            val nextPrayerInfo = PrayerInfo(localizedPrayerName(PRAYER_NAMES[nextPrayerIndex], labels), displayTime, timeRemaining, progress)
             return TodaysPrayers(allPrayers, nextPrayerIndex, nextPrayerInfo)
         } else {
             // All prayers done today → next is tomorrow's Fajr
-            // Prefer city-tuned value from SharedPrefs over raw CSV
             val tomorrowFajr = getTomorrowFajr(context) ?: return TodaysPrayers(allPrayers, -1,
-                PrayerInfo("Fajr", "--:--", "--:--", 0, true))
+                PrayerInfo(localizedPrayerName("Fajr", labels), "--:--", "--:--", 0, true))
 
             val minutesUntilMidnight = (24 * 60) - currentTimeMinutes
             var totalDiff = minutesUntilMidnight + tomorrowFajr
@@ -325,7 +376,7 @@ object PrayerTimeRepository {
                 ((elapsed.toFloat() / totalDuration.toFloat()) * 100).toInt()
             } else 0
 
-            val nextPrayerInfo = PrayerInfo("Fajr", displayTime, timeRemaining, progress, true)
+            val nextPrayerInfo = PrayerInfo(localizedPrayerName("Fajr", labels), displayTime, timeRemaining, progress, true)
             return TodaysPrayers(allPrayers, -1, nextPrayerInfo)
         }
     }
@@ -333,7 +384,7 @@ object PrayerTimeRepository {
     /**
      * Build a single PrayerInfo for the next upcoming prayer.
      */
-    private fun buildNextPrayer(context: Context, prayerMinutes: List<Int>): PrayerInfo? {
+    private fun buildNextPrayer(context: Context, prayerMinutes: List<Int>, labels: Map<String, String> = emptyMap()): PrayerInfo? {
         val now = Calendar.getInstance()
         val currentTimeMinutes = now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE)
         val currentSecond = now.get(Calendar.SECOND)
@@ -351,12 +402,11 @@ object PrayerTimeRepository {
                 val previousMinutes = if (i > 0) prayerMinutes[i - 1] else 0
                 val progress = calcProgress(previousMinutes, prayerMinutes[i], currentTimeMinutes)
 
-                return PrayerInfo(PRAYER_NAMES[i], displayTime, formatCountdown(diffMinutes), progress)
+                return PrayerInfo(localizedPrayerName(PRAYER_NAMES[i], labels), displayTime, formatCountdown(diffMinutes), progress)
             }
         }
 
         // All prayers done today → next is tomorrow's Fajr
-        // Prefer city-tuned value from SharedPrefs over raw CSV
         val tomorrowFajr = getTomorrowFajr(context) ?: return null
 
         val minutesUntilMidnight = (24 * 60) - currentTimeMinutes
@@ -373,7 +423,7 @@ object PrayerTimeRepository {
             ((elapsed.toFloat() / totalDuration.toFloat()) * 100).toInt()
         } else 0
 
-        return PrayerInfo("Fajr", displayTime, formatCountdown(totalDiff), progress, true)
+        return PrayerInfo(localizedPrayerName("Fajr", labels), displayTime, formatCountdown(totalDiff), progress, true)
     }
 
     // ========================================================================

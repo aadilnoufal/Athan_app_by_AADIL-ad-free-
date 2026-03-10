@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased] - 2026-03-06
 
+### Added (Arabic Localization — Notifications & Widgets)
+
+- **Localized notification text** — Prayer notifications, iqama reminders, and test notifications now display Arabic text when the app language is set to Arabic. Titles, bodies, and prayer names all resolve from the translation dictionary.
+- **`utils/notificationTextResolver.ts`** — New single-source-of-truth module that reads `app_language` from AsyncStorage and provides localized text for all notification and widget contexts.
+- **Language-change triggers** — Changing language in settings now immediately reschedules all notifications with the new language and pushes updated localized labels to native widget storage.
+- **Android widget localization** — `PrayerTimeRepository.kt` reads `localizedLabels` from SharedPreferences and applies Arabic prayer names, "next prayer", and "tomorrow" labels to both 2×2 and 4×2 widgets.
+- **iOS widget localization** — `WidgetDataProvider.swift` reads `localizedLabels` from App Group UserDefaults; `PrayerTimesWidgetViews.swift` uses dynamic labels for next prayer and tomorrow suffix.
+- **Widget data bridge extended** — `widgetDataBridge.ts` now includes `language` and `localizedLabels` in every widget payload; `updateWidgetLanguage()` pushes label patches to native storage on language change.
+- **Fallback safety** — All paths default to English when localized labels are absent, empty, or corrupted.
+- **25 new tests** for `notificationTextResolver.ts` covering all text resolution functions in both languages.
+
 ### Redesigned (Dua Page — Full-Screen Category Navigation)
 
 - **Full-screen detail view** — Tapping a category card now opens a dedicated full-screen view (slides in from the right like iOS navigation). Back button or Android hardware back returns to the category hub. Gives maximum reading space.

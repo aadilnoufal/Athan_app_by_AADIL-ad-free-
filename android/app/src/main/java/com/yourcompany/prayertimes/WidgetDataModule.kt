@@ -130,6 +130,42 @@ class WidgetDataModule(reactContext: ReactApplicationContext) : ReactContextBase
     }
 
     /**
+     * Update only the language + localized labels (called when user changes language
+     * without a full prayer time recalculation). Merges into existing JSON.
+     *
+     * @param jsonPatch JSON string with { "language": "ar", "localizedLabels": {...} }
+     */
+    @ReactMethod
+    fun setWidgetLanguage(jsonPatch: String, promise: Promise) {
+        try {
+            val context = reactApplicationContext
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val existingData = prefs.getString(KEY_WIDGET_DATA, null)
+
+            if (existingData != null) {
+                val existing = org.json.JSONObject(existingData)
+                val patch = org.json.JSONObject(jsonPatch)
+                // Merge patch fields into existing data
+                val keys = patch.keys()
+                while (keys.hasNext()) {
+                    val key = keys.next()
+                    existing.put(key, patch.get(key))
+                }
+                existing.put("lastUpdated", System.currentTimeMillis())
+                prefs.edit()
+                    .putString(KEY_WIDGET_DATA, existing.toString())
+                    .putLong(KEY_LAST_UPDATED, System.currentTimeMillis())
+                    .apply()
+            }
+
+            refreshWidgets(context)
+            promise.resolve(true)
+        } catch (e: Exception) {
+            promise.reject("LANG_ERROR", "Failed to update widget language: ${e.message}", e)
+        }
+    }
+
+    /**
      * Send broadcast to refresh both widget types immediately.
      */
     private fun refreshWidgets(context: Context) {

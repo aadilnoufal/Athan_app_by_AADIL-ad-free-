@@ -71,7 +71,7 @@ struct CircularWidgetView: View {
                 // Content inside the circle
                 VStack(spacing: 2) {
                     // Prayer name
-                    Text(next?.prayer.name.uppercased() ?? "PRAYER")
+                    Text(next?.prayer.name.uppercased() ?? (entry.data?.nextPrayerLabel.uppercased() ?? "PRAYER"))
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundColor(theme.textSecondary)
                         .tracking(1.2)
@@ -89,7 +89,7 @@ struct CircularWidgetView: View {
 
                     // Tomorrow indicator
                     if next?.isTomorrow == true {
-                        Text("TOMORROW")
+                        Text(entry.data?.tomorrowSuffix.uppercased() ?? "TOMORROW")
                             .font(.system(size: 8, weight: .medium))
                             .foregroundColor(theme.textSecondary.opacity(0.7))
                     }
@@ -154,7 +154,7 @@ struct ListWidgetView: View {
             // Bottom section: Next prayer + countdown
             HStack {
                 HStack(spacing: 4) {
-                    Text("Next Prayer:")
+                    Text("\(entry.data?.nextPrayerLabel ?? "Next Prayer"):")
                         .font(.system(size: 14))
                         .foregroundColor(theme.textSecondary)
 
@@ -163,7 +163,7 @@ struct ListWidgetView: View {
                         .foregroundColor(theme.accentGold)
 
                     if next?.isTomorrow == true {
-                        Text("(tmrw)")
+                        Text(entry.data?.tomorrowSuffix ?? "(tmrw)")
                             .font(.system(size: 10))
                             .foregroundColor(theme.textSecondary.opacity(0.7))
                     }
@@ -181,7 +181,8 @@ struct ListWidgetView: View {
         .widgetBackground(backgroundGradient)
     }
 
-    /// Abbreviate "Maghrib" → "Magh", "Sunrise" → "Sun", others keep full name.
+    /// Abbreviate long English names for compact display.
+    /// Arabic names are short enough to display as-is.
     private func shortName(_ name: String) -> String {
         switch name {
         case "Maghrib": return "Magh"
@@ -214,7 +215,8 @@ struct CircularWidgetView_Previews: PreviewProvider {
                 cityId: "doha",
                 themeMode: "sepia",
                 lastUpdated: Date().timeIntervalSince1970 * 1000,
-                tomorrowFajrMinutes: nil
+                tomorrowFajrMinutes: nil,
+                localizedLabels: [:]
             )
         ))
         .previewContext(WidgetPreviewContext(family: .systemSmall))
@@ -236,7 +238,8 @@ struct ListWidgetView_Previews: PreviewProvider {
                 cityId: "doha",
                 themeMode: "sepia",
                 lastUpdated: Date().timeIntervalSince1970 * 1000,
-                tomorrowFajrMinutes: nil
+                tomorrowFajrMinutes: nil,
+                localizedLabels: [:]
             )
         ))
         .previewContext(WidgetPreviewContext(family: .systemMedium))

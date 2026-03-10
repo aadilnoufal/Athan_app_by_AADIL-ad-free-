@@ -62,24 +62,31 @@ class PrayerWidget4x2 : AppWidgetProvider() {
                 val launchPending = PendingIntent.getActivity(context, 101, launchIntent, launchFlags)
                 views.setOnClickPendingIntent(R.id.widget_4x2_root, launchPending)
 
-                // Theme the separator line
+                // Theme the separator line and labels
                 views.setInt(R.id.widget_separator, "setBackgroundColor", colors.separatorColor)
-
-                // Theme the static "Next Prayer: " label
                 views.setTextColor(R.id.widget_next_label, colors.textSecondary)
+
+                // Set localized "NEXT" label
+                val localLabels = PrayerTimeRepository.getLocalizedLabels(context)
+                val nextLabelText = PrayerTimeRepository.getNextPrayerLabel(localLabels)
+                views.setTextViewText(R.id.widget_next_label, nextLabelText.uppercase())
+
+                val nameIds = intArrayOf(
+                    R.id.prayer_name_0, R.id.prayer_name_1, R.id.prayer_name_2,
+                    R.id.prayer_name_3, R.id.prayer_name_4, R.id.prayer_name_5
+                )
+                val timeIds = intArrayOf(
+                    R.id.prayer_time_0, R.id.prayer_time_1, R.id.prayer_time_2,
+                    R.id.prayer_time_3, R.id.prayer_time_4, R.id.prayer_time_5
+                )
+                val itemIds = intArrayOf(
+                    R.id.prayer_item_0, R.id.prayer_item_1, R.id.prayer_item_2,
+                    R.id.prayer_item_3, R.id.prayer_item_4, R.id.prayer_item_5
+                )
 
                 if (todaysPrayers != null) {
                     val prayers = todaysPrayers.prayers
                     val nextIndex = todaysPrayers.nextPrayerIndex
-
-                    val nameIds = intArrayOf(
-                        R.id.prayer_name_0, R.id.prayer_name_1, R.id.prayer_name_2,
-                        R.id.prayer_name_3, R.id.prayer_name_4, R.id.prayer_name_5
-                    )
-                    val timeIds = intArrayOf(
-                        R.id.prayer_time_0, R.id.prayer_time_1, R.id.prayer_time_2,
-                        R.id.prayer_time_3, R.id.prayer_time_4, R.id.prayer_time_5
-                    )
 
                     for (i in 0 until 6) {
                         if (i < prayers.size) {
@@ -89,28 +96,39 @@ class PrayerWidget4x2 : AppWidgetProvider() {
                             val shortTime = prayer.time.replace(" AM", "").replace(" PM", "")
                             views.setTextViewText(timeIds[i], shortTime)
 
-                            // Highlight next prayer in gold, others in theme-appropriate colors
+                            // Highlight next prayer: gold text + pill background
                             if (i == nextIndex) {
                                 views.setTextColor(nameIds[i], colors.accentGold)
                                 views.setTextColor(timeIds[i], colors.accentGold)
+                                views.setInt(itemIds[i], "setBackgroundResource", colors.prayerHighlightRes)
                             } else {
                                 views.setTextColor(nameIds[i], colors.textSecondary)
                                 views.setTextColor(timeIds[i], colors.textPrimary)
+                                views.setInt(itemIds[i], "setBackgroundResource", 0)
                             }
                         }
                     }
 
-                    // Bottom section: next prayer name + countdown
+                    // Bottom section: next prayer name + countdown + progress ring
                     val nextPrayer = todaysPrayers.nextPrayer
-                    views.setTextViewText(R.id.widget_next_prayer_name_bottom, nextPrayer.name)
+                    val labels = PrayerTimeRepository.getLocalizedLabels(context)
+                    val tomorrowSuffix = if (nextPrayer.isNextDay) " ${PrayerTimeRepository.getTomorrowLabel(labels)}" else ""
+                    val displayName = "${nextPrayer.name}${tomorrowSuffix}"
+                    views.setTextViewText(R.id.widget_next_prayer_name_bottom, displayName)
                     views.setTextViewText(R.id.widget_countdown_bottom, nextPrayer.timeRemaining)
                     views.setTextColor(R.id.widget_next_prayer_name_bottom, colors.accentGold)
                     views.setTextColor(R.id.widget_countdown_bottom, colors.textPrimary)
+                    views.setProgressBar(R.id.widget_mini_progress, 100, nextPrayer.progress, false)
                 } else {
+                    // No data — clear highlights and show error state
+                    for (id in itemIds) {
+                        views.setInt(id, "setBackgroundResource", 0)
+                    }
                     views.setTextViewText(R.id.widget_next_prayer_name_bottom, "Error")
                     views.setTextViewText(R.id.widget_countdown_bottom, "--:--")
                     views.setTextColor(R.id.widget_next_prayer_name_bottom, colors.accentGold)
                     views.setTextColor(R.id.widget_countdown_bottom, colors.textPrimary)
+                    views.setProgressBar(R.id.widget_mini_progress, 100, 0, false)
                 }
 
                 appWidgetManager.updateAppWidget(appWidgetId, views)
@@ -132,13 +150,20 @@ class PrayerWidget4x2 : AppWidgetProvider() {
             
             val pendingIntent = PendingIntent.getBroadcast(context, 0, intent, flags)
 
+            // Align to 30s into the next minute so the countdown updates
+            // promptly when the minute rolls over.
+            val nextMinute = Calendar.getInstance().apply {
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+                add(Calendar.MINUTE, 1)
+            }.timeInMillis
+            // Fire 30s before the next minute boundary too, for smoother updates
             val now = Calendar.getInstance().timeInMillis
-            val nextUpdate = now + 60000 // 1 minute
+            val nextUpdate = if (nextMinute - now > 30000) now + 30000 else nextMinute
 
-            // Use RTC (not RTC_WAKEUP) so the widget doesn't wake the device
-            // when the screen is off — nobody is looking at it then anyway.
-            // The alarm fires as soon as the device wakes naturally.
-            alarmManager.set(AlarmManager.RTC, nextUpdate, pendingIntent)
+            // setExact(RTC) = precise when screen is on, does NOT wake device
+            // when screen is off. Best of both worlds for widget countdowns.
+            alarmManager.setExact(AlarmManager.RTC, nextUpdate, pendingIntent)
         }
 
         private fun cancelUpdate(context: Context) {

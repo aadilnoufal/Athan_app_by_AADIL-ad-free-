@@ -30,6 +30,23 @@ struct WidgetPrayerData {
     let themeMode: String   // "dark" | "sepia"
     let lastUpdated: Double
     let tomorrowFajrMinutes: Int? // Tomorrow's Fajr in minutes (for accurate post-Isha countdown)
+    let localizedLabels: [String: String] // Pre-translated prayer names + helper labels from JS
+
+    /// Resolve a localized prayer name, falling back to the English key.
+    func localizedPrayerName(_ englishKey: String) -> String {
+        localizedLabels[englishKey] ?? englishKey
+    }
+
+    /// Localized "Next Prayer" label.
+    var nextPrayerLabel: String {
+        localizedLabels["nextPrayer"] ?? "Next Prayer"
+    }
+
+    /// Localized "tomorrow" suffix, e.g. "(غداً)" or "(tmrw)".
+    var tomorrowSuffix: String {
+        let word = localizedLabels["tomorrow"] ?? "tmrw"
+        return "(\(word))"
+    }
 
     /// The next upcoming prayer (or tomorrow's Fajr if all are past).
     /// - Parameter referenceDate: The date to compute against. Pass `entry.date`
@@ -106,12 +123,16 @@ func loadWidgetData() -> WidgetPrayerData? {
     let themeMode = defaults.string(forKey: WidgetDataKeys.themeMode) ?? "dark"
     let tomorrowFajrMinutes = json["tomorrowFajrMinutes"] as? Int
 
+    // Read localized labels (may be absent on older data)
+    let labels = json["localizedLabels"] as? [String: String] ?? [:]
+
     var prayerList: [PrayerTime] = []
     for name in prayerNames {
         guard let t24 = times[name], let t12 = times12h[name] else { continue }
         let parts = t24.split(separator: ":").compactMap { Int($0) }
         let totalMins = parts.count == 2 ? parts[0] * 60 + parts[1] : 0
-        prayerList.append(PrayerTime(id: name, name: name, time24h: t24, time12h: t12, totalMinutes: totalMins))
+        let displayName = labels[name] ?? name
+        prayerList.append(PrayerTime(id: name, name: displayName, time24h: t24, time12h: t12, totalMinutes: totalMins))
     }
 
     if prayerList.count != 6 { return nil }
@@ -122,7 +143,8 @@ func loadWidgetData() -> WidgetPrayerData? {
         cityId: cityId,
         themeMode: themeMode,
         lastUpdated: lastUpdated,
-        tomorrowFajrMinutes: tomorrowFajrMinutes
+        tomorrowFajrMinutes: tomorrowFajrMinutes,
+        localizedLabels: labels
     )
 }
 
@@ -147,6 +169,7 @@ func placeholderData() -> WidgetPrayerData {
         cityId: "doha",
         themeMode: "dark",
         lastUpdated: Date().timeIntervalSince1970 * 1000,
-        tomorrowFajrMinutes: nil
+        tomorrowFajrMinutes: nil,
+        localizedLabels: [:]
     )
 }

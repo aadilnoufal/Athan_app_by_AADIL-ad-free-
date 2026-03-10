@@ -158,6 +158,8 @@ __tests__/
       useSettingsDonation.test.ts       4 tests
       useSettingsLocation.test.ts       9 tests
       useSettingsNotifications.test.ts  8 tests
+  utils/
+    notificationTextResolver.test.ts    25 tests
       useSettingsQuranPrefs.test.ts     12 tests
 
 lib/
@@ -168,6 +170,7 @@ utils/
   quranStorage.ts      Quran offline download & cache management (includes translation offline download with max 2 non-English limit, LRU eviction)
   quranHelpers.ts      Pure helpers: stripBismillah(), formatSize(), bismillah constants
   iqamaConfig.ts       Iqama offset configuration (per-prayer offsets, getIqamaTime, hasIqama)
+  notificationTextResolver.ts   Localized notification & widget text (reads app_language from AsyncStorage)
   notifeePrayerService.js   Notification scheduling via Notifee (smallIcon: ic_notification)
   prayerNotificationScheduler.ts  High-level notification orchestration (prayer + iqama scheduling)
   pushNotifications.ts FCM token retrieval, topic subscription (all-users, country, version), foreground push display, version-based targeting, notification tap action handling (app-update → store, url/deep-link → browser, open-surah → Quran tab deep link), cold-start pending action persistence via AsyncStorage, DeviceEventEmitter event bus for cross-component navigation
@@ -211,9 +214,14 @@ App startup / prayer time change / city change
 Theme change (via ThemeContext.js)
   → updateWidgetTheme() pushes themeMode to native storage
   → Widgets re-render with matching dark/sepia palette
+
+Language change (via LanguageContext.js)
+  → forceRescheduleAllNotifications() cancels all & reschedules with new language
+  → updateWidgetLanguage() patches native storage with localized labels
+  → Widgets re-render with Arabic or English prayer names & UI labels
 ```
 
-Widget payload includes: `times` (24h), `times12h` (12h), `date`, `cityId`, `themeMode`, `lastUpdated`, and `tomorrowFajrMinutes` (optional, for accurate next-day Fajr countdown).
+Widget payload includes: `times` (24h), `times12h` (12h), `date`, `cityId`, `themeMode`, `lastUpdated`, `tomorrowFajrMinutes` (optional, for accurate next-day Fajr countdown), `language` (en/ar), and `localizedLabels` (prayer names + UI labels in the active language).
 
 ### Android Widgets (Kotlin)
 

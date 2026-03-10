@@ -11,6 +11,13 @@ import notifee, { TriggerType, AndroidCategory } from '@notifee/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState } from 'react-native';
 import { getPrayerTimesFromLocalData } from './localPrayerData';
+import {
+  getStoredLanguage,
+  getPrayerNotificationTitle,
+  getPrayerNotificationBody,
+  getIqamaNotificationTitle,
+  getIqamaNotificationBody,
+} from './notificationTextResolver';
 // NOTE: Do NOT add static imports from notifeePrayerService here.
 // It would trigger setupNotifeeEventHandlers() as a module-load side-effect
 // and create a circular dependency. Use dynamic require() when needed (see line ~293).
@@ -23,6 +30,7 @@ const STORAGE_KEY_LAST_DAY = 'prayer_sched_last_day';
 const STORAGE_KEY_TZ = 'prayer_sched_tz_offset';
 const STORAGE_KEY_VERSION = 'prayer_sched_version';
 const STORAGE_KEY_SOUND_PREF = 'prayer_sched_sound_pref'; // Track sound preference changes
+const STORAGE_KEY_LANG_PREF = 'prayer_sched_lang_pref'; // Track language preference changes
 const SCHEDULER_VERSION = '1';
 
 /**
@@ -85,6 +93,7 @@ interface SchedulePrefs {
   iqamaEnabled: boolean;
   iqamaSettings: any;
   iqamaMinutes: number;
+  language: string;
 }
 
 // Core: schedule one day's prayers (using existing function that sets repeat daily). For window we schedule per day w/out repeat to avoid drift.
@@ -98,20 +107,20 @@ async function scheduleDay(date: Date, settings: any, cityId: string = 'doha', p
     try {
       const stored = await AsyncStorage.getItem('use_azan_sound');
       if (stored === 'false') useAzanSound = false;
-    } catch {}
+    } catch { }
   }
 
   const created: string[] = [];
-  const prayers = ['Fajr','Sunrise','Dhuhr','Asr','Maghrib','Isha'];
+  const prayers = ['Fajr', 'Sunrise', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
   for (const prayer of prayers) {
     try {
       if (settings[prayer] === false) continue;
       const time = (pt as any)[prayer];
       if (!time) continue;
-      const [h,m] = time.split(':').map(Number);
+      const [h, m] = time.split(':').map(Number);
       if (isNaN(h) || isNaN(m)) continue;
       const when = new Date(date);
-      when.setHours(h,m,0,0);
+      when.setHours(h, m, 0, 0);
       if (when.getTime() < Date.now()) continue; // skip past times
 
       const id = `prayer-${prayer.toLowerCase()}-${isoDate(date)}`;
@@ -134,7 +143,7 @@ async function scheduleDay(date: Date, settings: any, cityId: string = 'doha', p
         smallIcon: 'ic_notification',
         largeIcon: 'ic_launcher',
         // Sound is determined by channel, not individual notification on Android
-        vibrationPattern: prayer === 'Fajr' ? [200,400,200,400,200,400] : [300,600,300,600],
+        vibrationPattern: prayer === 'Fajr' ? [200, 400, 200, 400, 200, 400] : [300, 600, 300, 600],
         pressAction: { id: 'default' },
         color: prayer === 'Fajr' ? '#0066cc' : (prayer === 'Sunrise' ? '#ff9900' : '#1a8e2d')
       };
@@ -146,10 +155,10 @@ async function scheduleDay(date: Date, settings: any, cityId: string = 'doha', p
         badge: 1
       };
 
-      // Sunrise is NOT a prayer, just a time marker
-      const isSunrise = prayer === 'Sunrise';
-      const notificationTitle = isSunrise ? `☀️ ${prayer}` : `🕌 ${prayer} Prayer Time`;
-      const notificationBody = isSunrise ? `Sunrise time (${time})` : `It's time for ${prayer} prayer (${time})`;
+      // Use localized title/body from notification text resolver
+      const lang = prefs ? prefs.language : 'en';
+      const notificationTitle = getPrayerNotificationTitle(prayer, lang);
+      const notificationBody = getPrayerNotificationBody(prayer, time, lang);
 
       // Create trigger with AlarmManager for EXACT timing (critical for prayer times!)
       const trigger: any = {
@@ -175,7 +184,7 @@ async function scheduleDay(date: Date, settings: any, cityId: string = 'doha', p
       );
       created.push(id);
       console.log(`✅ Window scheduled ${prayer} ${isoDate(date)} @ ${time} (id=${id}) [AlarmManager: exact=true, allowWhileIdle=true]`);
-    } catch (e:any) {
+    } catch (e: any) {
       console.log(`⚠️ Failed scheduling ${prayer} ${isoDate(date)}:`, e?.message);
     }
   }
@@ -195,7 +204,7 @@ async function scheduleDay(date: Date, settings: any, cityId: string = 'doha', p
         const parsedIqamaMin = iqamaMinRaw ? parseInt(iqamaMinRaw, 10) : 3;
         iqamaMinutes = isNaN(parsedIqamaMin) ? 3 : parsedIqamaMin;
       }
-    } catch {}
+    } catch { }
   }
 
   if (iqamaEnabled) {
@@ -239,11 +248,9 @@ async function scheduleDay(date: Date, settings: any, cityId: string = 'doha', p
           badge: 1,
         };
 
-        const minuteText = iqamaMinutes === 0 ? 'now' : `in ${iqamaMinutes} min`;
-        const notifTitle = `🕌 Iqama – ${prayer}`;
-        const notifBody = iqamaMinutes === 0
-          ? `Iqama for ${prayer} prayer is now`
-          : `Iqama for ${prayer} prayer ${minuteText}`;
+        const lang = prefs ? prefs.language : 'en';
+        const notifTitle = getIqamaNotificationTitle(prayer, lang);
+        const notifBody = getIqamaNotificationBody(prayer, iqamaMinutes, lang);
 
         const trigger: any = {
           type: TriggerType.TIMESTAMP,
@@ -342,7 +349,7 @@ async function _ensurePrayerNotificationWindowImpl() {
 
     const settings = await getNotificationSettings();
     const today = new Date();
-    today.setHours(0,0,0,0);
+    today.setHours(0, 0, 0, 0);
 
     // Read user's selected city for applying city-specific prayer time adjustments
     let cityId = 'doha';
@@ -351,7 +358,7 @@ async function _ensurePrayerNotificationWindowImpl() {
       if (regionId) {
         cityId = extractCityIdFromRegionId(regionId);
       }
-    } catch {}
+    } catch { }
 
     // Check if sound preference changed
     let soundPrefChanged = false;
@@ -372,8 +379,23 @@ async function _ensurePrayerNotificationWindowImpl() {
       console.log('⚠️ Could not check sound preference:', e);
     }
 
+    // Check if language preference changed (triggers full reschedule just like sound)
+    try {
+      const currentLangPref = await AsyncStorage.getItem('app_language');
+      const storedLangPref = await AsyncStorage.getItem(STORAGE_KEY_LANG_PREF);
+      if (storedLangPref && currentLangPref && storedLangPref !== currentLangPref) {
+        console.log(`🌐 Language preference changed: ${storedLangPref} → ${currentLangPref}, triggering full reschedule`);
+        await cancelAll();
+      }
+      if (currentLangPref) {
+        await AsyncStorage.setItem(STORAGE_KEY_LANG_PREF, currentLangPref);
+      }
+    } catch (e) {
+      console.log('⚠️ Could not check language preference:', e);
+    }
+
     // Detect TZ / DST change
-    if (storedTz && parseInt(storedTz,10) !== tzOffset) {
+    if (storedTz && parseInt(storedTz, 10) !== tzOffset) {
       console.log(`🌍 Timezone changed: ${storedTz} → ${tzOffset}, triggering full reschedule`);
       await cancelAll();
     }
@@ -403,13 +425,13 @@ async function _ensurePrayerNotificationWindowImpl() {
       const parts = id.split('-');
       const prayerNameRaw = parts[1];
       const dateStr = parts.slice(2).join('-'); // e.g. '2026-03-05'
-      
+
       // Cancel if date is in the past (before today)
       if (dateStr < todayStr) {
         await notifee.cancelTriggerNotification(id);
         continue;
       }
-      
+
       // If it's today, check if the prayer time has already passed
       if (dateStr === todayStr) {
         const prayerName = prayerNameRaw.charAt(0).toUpperCase() + prayerNameRaw.slice(1);
@@ -418,13 +440,13 @@ async function _ensurePrayerNotificationWindowImpl() {
           const [hours, minutes] = prayerTimes[prayerName].split(':').map(Number);
           const prayerDate = new Date(today);
           prayerDate.setHours(hours, minutes, 0, 0);
-          
+
           // For iqama notifications, add the iqama offset
           if (id.startsWith('iqama-')) {
             const offset = IQAMA_OFFSETS[prayerName] || 0;
             prayerDate.setMinutes(prayerDate.getMinutes() + offset);
           }
-          
+
           // If prayer/iqama time has passed, cancel it
           if (prayerDate.getTime() < now) {
             await notifee.cancelTriggerNotification(id);
@@ -433,7 +455,7 @@ async function _ensurePrayerNotificationWindowImpl() {
         }
       }
     }
-    
+
     // Re-fetch IDs after cleanup
     const updatedIds = await notifee.getTriggerNotificationIds();
     const activeOurs = updatedIds.filter(id =>
@@ -456,10 +478,12 @@ async function _ensurePrayerNotificationWindowImpl() {
       iqamaEnabled: false,
       iqamaSettings: {},
       iqamaMinutes: 3,
+      language: 'en',
     };
     try {
       const storedSound = await AsyncStorage.getItem('use_azan_sound');
       if (storedSound === 'false') schedPrefs.useAzanSound = false;
+      schedPrefs.language = await getStoredLanguage();
       const iqamaEnabledRaw = await AsyncStorage.getItem('iqama_notifications_enabled');
       schedPrefs.iqamaEnabled = iqamaEnabledRaw === 'true';
       if (schedPrefs.iqamaEnabled) {
@@ -469,22 +493,22 @@ async function _ensurePrayerNotificationWindowImpl() {
         const parsedIqamaMin2 = iqamaMinRaw ? parseInt(iqamaMinRaw, 10) : 3;
         schedPrefs.iqamaMinutes = isNaN(parsedIqamaMin2) ? 3 : parsedIqamaMin2;
       }
-    } catch {}
+    } catch { }
 
     let scheduledCount = activeOurs.length;
     let dayCursor = new Date(today);
     // Leave headroom: stop early enough so one full day (up to 11 notifs) can't exceed 54
     const safeMax = 54 - 11; // 11 = max per day (6 prayers + 5 iqama)
-    for (let i=0; i<WINDOW_DAYS && scheduledCount < safeMax; i++) {
+    for (let i = 0; i < WINDOW_DAYS && scheduledCount < safeMax; i++) {
       const dateStr = isoDate(dayCursor);
       if (!coveredDates.has(dateStr)) {
         const created = await scheduleDay(dayCursor, settings, cityId, schedPrefs);
         scheduledCount += created.length;
       }
-      dayCursor.setDate(dayCursor.getDate()+1);
+      dayCursor.setDate(dayCursor.getDate() + 1);
     }
 
-    await AsyncStorage.setItem(STORAGE_KEY_LAST_DAY, isoDate(new Date(today.getTime() + (WINDOW_DAYS-1)*86400000)));
+    await AsyncStorage.setItem(STORAGE_KEY_LAST_DAY, isoDate(new Date(today.getTime() + (WINDOW_DAYS - 1) * 86400000)));
     await AsyncStorage.setItem(STORAGE_KEY_TZ, tzOffset.toString());
     await AsyncStorage.setItem(STORAGE_KEY_VERSION, SCHEDULER_VERSION);
   } catch (e) {
@@ -542,14 +566,14 @@ export async function forceRescheduleAllNotifications() {
 
     // Cancel all existing prayer notifications
     await cancelAll();
-    
+
     // Clear all stored state to trigger fresh scheduling
     await AsyncStorage.removeItem(STORAGE_KEY_LAST_DAY);
     await AsyncStorage.removeItem(STORAGE_KEY_TZ);
-    
+
     // Trigger a full reschedule
     await ensurePrayerNotificationWindow();
-    
+
     console.log('✅ Force reschedule complete');
   } catch (e) {
     console.log('❌ Force reschedule failed:', e);

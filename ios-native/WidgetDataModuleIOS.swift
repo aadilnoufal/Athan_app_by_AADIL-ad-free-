@@ -91,4 +91,40 @@ class WidgetDataModuleIOS: NSObject {
 
         resolve(result)
     }
+
+    /// Update only the language + localized labels (merges into existing JSON).
+    /// Called when user changes language without a full prayer time recalculation.
+    @objc func setWidgetLanguage(_ jsonPatch: String,
+                                 resolve: @escaping RCTPromiseResolveBlock,
+                                 reject: @escaping RCTPromiseRejectBlock) {
+        guard let defaults = defaults else {
+            reject("E_NO_DEFAULTS", "Could not access App Group UserDefaults", nil)
+            return
+        }
+
+        // Merge patch into existing widget data JSON
+        if let existingStr = defaults.string(forKey: keyWidgetData),
+           let existingData = existingStr.data(using: .utf8),
+           var existing = try? JSONSerialization.jsonObject(with: existingData) as? [String: Any],
+           let patchData = jsonPatch.data(using: .utf8),
+           let patch = try? JSONSerialization.jsonObject(with: patchData) as? [String: Any] {
+            for (key, value) in patch {
+                existing[key] = value
+            }
+            existing["lastUpdated"] = Date().timeIntervalSince1970 * 1000
+            if let merged = try? JSONSerialization.data(withJSONObject: existing),
+               let mergedStr = String(data: merged, encoding: .utf8) {
+                defaults.set(mergedStr, forKey: keyWidgetData)
+                defaults.set(Date().timeIntervalSince1970 * 1000, forKey: keyLastUpdated)
+                defaults.synchronize()
+            }
+        }
+
+        // Reload widget timelines
+        if #available(iOS 14.0, *) {
+            WidgetCenter.shared.reloadAllTimelines()
+        }
+
+        resolve(true)
+    }
 }

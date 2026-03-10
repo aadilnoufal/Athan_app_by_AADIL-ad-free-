@@ -40,6 +40,15 @@ import notifee, {
 } from '@notifee/react-native';
 import { Platform, AppState, Alert, PermissionsAndroid } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  getStoredLanguage,
+  getPrayerNotificationTitle,
+  getPrayerNotificationBody,
+  getPrayerReminderTitle,
+  getPrayerReminderBody,
+  getTestNotificationTitle,
+  getTestNotificationBody,
+} from './notificationTextResolver';
 
 // =============================================================================
 // ANDROID 12+ PERMISSION MANAGEMENT
@@ -532,22 +541,16 @@ const createPrayerNotificationChannel = createPrayerNotificationChannels;
  * iOS: Direct sound specification per notification
  * NO HYBRID FALLBACK - just pick the right channel!
  */
-function createCrossPlatformNotification(prayer, time, useAzanSound, isReminder = false) {
+function createCrossPlatformNotification(prayer, time, useAzanSound, isReminder = false, lang = 'en') {
   const shouldUseAzan = useAzanSound && prayer !== 'Sunrise' && !isReminder;
 
-  // Sunrise is NOT a prayer, just a time marker
-  const isSunrise = prayer === 'Sunrise';
   const title = isReminder
-    ? `🔔 ${prayer} Prayer Reminder`
-    : isSunrise
-      ? `☀️ ${prayer}`
-      : `🕌 ${prayer} Prayer Time`;
+    ? getPrayerReminderTitle(prayer, lang)
+    : getPrayerNotificationTitle(prayer, lang);
 
-  const body = isReminder ?
-    `${prayer} prayer starts in 15 minutes (${time})` :
-    isSunrise
-      ? `Sunrise time (${time})`
-      : `It's time for ${prayer} prayer (${time})`;
+  const body = isReminder
+    ? getPrayerReminderBody(prayer, time, lang)
+    : getPrayerNotificationBody(prayer, time, lang);
 
   const baseNotification = {
     title,
@@ -723,7 +726,8 @@ export async function scheduleNotifeePrayerNotifications(prayerTimes, settings =
 
     // Get sound preference
     const useAzanSound = await getSoundPreference();
-    console.log(`🔊 Sound preference: ${useAzanSound ? 'Azan sound' : 'Android default sound'}`);
+    const lang = await getStoredLanguage();
+    console.log(`🔊 Sound preference: ${useAzanSound ? 'Azan sound' : 'Android default sound'}, lang: ${lang}`);
     console.log(`📋 Prayer notification settings received:`, settings);
 
     // Clear existing prayer notifications first
@@ -780,7 +784,7 @@ export async function scheduleNotifeePrayerNotifications(prayerTimes, settings =
 
       // Create notification using cross-platform configuration (picks correct channel)
       const notificationId = `prayer-${prayer.toLowerCase()}`;
-      const notificationConfig = createCrossPlatformNotification(prayer, time, useAzanSound);
+      const notificationConfig = createCrossPlatformNotification(prayer, time, useAzanSound, false, lang);
 
       await notifee.createTriggerNotification(
         {
@@ -965,6 +969,7 @@ export async function scheduleImmediateNotifeeNotification(prayerName, message =
   try {
     // Get sound preference
     const useAzanSound = await getSoundPreference();
+    const lang = await getStoredLanguage();
     const shouldUseAzan = useAzanSound && prayerName !== 'Sunrise';
 
     console.log(`🔊 ${prayerName} notification will use: ${shouldUseAzan ? 'azan' : 'default Android'} sound`);
@@ -974,7 +979,8 @@ export async function scheduleImmediateNotifeeNotification(prayerName, message =
       prayerName,
       'now',
       useAzanSound,
-      false
+      false,
+      lang
     );
 
     // Override body with custom message if provided
@@ -1008,15 +1014,16 @@ export async function scheduleNotifeeTestNotification() {
   try {
     // Get sound preference
     const useAzanSound = await getSoundPreference();
-    console.log(`🧪 Test notification - User preference: ${useAzanSound ? 'AZAN' : 'DEFAULT ANDROID SOUND'}`);
+    const lang = await getStoredLanguage();
+    console.log(`🧪 Test notification - User preference: ${useAzanSound ? 'AZAN' : 'DEFAULT ANDROID SOUND'}, lang: ${lang}`);
 
     // Pick the CORRECT channel based on preference
     const testChannelId = useAzanSound ? 'prayer-times-azan' : 'prayer-times-default';
 
     // Create test notification configuration
     const testConfig = {
-      title: "🧪 Test Prayer Notification",
-      body: `Testing ${useAzanSound ? 'azan' : 'default Android'} sound from channel`,
+      title: getTestNotificationTitle(lang),
+      body: getTestNotificationBody(useAzanSound, lang),
       data: sanitizeNotifeeData({
         type: "prayer-time",
         prayerName: "Test",

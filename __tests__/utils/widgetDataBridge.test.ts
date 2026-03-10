@@ -9,6 +9,12 @@
  * - Graceful fallback when native module is unavailable
  */
 
+jest.mock('@react-native-async-storage/async-storage', () => ({
+  getItem: jest.fn(),
+  setItem: jest.fn(),
+  removeItem: jest.fn(),
+}));
+
 import { NativeModules, Platform } from 'react-native';
 import type { WidgetData } from '../../utils/widgetDataBridge';
 import {

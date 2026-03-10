@@ -19,6 +19,7 @@
  */
 
 import { Platform, NativeModules } from 'react-native';
+import { getWidgetLocalizedLabels } from './notificationTextResolver';
 
 /** Lazy accessor — resolved at call time so tests can mock NativeModules. */
 function getWidgetDataModule() {
@@ -59,6 +60,8 @@ export interface WidgetData {
   themeMode: string;   // "dark" | "sepia"
   lastUpdated: number; // Unix timestamp ms
   tomorrowFajrMinutes?: number; // Tomorrow's Fajr in minutes since midnight (for accurate post-Isha countdown)
+  language?: string;   // 'en' | 'ar' — widget display language
+  localizedLabels?: Record<string, string>; // Pre-translated prayer names + helper labels
 }
 
 /**
@@ -144,6 +147,41 @@ export async function getWidgetData(): Promise<string | null> {
 }
 
 // ============================================================================
+// Language-only update for widgets
+// ============================================================================
+
+/**
+ * Push updated language + localized labels to native widget storage
+ * and request a widget refresh. Called when user changes language.
+ */
+export function updateWidgetLanguage(lang: string): void {
+  const labels = getWidgetLocalizedLabels(lang);
+  const patch = JSON.stringify({ language: lang, localizedLabels: labels });
+
+  if (Platform.OS === 'android') {
+    const WidgetDataModule = getWidgetDataModule();
+    if (WidgetDataModule?.setWidgetLanguage) {
+      WidgetDataModule.setWidgetLanguage(patch)
+        .then(() => console.log('✅ Widget language updated to:', lang))
+        .catch((err: Error) => console.log('⚠️ Failed to update widget language:', err.message));
+    } else {
+      console.log('ℹ️ WidgetDataModule.setWidgetLanguage not available — full write fallback');
+      // Fallback: read current data, merge, and re-write
+      _patchWidgetDataWithLanguage(lang, labels);
+    }
+  } else if (Platform.OS === 'ios') {
+    const WidgetDataModuleIOS = getWidgetDataModuleIOS();
+    if (WidgetDataModuleIOS?.setWidgetLanguage) {
+      WidgetDataModuleIOS.setWidgetLanguage(patch)
+        .then(() => console.log('✅ iOS widget language updated to:', lang))
+        .catch((err: Error) => console.log('⚠️ Failed to update iOS widget language:', err.message));
+    } else {
+      _patchWidgetDataWithLanguageIOS(lang, labels);
+    }
+  }
+}
+
+// ============================================================================
 // Private implementation
 // ============================================================================
 
@@ -210,5 +248,45 @@ function _writeThemeModeIOS(themeMode: string): void {
     }
   } catch (error) {
     // Module not yet available
+  }
+}
+
+/**
+ * Fallback: read existing Android widget data, merge language fields, re-write.
+ */
+async function _patchWidgetDataWithLanguage(lang: string, labels: Record<string, string>): Promise<void> {
+  try {
+    const WidgetDataModule = getWidgetDataModule();
+    if (!WidgetDataModule) return;
+    const raw = await WidgetDataModule.getWidgetData();
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    data.language = lang;
+    data.localizedLabels = labels;
+    data.lastUpdated = Date.now();
+    await WidgetDataModule.setWidgetData(JSON.stringify(data));
+    console.log('✅ Widget language patched (fallback) to:', lang);
+  } catch (err) {
+    console.log('⚠️ Widget language patch fallback failed:', err);
+  }
+}
+
+/**
+ * Fallback: read existing iOS widget data, merge language fields, re-write.
+ */
+async function _patchWidgetDataWithLanguageIOS(lang: string, labels: Record<string, string>): Promise<void> {
+  try {
+    const WidgetDataModuleIOS = getWidgetDataModuleIOS();
+    if (!WidgetDataModuleIOS) return;
+    const raw = await WidgetDataModuleIOS.getWidgetData();
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    data.language = lang;
+    data.localizedLabels = labels;
+    data.lastUpdated = Date.now();
+    await WidgetDataModuleIOS.setWidgetData(JSON.stringify(data));
+    console.log('✅ iOS widget language patched (fallback) to:', lang);
+  } catch (err) {
+    console.log('⚠️ iOS widget language patch fallback failed:', err);
   }
 }
