@@ -49,6 +49,16 @@ const LANG_NAMES: Record<string, string> = {
 type TFunc = (key: string) => string;
 
 export function useSettingsQuranPrefs(t: TFunc) {
+  const FONT_SCALE_MIN = 0.75;
+  const FONT_SCALE_MAX = 1.5;
+  const FONT_SCALE_STEP = 0.05;
+
+  const normalizeFontScale = (value: number): number => {
+    const clamped = Math.max(FONT_SCALE_MIN, Math.min(FONT_SCALE_MAX, value));
+    const stepped = Math.round(clamped / FONT_SCALE_STEP) * FONT_SCALE_STEP;
+    return Number(stepped.toFixed(2));
+  };
+
   // ── State ────────────────────────────────────────────────────────────
   const [quranEditionPref, setQuranEditionPref] = useState<EditionPref>('both');
   const [quranFontScale, setQuranFontScaleState] = useState(1.2);
@@ -80,7 +90,7 @@ export function useSettingsQuranPrefs(t: TFunc) {
           getQuranFontFamily(),
         ]);
         setQuranEditionPref(pref);
-        setQuranFontScaleState(fontSc);
+        setQuranFontScaleState(normalizeFontScale(fontSc));
         setQuranAutoScrollWithAudioState(autoScrollPref);
         setQuranTranslationEditionState(trEd);
         setQuranReciterState(recPref);
@@ -161,14 +171,13 @@ export function useSettingsQuranPrefs(t: TFunc) {
   };
 
   const handleFontScaleChange = async (value: number) => {
-    const rounded = parseFloat(value.toFixed(2));
-    setQuranFontScaleState(rounded);
+    setQuranFontScaleState(normalizeFontScale(value));
   };
 
   const handleFontScaleChangeComplete = async (value: number) => {
-    const rounded = parseFloat(value.toFixed(2));
-    setQuranFontScaleState(rounded);
-    await setQuranFontScale(rounded);
+    const normalized = normalizeFontScale(value);
+    setQuranFontScaleState(normalized);
+    await setQuranFontScale(normalized);
   };
 
   const handleQuranAutoScrollToggle = async (value: boolean) => {

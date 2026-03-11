@@ -2,10 +2,11 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import notifee from '@notifee/react-native';
 import { useEffect, useState, useRef } from "react";
-import { Platform, View, Text, StyleSheet, Animated, TouchableOpacity, Vibration } from "react-native";
+import { Platform, View, Text, Animated, TouchableOpacity } from "react-native";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
-import { playPrayerSound, preloadSounds, unloadSounds } from '../utils/audioHelper';
+import { preloadSounds, unloadSounds } from '../utils/audioHelper';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { LanguageProvider } from '../contexts/LanguageContext';
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
@@ -20,68 +21,129 @@ declare global {
   var __openSupportPaywall: undefined | (() => Promise<void>);
 }
 
-// Notifee handles foreground notifications automatically - no configuration needed
-
-// Custom in-app notification component
-function InAppNotification({ title, body, onClose }: { title: string; body: string; onClose: () => void }) {
-  const translateY = useRef(new Animated.Value(-100)).current;
+// ── In-app prayer notification banner ──────────────────────────────────
+// Only shown when a real prayer/iqama notification fires while app is open.
+// Theme-aware, no sound/vibration (system notification handles that).
+function InAppNotification({ title, body, prayerName, onClose }: { title: string; body: string; prayerName?: string; onClose: () => void }) {
+  const translateY = useRef(new Animated.Value(-150)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+  const scale = useRef(new Animated.Value(0.95)).current;
   const dismissedRef = useRef(false);
-  
+  const { isDark, colors: C } = useTheme();
+
+  // Pick an icon based on prayer name
+  const iconName = prayerName === 'Fajr' || prayerName === 'Sunrise'
+    ? 'weather-sunset-up'
+    : prayerName === 'Maghrib' || prayerName === 'Isha'
+      ? 'weather-night'
+      : 'mosque';
+
   useEffect(() => {
-    console.log("In-app notification mounted with:", title, body);
-    // Animate in
-    Animated.timing(translateY, {
-      toValue: 0,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
-    
-    // Automatically dismiss after 7 seconds 
-    const timer = setTimeout(() => {
-      dismiss();
-    }, 7000);
-    
+    // Animate in with spring-like feel
+    Animated.parallel([
+      Animated.spring(translateY, { toValue: 0, damping: 18, stiffness: 200, useNativeDriver: true }),
+      Animated.timing(opacity, { toValue: 1, duration: 250, useNativeDriver: true }),
+      Animated.spring(scale, { toValue: 1, damping: 14, stiffness: 180, useNativeDriver: true }),
+    ]).start();
+
+    // Auto-dismiss after 8 seconds
+    const timer = setTimeout(() => dismiss(), 8000);
     return () => clearTimeout(timer);
   }, []);
-  
+
   const dismiss = () => {
     if (dismissedRef.current) return;
     dismissedRef.current = true;
-    Animated.timing(translateY, {
-      toValue: -100,
-      duration: 300,
-      useNativeDriver: true,
-    }).start(() => {
-      onClose();
-    });
+    Animated.parallel([
+      Animated.timing(translateY, { toValue: -150, duration: 280, useNativeDriver: true }),
+      Animated.timing(opacity, { toValue: 0, duration: 250, useNativeDriver: true }),
+    ]).start(() => onClose());
   };
-  
+
+  const bgColor = isDark ? 'rgba(20, 27, 33, 0.97)' : 'rgba(255, 255, 255, 0.97)';
+  const accentColor = C.accent.gold;
+  const glowColor = isDark ? 'rgba(240, 214, 97, 0.25)' : 'rgba(212, 175, 55, 0.20)';
+
   return (
-    <Animated.View 
+    <Animated.View
       style={[
-        styles.notification,
-        { transform: [{ translateY }] }
+        {
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          marginTop: (Constants.statusBarHeight || 28) + 8,
+          marginHorizontal: 12,
+          borderRadius: 18,
+          backgroundColor: bgColor,
+          borderWidth: 1,
+          borderColor: isDark ? C.border.medium : C.border.accent,
+          overflow: 'hidden',
+          elevation: 12,
+          zIndex: 9999,
+          // iOS shadow
+          shadowColor: accentColor,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.3,
+          shadowRadius: 12,
+        },
+        { transform: [{ translateY }, { scale }], opacity },
       ]}
     >
-      <View style={styles.notificationContent}>
-        <Text style={styles.notificationTitle}>{title}</Text>
-        <Text style={styles.notificationBody}>{body}</Text>
+      {/* Top accent bar */}
+      <View style={{ height: 3, backgroundColor: accentColor }} />
+
+      <View style={{ flexDirection: 'row', alignItems: 'center', padding: 14, paddingTop: 12 }}>
+        {/* Icon container with glow */}
+        <View style={{
+          width: 44, height: 44, borderRadius: 22,
+          backgroundColor: glowColor,
+          alignItems: 'center', justifyContent: 'center',
+          marginRight: 12,
+        }}>
+          <MaterialCommunityIcons name={iconName} size={24} color={accentColor} />
+        </View>
+
+        {/* Text */}
+        <View style={{ flex: 1 }}>
+          <Text style={{
+            fontSize: 15, fontWeight: '700',
+            color: C.text.primary,
+            marginBottom: 2,
+          }}>{title}</Text>
+          <Text style={{
+            fontSize: 13, fontWeight: '400',
+            color: C.text.secondary,
+            lineHeight: 18,
+          }}>{body}</Text>
+        </View>
+
+        {/* Close */}
+        <TouchableOpacity
+          onPress={dismiss}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          style={{
+            width: 28, height: 28, borderRadius: 14,
+            backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+            alignItems: 'center', justifyContent: 'center',
+            marginLeft: 8,
+          }}
+        >
+          <MaterialCommunityIcons name="close" size={14} color={C.text.tertiary} />
+        </TouchableOpacity>
       </View>
-      <TouchableOpacity onPress={dismiss} style={styles.closeButton}>
-        <Text style={styles.closeButtonText}>✕</Text>
-      </TouchableOpacity>
     </Animated.View>
   );
 }
 
 function InnerLayout() {
-  const [notification, setNotification] = useState<{title: string; body: string; data?: any} | null>(null);
+  const [notification, setNotification] = useState<{ title: string; body: string; data?: any } | null>(null);
   const lastReceivedAtRef = useRef(0); // Track when last notification was received (ref to avoid re-subscribing listener)
   // Removed blocking splash: we no longer delay initial render for assets
   const [assetsLoaded, setAssetsLoaded] = useState(true);
   const { isDark, colors: themeColors } = useTheme();
   const [shouldPromptSupport, setShouldPromptSupport] = useState(false);
-  
+
   // Preload assets when the app loads
   useEffect(() => {
     // Fire-and-forget preload of sounds; UI not blocked anymore
@@ -99,7 +161,7 @@ function InnerLayout() {
       lastPromptMonth: 'support_last_prompt_month', // e.g., '2025-09'
     } as const;
 
-  const shouldShowThisMonth = (now: Date, lastPromptMonth?: string | null) => {
+    const shouldShowThisMonth = (now: Date, lastPromptMonth?: string | null) => {
       const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
       return lastPromptMonth !== ym;
     };
@@ -111,7 +173,7 @@ function InnerLayout() {
         const now = new Date();
         const nowMs = now.getTime();
         const day = now.getDate();
-  const [firstInstallTsStr, lastPromptMonth] = await AsyncStorage.multiGet([
+        const [firstInstallTsStr, lastPromptMonth] = await AsyncStorage.multiGet([
           PLAN_KEYS.firstInstall,
           PLAN_KEYS.lastPromptMonth,
         ]).then(entries => entries.map(([, v]) => v));
@@ -172,24 +234,25 @@ function InnerLayout() {
       // We won’t render the paywall here; each screen already has its own modal.
       // Instead, we can signal via AsyncStorage and the Home/Settings will respond if mounted.
       await AsyncStorage.setItem('support_trigger', String(Date.now()));
-    };    return () => {
+    }; return () => {
       // @ts-ignore
       global.__openSupportPaywall = undefined;
-    };  }, []);
+    };
+  }, []);
 
   // Configure RevenueCat on app launch (following official best practices)
   useEffect(() => {
     const configureRevenueCat = async () => {
       try {
         console.log('[RevenueCat] Configuring SDK...');
-        
-  // Set log level; quiet by default unless explicit debug flag is set
-  const verboseRc = Boolean((process.env.EXPO_PUBLIC_RC_DEBUG || '').toString());
-  Purchases.setLogLevel(verboseRc ? LOG_LEVEL.VERBOSE : LOG_LEVEL.WARN);
-        
+
+        // Set log level; quiet by default unless explicit debug flag is set
+        const verboseRc = Boolean((process.env.EXPO_PUBLIC_RC_DEBUG || '').toString());
+        Purchases.setLogLevel(verboseRc ? LOG_LEVEL.VERBOSE : LOG_LEVEL.WARN);
+
         // Configure based on platform (following official docs pattern)
-  const publicIosKey = process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY;
-  const { revenuecat } = (Constants.expoConfig?.extra || (Constants as any).manifest?.extra || {}) as any;
+        const publicIosKey = process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY;
+        const { revenuecat } = (Constants.expoConfig?.extra || (Constants as any).manifest?.extra || {}) as any;
         if (Platform.OS === 'ios') {
           const iosKey = publicIosKey || revenuecat?.iosApiKey || 'appl_HlFMTQjuEPSpeLuaudMrIpsLqsf';
           if (!iosKey) {
@@ -281,7 +344,7 @@ function InnerLayout() {
             }
           }
         }
-        
+
       } catch (error) {
         console.log('[RevenueCat] Configuration error (normal in dev environment):', error);
       }
@@ -289,33 +352,12 @@ function InnerLayout() {
 
     configureRevenueCat();
   }, []);
-  
-  // Helper function to directly show an in-app notification for testing
-  const showTestInAppNotification = async () => {
-    console.log("Showing test in-app notification");
-    setNotification({
-      title: "Test In-App Notification",
-      body: "This is a test notification that should appear in-app",
-      data: { prayerName: 'Test' }
-    });
-    
-    // Also provide vibration feedback
-    Vibration.vibrate([0, 300, 150, 300]);
-  };
 
-  // Simple function to play a sound directly (now just vibrates)
-  const playSimpleSound = async () => {
-    try {
-      console.log("Providing vibration feedback");
-      await playPrayerSound('Test', true); // This now just vibrates
-    } catch (error) {
-      console.error("Failed to provide feedback", error);
-    }
-  };
-  
+
+
   useEffect(() => {
     console.log("Setting up notification listeners");
-    
+
     // Setup notification channel for Android using Notifee
     if (Platform.OS === 'android') {
       notifee.createChannel({
@@ -327,67 +369,61 @@ function InnerLayout() {
       });
     }
 
-    // Listen for foreground notifications with Notifee
+    // ── Foreground notification listener ──────────────────────────────────
+    // Show in-app banner ONLY for real prayer/iqama notifications that fire
+    // at the exact prayer time while the app is open. No banner for test,
+    // push, or stale notifications. No sound/vibration — the system
+    // notification already handles that.
     const unsubscribe = notifee.onForegroundEvent(({ type, detail }) => {
+      // PRESS → handle deep-link actions (app-update, open-surah, etc.)
       if (type === 1) { // EventType.PRESS
-        console.log('Notification pressed:', detail.notification);
-        // Handle action based on data payload (e.g. open store for app-update)
-        const { handleNotificationAction } = require('../utils/pushNotifications');
-        handleNotificationAction(detail.notification?.data as Record<string, string>);
-        } else if (type === 0) { // EventType.DISPLAYED
-        console.log("Notification displayed in foreground:", detail.notification);
-        const notification = detail.notification;
-        const prayerName = notification?.data?.prayerName as string || 'Prayer';
-        const useAzanSound = String(notification?.data?.useAzanSound) === 'true';
-
-        // Only show new notifications (avoid duplication from quick re-renders)
-        const currentTime = new Date().getTime();
-        if (currentTime - lastReceivedAtRef.current > 1000) {
-          lastReceivedAtRef.current = currentTime;
-
-          // Set notification for display
-          setNotification({
-            title: notification?.title || `${prayerName} Time`,
-            body: notification?.body || `It's time for ${prayerName}`,
-            data: notification?.data || {}
-          });
-
-          // Avoid double-sounding: Notifee channels normally play the sound.
-          // Only perform manual playback when the notification explicitly requests it
-          // (legacy tests or special alarms set `playManualAzan: 'true'`).
-          const playManual = String(notification?.data?.playManualAzan) === 'true' || String(notification?.data?.playManual) === 'true';
-          if (playManual) {
-            playPrayerSound(prayerName || 'Test', useAzanSound);
-          } else {
-            // Simple vibration feedback for foreground display (no double audio)
-            Vibration.vibrate([0, 250]);
-          }
+        try {
+          const { handleNotificationAction } = require('../utils/pushNotifications');
+          handleNotificationAction(detail.notification?.data as Record<string, string>);
+        } catch (e) {
+          console.log('⚠️ Notification action handler failed:', (e as any)?.message);
         }
+        return;
       }
+
+      // Only proceed on DELIVERED (type 3 in Notifee v7+) or DISPLAYED (type 0)
+      // to cover all Notifee versions
+      if (type !== 3 && type !== 0) return;
+
+      const notification = detail.notification;
+      const data = notification?.data;
+      const notifType = data?.type as string | undefined;
+
+      // Only show banner for real prayer / iqama notifications
+      if (notifType !== 'prayer-time' && notifType !== 'prayer-reminder' && notifType !== 'iqama-reminder') {
+        return;
+      }
+
+      // Staleness guard: if the notification was scheduled for >90s ago, skip.
+      // This prevents banners from appearing when reopening the app after prayer time.
+      const scheduledTs = Number(data?.scheduledTimestamp);
+      if (scheduledTs && (Date.now() - scheduledTs) > 90 * 1000) {
+        console.log(`🔕 Skipping stale in-app banner for ${data?.prayerName} (${Math.round((Date.now() - scheduledTs) / 1000)}s old)`);
+        return;
+      }
+
+      // De-duplicate rapid deliveries (e.g. re-renders)
+      const now = Date.now();
+      if (now - lastReceivedAtRef.current < 1500) return;
+      lastReceivedAtRef.current = now;
+
+      const prayerName = data?.prayerName as string || 'Prayer';
+      setNotification({
+        title: notification?.title || `${prayerName} Time`,
+        body: notification?.body || `It's time for ${prayerName}`,
+        data: { ...data, prayerName },
+      });
     });
 
-    // Check notification permissions
-    const checkPermissions = async () => {
-      const settings = await notifee.getNotificationSettings();
-      console.log("Current notification permissions:", settings);
-      
-      if (settings.authorizationStatus === 1) { // AUTHORIZED
-        // Uncomment to test on app start:
-        // showTestInAppNotification();
-      } else {
-        console.log("No notification permissions granted yet");
-      }
-    };
-    
-    // Automatically check permissions after 2 seconds
-    const timer = setTimeout(checkPermissions, 2000);
-    
-    // Cleanup function
     return () => {
       unsubscribe();
-      clearTimeout(timer);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Stable subscription — lastReceivedAtRef is a ref, no deps needed
 
   // ── Push Notifications (Firebase Cloud Messaging) ──────────────────────
@@ -445,15 +481,11 @@ function InnerLayout() {
       onOpenedAppUnsub?.();
     };
   }, []);
-  
-  // Expose test function globally for easier debugging (remove in production)
-  if (__DEV__) {
-    // @ts-ignore
-    global.showTestNotification = showTestInAppNotification;
-  }
-  
+
+
+
   // (No startup animation / blocking screen anymore)
-  
+
   // Onboarding state
   const { isReady: onboardingReady, welcomeComplete, completeWelcome } = useOnboarding();
 
@@ -478,28 +510,29 @@ function InnerLayout() {
 
   return (
     <>
-      <StatusBar 
-        style={isDark ? 'light' : 'dark'} 
+      <StatusBar
+        style={isDark ? 'light' : 'dark'}
         backgroundColor={Platform.OS === 'android' ? 'transparent' : undefined}
         translucent={true}
       />
-      <Stack 
+      <Stack
         screenOptions={{
           headerShown: false,
-          contentStyle: { 
+          contentStyle: {
             backgroundColor: themeColors.background.primary
           },
         }}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       </Stack>
-        {notification && (
-          <InAppNotification
-            title={notification.title}
-            body={notification.body}
-            onClose={() => setNotification(null)}
-          />
-        )}
+      {notification && (
+        <InAppNotification
+          title={notification.title}
+          body={notification.body}
+          prayerName={notification.data?.prayerName as string}
+          onClose={() => setNotification(null)}
+        />
+      )}
     </>
   );
 }
@@ -520,48 +553,4 @@ export default function RootLayout() {
   );
 }
 
-const styles = StyleSheet.create({
-  notification: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(30, 30, 30, 0.95)',
-    padding: 16,
-    margin: 8,
-    marginTop: Constants.statusBarHeight + 8 || 36, // Reduced margin above status bar
-    borderRadius: 12,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#FFD700',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 10, // Increase elevation for Android
-    zIndex: 9999, // Very high z-index to ensure visibility
-  },
-  notificationContent: {
-    flex: 1,
-  },
-  notificationTitle: {
-    color: '#FFD700',
-    fontWeight: 'bold',
-    fontSize: 16,
-    marginBottom: 4,
-  },
-  notificationBody: {
-    color: 'white',
-    fontSize: 14,
-  },
-  closeButton: {
-    padding: 8,
-  },
-  closeButtonText: {
-    color: '#FFD700',
-    fontSize: 16,
-    fontWeight: 'bold',
-  }
-});
+// InAppNotification styles are now inline & theme-driven — no static StyleSheet needed.

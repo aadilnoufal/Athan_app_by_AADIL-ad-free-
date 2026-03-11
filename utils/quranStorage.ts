@@ -516,7 +516,9 @@ export async function getQuranFontScale(): Promise<number> {
 }
 
 export async function setQuranFontScale(scale: number): Promise<void> {
-    await AsyncStorage.setItem(FONT_SCALE_KEY, String(Math.max(0.75, Math.min(1.5, scale))));
+    const clamped = Math.max(0.75, Math.min(1.5, scale));
+    const stepped = Math.round(clamped / 0.05) * 0.05;
+    await AsyncStorage.setItem(FONT_SCALE_KEY, String(Number(stepped.toFixed(2))));
 }
 
 /** Get whether audio playback should auto-scroll/highlight current ayah (default true). */

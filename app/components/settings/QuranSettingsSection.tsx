@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, Switch, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
@@ -15,8 +15,8 @@ interface QuranSettingsSectionProps {
   quranFontFamilyState: QuranFontFamily;
   quranTranslationEdition: string;
   quranReciter: string;
-  translationEditions: Array<{ identifier: string; name: string; [key: string]: any }>;
-  audioEditions: Array<{ identifier: string; name: string; englishName?: string; [key: string]: any }>;
+  translationEditions: Array<{ identifier: string; name: string;[key: string]: any }>;
+  audioEditions: Array<{ identifier: string; name: string; englishName?: string;[key: string]: any }>;
   audioFullDownloading: boolean;
   audioDownloadProgress: { done: number; total: number } | null;
   translationDownloading: boolean;
@@ -68,6 +68,21 @@ export const QuranSettingsSection: React.FC<QuranSettingsSectionProps> = ({
   t,
 }) => {
   const gt = (alpha: number) => goldTint(alpha, C);
+  const [sliderScale, setSliderScale] = useState(Number((Math.round(quranFontScale / 0.05) * 0.05).toFixed(2)));
+  const isSlidingRef = useRef(false);
+
+  // Keep slider synced with external state, but don't fight the user's drag.
+  useEffect(() => {
+    if (isSlidingRef.current) return;
+    const next = Number((Math.round(quranFontScale / 0.05) * 0.05).toFixed(2));
+    setSliderScale((prev) => (Math.abs(prev - next) >= 0.05 ? next : prev));
+  }, [quranFontScale]);
+
+  const stableScale = useMemo(
+    () => Number((Math.round(sliderScale / 0.05) * 0.05).toFixed(2)),
+    [sliderScale],
+  );
+  const scalePercent = Math.round(stableScale * 100);
 
   return (
     <View style={styles.enhancedSection}>
@@ -136,9 +151,21 @@ export const QuranSettingsSection: React.FC<QuranSettingsSectionProps> = ({
               minimumValue={0.75}
               maximumValue={1.5}
               step={0.05}
-              value={quranFontScale}
-              onValueChange={handleFontScaleChange}
-              onSlidingComplete={handleFontScaleChangeComplete}
+              value={stableScale}
+              onSlidingStart={() => {
+                isSlidingRef.current = true;
+              }}
+              onValueChange={(value) => {
+                const next = Number((Math.round(value / 0.05) * 0.05).toFixed(2));
+                setSliderScale(next);
+                handleFontScaleChange(next);
+              }}
+              onSlidingComplete={(value) => {
+                const next = Number((Math.round(value / 0.05) * 0.05).toFixed(2));
+                setSliderScale(next);
+                handleFontScaleChangeComplete(next);
+                isSlidingRef.current = false;
+              }}
               minimumTrackTintColor={C.accent.gold}
               maximumTrackTintColor={isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)'}
               thumbTintColor={C.accent.gold}
@@ -147,21 +174,22 @@ export const QuranSettingsSection: React.FC<QuranSettingsSectionProps> = ({
           <Text style={{ color: C.text.tertiary, fontSize: 18, fontWeight: '700' }}>A</Text>
         </View>
         <Text style={{ color: C.accent.gold, fontWeight: '700', textAlign: 'center', fontSize: 14, marginBottom: 10 }}>
-          {Math.round(quranFontScale * 100)}%
+          {scalePercent}%
         </Text>
 
         {/* Live Arabic preview */}
         <View style={{
           borderRadius: 12,
           padding: 14,
+          minHeight: 150,
           backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
           borderWidth: 0.5,
           borderColor: `${C.accent.gold}30`,
         }}>
           <Text style={{
             color: C.text.primary,
-            fontSize: Math.round(24 * quranFontScale),
-            lineHeight: Math.round(42 * quranFontScale),
+            fontSize: Math.round(24 * stableScale),
+            lineHeight: Math.round(42 * stableScale),
             textAlign: 'right',
             marginBottom: 8,
           }}>
@@ -169,8 +197,8 @@ export const QuranSettingsSection: React.FC<QuranSettingsSectionProps> = ({
           </Text>
           <Text style={{
             color: C.text.secondary,
-            fontSize: Math.round(16 * quranFontScale),
-            lineHeight: Math.round(26 * quranFontScale),
+            fontSize: Math.round(16 * stableScale),
+            lineHeight: Math.round(26 * stableScale),
           }}>
             {t('quranFontPreviewEn')}
           </Text>
