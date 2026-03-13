@@ -3,8 +3,8 @@
  */
 
 // Enable for local debugging only; keep false in production
-const DEBUG_TUNER = false;
-const debugLog = (...args) => { if (DEBUG_TUNER) console.log(...args); };
+const DEBUG_TUNER = true; // [PRYR_DEBUG] temporarily enabled
+const debugLog = (...args) => { if (DEBUG_TUNER) console.log('[PRYR_DEBUG]', ...args); };
 
 /**
  * Convert time string in format "HH:MM" to minutes since midnight

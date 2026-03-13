@@ -476,10 +476,12 @@ export const getPrayerTimesFromLocalData = (date) => {
   const prayerTimes = PRAYER_DATA_MAP.get(dateKey);
   
   if (!prayerTimes) {
+    console.log(`[PRYR_DEBUG] getPrayerTimesFromLocalData: NO DATA for key=${dateKey}`);
     console.log(`No local prayer time data found for ${dateKey}`);
     return null;
   }
   
+  console.log(`[PRYR_DEBUG] getPrayerTimesFromLocalData: key=${dateKey}, Fajr=${prayerTimes.Fajr}, Maghrib=${prayerTimes.Maghrib}`);
   console.log(`Using local prayer time data for ${dateKey}`);
   
   // Get Hijri date

@@ -37,6 +37,11 @@ All notable changes to this project will be documented in this file.
 - **Root cause**: `LayoutAnimation.configureNext()` was called inside every `DuaItem.toggle()`, triggering a global layout animation that briefly flashed background colors (white flicker) during the view hierarchy re-layout. Additionally, `useFocusEffect` reloading font sizes asynchronously could trigger unintended LayoutAnimation frames.
 - **Fix**: Replaced `LayoutAnimation` in individual dua toggles with `Animated.timing` (native-driver opacity fade). `LayoutAnimation` is now only used for category-level expand/collapse (structural height changes). Added `fontsReady` gate so `useFocusEffect` font refresh doesn't fire before initial load.
 
+### Fixed (iOS Widget Countdown Offset)
+
+- **Root cause**: Widget timeline entries were created with the current seconds component preserved, so every entry had `second > 0`. The countdown logic subtracts one minute when seconds are present, making the widget consistently show a countdown one minute ahead.
+- **Fix**: Align timeline entry dates to the start of each minute (seconds and nanoseconds set to zero) before generating per-minute entries.
+
 ### Added (Dua–Quran Font Sync)
 
 - **Dua Arabic text now uses the same font size and family as the Quran screen.** Changing the Quran font scale or font family in Settings automatically updates the Dua tab's Arabic text on next focus. Uses `getQuranFontScale()` and `getQuranFontFamily()` from `quranStorage`.

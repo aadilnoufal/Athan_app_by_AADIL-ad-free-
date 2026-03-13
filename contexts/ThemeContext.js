@@ -137,6 +137,7 @@ export const ThemeProvider = ({ children }) => {
   }, []);
 
   const setTheme = useCallback(async (nextMode) => {
+    console.log('[PRYR_DEBUG] setTheme:', nextMode, 'from:', mode);
     // Validate the theme name
     if (!AllThemes.includes(nextMode)) {
       console.warn(`Invalid theme: ${nextMode}`);

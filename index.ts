@@ -3,6 +3,8 @@ import notifee, { EventType, AndroidImportance } from '@notifee/react-native';
 import messaging from '@react-native-firebase/messaging';
 import { Platform } from 'react-native';
 
+console.log('[PRYR_DEBUG] index.ts: Module loaded at', new Date().toISOString());
+
 // ============================================================================
 // PRODUCTION LOG SILENCER
 // Suppress verbose console.log/warn in production builds to avoid
@@ -23,11 +25,12 @@ if (!__DEV__) {
 // Channels must be created BEFORE any notification is displayed; _layout.tsx
 // creates them too, but the background handler can fire before _layout mounts.
 if (Platform.OS === 'android') {
+  console.log('[PRYR_DEBUG] index.ts: Creating default Android notification channel');
   notifee.createChannel({
     id: 'default',
     name: 'Default',
     importance: AndroidImportance.DEFAULT,
-  }).catch(() => {});
+  }).then(() => console.log('[PRYR_DEBUG] index.ts: Default channel created successfully')).catch((e) => console.log('[PRYR_DEBUG] index.ts: Default channel creation failed:', e?.message));
 }
 
 // ── Firebase: Background/quit-state push message handler ──────────────────
@@ -35,7 +38,9 @@ if (Platform.OS === 'android') {
 // this handler runs. We display via Notifee for consistent UX.
 // Source: https://rnfirebase.io/messaging/usage#background--quit-state-messages
 try {
+  console.log('[PRYR_DEBUG] index.ts: Registering Firebase background message handler');
   messaging().setBackgroundMessageHandler(async (remoteMessage) => {
+    console.log('[PRYR_DEBUG] index.ts: Firebase background message received, id:', remoteMessage.messageId);
     console.log('🔥 Firebase background message:', remoteMessage.messageId);
     // Notification-type messages are auto-displayed by the system.
     // Data-only messages need manual display:
@@ -60,9 +65,11 @@ try {
 // Handles prayer notification delivery events (rolling window top-up)
 // and notification press/dismiss events when app is backgrounded.
 try {
+  console.log('[PRYR_DEBUG] index.ts: Registering Notifee background event handler');
   notifee.onBackgroundEvent(async ({ type, detail }) => {
     try {
       const { notification } = detail;
+      console.log('[PRYR_DEBUG] index.ts: Notifee background event type:', type, 'notification id:', notification?.id);
       console.log('🌙 Background event (top-level):', type);
 
       // Handle notification tap action (e.g. open store for app-update)

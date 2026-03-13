@@ -126,22 +126,36 @@ struct ListWidgetView: View {
             HStack(spacing: 0) {
                 ForEach(prayers) { prayer in
                     let isNext = prayer.name == next?.prayer.name && !(next?.isTomorrow ?? false)
-                    VStack(spacing: 4) {
+                    VStack(spacing: 3) {
                         Text(shortName(prayer.name))
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.system(size: 12, weight: .bold))
                             .foregroundColor(isNext ? theme.accentGold : theme.textSecondary)
 
                         Text(shortTime(prayer.time12h))
-                            .font(.system(size: 12, weight: .medium, design: .rounded))
+                            .font(.system(size: 14, weight: .medium, design: .default))
                             .foregroundColor(isNext ? theme.accentGold : theme.textPrimary)
                     }
+                    .padding(.vertical, 6)
+                    .padding(.horizontal, 2)
                     .frame(maxWidth: .infinity)
+                    .background(
+                        Group {
+                            if isNext {
+                                RoundedRectangle(cornerRadius: 10)
+                                    .fill(theme.prayerHighlight)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 10)
+                                            .stroke(theme.prayerHighlightBorder, lineWidth: 1)
+                                    )
+                            }
+                        }
+                    )
                 }
             }
             .padding(.horizontal, 12)
             .padding(.top, 14)
 
-            Spacer(minLength: 6)
+            Spacer(minLength: 4)
 
             // Separator
             Rectangle()
@@ -151,28 +165,51 @@ struct ListWidgetView: View {
 
             Spacer(minLength: 6)
 
-            // Bottom section: Next prayer + countdown
-            HStack {
-                HStack(spacing: 4) {
-                    Text("\(entry.data?.nextPrayerLabel ?? "Next Prayer"):")
-                        .font(.system(size: 14))
+            // Bottom section: Progress ring + Next prayer info + Countdown
+            HStack(spacing: 0) {
+                // Mini circular progress ring (matches Android 28dp)
+                ZStack {
+                    Circle()
+                        .stroke(theme.progressBackground, lineWidth: 3.5)
+                    Circle()
+                        .trim(from: 0, to: CGFloat(next?.progress ?? 0))
+                        .stroke(
+                            AngularGradient(
+                                colors: [theme.accentGold, theme.accentGold.opacity(0.7)],
+                                center: .center
+                            ),
+                            style: StrokeStyle(lineWidth: 3.5, lineCap: .round)
+                        )
+                        .rotationEffect(.degrees(-90))
+                }
+                .frame(width: 28, height: 28)
+
+                // Next prayer info stacked (NEXT label + prayer name)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text((entry.data?.nextPrayerLabel ?? "Next Prayer").uppercased())
+                        .font(.system(size: 10, weight: .bold))
                         .foregroundColor(theme.textSecondary)
+                        .tracking(0.8)
 
-                    Text(next?.prayer.name ?? "Fajr")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(theme.accentGold)
+                    HStack(spacing: 4) {
+                        Text(next?.prayer.name ?? "Fajr")
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundColor(theme.accentGold)
 
-                    if next?.isTomorrow == true {
-                        Text(entry.data?.tomorrowSuffix ?? "(tmrw)")
-                            .font(.system(size: 10))
-                            .foregroundColor(theme.textSecondary.opacity(0.7))
+                        if next?.isTomorrow == true {
+                            Text(entry.data?.tomorrowSuffix ?? "(tmrw)")
+                                .font(.system(size: 9))
+                                .foregroundColor(theme.textSecondary.opacity(0.7))
+                        }
                     }
                 }
+                .padding(.leading, 10)
 
                 Spacer()
 
+                // Countdown timer (larger, matching Android 22sp)
                 Text(next?.countdown ?? "--:--")
-                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                    .font(.system(size: 22, weight: .bold, design: .default))
                     .foregroundColor(theme.textPrimary)
             }
             .padding(.horizontal, 12)

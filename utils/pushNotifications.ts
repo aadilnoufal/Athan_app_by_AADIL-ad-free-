@@ -305,6 +305,7 @@ export async function getFCMToken(): Promise<string | null> {
  * On app update, unsubscribes from old version topic before subscribing to new.
  */
 export async function subscribeToTopics(): Promise<string[]> {
+  console.log('[PRYR_DEBUG] subscribeToTopics: START');
   const subscribedTopics: string[] = [];
 
   try {
@@ -448,6 +449,7 @@ export function setupTokenRefreshListener(): () => void {
  * @returns PushInitResult with token, subscribed topics, and any error.
  */
 export async function initializePushNotifications(): Promise<PushInitResult> {
+  console.log('[PRYR_DEBUG] initializePushNotifications: START');
   const result: PushInitResult = { token: null, topics: [] };
 
   try {

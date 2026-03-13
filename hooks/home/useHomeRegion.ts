@@ -22,6 +22,7 @@ import {
 } from '../../app/config/prayerTimeConfig';
 
 export function useHomeRegion() {
+  console.log('[PRYR_DEBUG] useHomeRegion: Hook initialized');
   // ── State ───────────────────────────────────────────
   const [isFirstLoad, setIsFirstLoad] = useState(true);
   const [regionId, setRegionId] = useState(DEFAULT_REGION);
@@ -41,8 +42,10 @@ export function useHomeRegion() {
    *  detects region param changes via its effect dependency array.
    */
   const loadRegionConfig = async (): Promise<void> => {
+    console.log('[PRYR_DEBUG] useHomeRegion.loadRegionConfig: Starting region config load');
     try {
       const savedRegion = await AsyncStorage.getItem('selected_region');
+      console.log('[PRYR_DEBUG] useHomeRegion.loadRegionConfig: savedRegion from AsyncStorage:', savedRegion);
       const regionToUse = savedRegion || DEFAULT_REGION;
 
       console.log(`Loading region config for: ${regionToUse}`);
@@ -80,6 +83,7 @@ export function useHomeRegion() {
         }
       }
     } catch (error) {
+      console.error('[PRYR_DEBUG] useHomeRegion.loadRegionConfig: ERROR:', error);
       console.error('Error loading region config:', error);
       const defaultConfig = getRegionConfig(DEFAULT_REGION);
       if (defaultConfig && (defaultConfig.id !== regionId || isFirstLoad)) {
@@ -95,6 +99,7 @@ export function useHomeRegion() {
 
   // ── Initial region load (runs once) ─────────────────
   useEffect(() => {
+    console.log('[PRYR_DEBUG] useHomeRegion: Initial load effect, regionLoadingRef:', regionLoadingRef.current);
     if (regionLoadingRef.current) return;
     regionLoadingRef.current = true;
 

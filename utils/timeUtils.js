@@ -36,6 +36,7 @@ export const createPrayerDate = (timeStr, dayOffset = 0) => {
  */
 export const findNextPrayer = (prayerTimes, prayerTimes12h = null, dayOffset = 0) => {
   if (!prayerTimes) {
+    console.log('[PRYR_DEBUG] findNextPrayer: prayerTimes is null/undefined');
     return null;
   }
   
@@ -69,11 +70,12 @@ export const findNextPrayer = (prayerTimes, prayerTimes12h = null, dayOffset = 0
     const nextPrayer = prayers.find(prayer => prayer.date.getTime() >= lookAheadTime);
     
     if (nextPrayer) {
+      console.log('[PRYR_DEBUG] findNextPrayer: next=', nextPrayer.name, 'at', nextPrayer.timeRaw);
       return nextPrayer;
     }
     
     // All prayers passed — return tomorrow's Fajr using TOMORROW's actual data.
-    // Using today's Fajr entry here would show the wrong (today's) time.
+    console.log('[PRYR_DEBUG] findNextPrayer: all prayers passed, looking up tomorrow Fajr');
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     const tomorrowData = getPrayerTimesFromLocalData(tomorrow);

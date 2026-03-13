@@ -30,6 +30,7 @@ const downloadedAssets = {};
  * Preload sound assets to ensure they're available
  */
 export async function preloadSounds() {
+  console.log('[PRYR_DEBUG] preloadSounds: DISABLE_AUDIO_FOR_STABILITY=', DISABLE_AUDIO_FOR_STABILITY);
   // Skip asset loading if audio is disabled for stability
   if (DISABLE_AUDIO_FOR_STABILITY) {
     console.log("Audio disabled for stability - skipping sound preloading");

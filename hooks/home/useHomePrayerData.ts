@@ -42,6 +42,7 @@ export interface UseHomePrayerDataParams {
 }
 
 export function useHomePrayerData(params: UseHomePrayerDataParams) {
+  console.log('[PRYR_DEBUG] useHomePrayerData: Hook initialized with regionId:', params.regionId, 'location:', params.location);
   const {
     regionId,
     location,
@@ -129,13 +130,17 @@ export function useHomePrayerData(params: UseHomePrayerDataParams) {
 
   // ── fetchAndCachePrayerTimes ────────────────────────
   const fetchAndCachePrayerTimes = async (retryCount = 0, overrideRegionId?: string) => {
+    console.log('[PRYR_DEBUG] fetchAndCachePrayerTimes: START retryCount:', retryCount, 'regionId:', regionId, 'currentDay:', currentDay);
     try {
       const fetchDate = addDays(new Date(), currentDay);
       const formattedDate = format(fetchDate, 'dd-MM-yyyy');
 
+      console.log('[PRYR_DEBUG] fetchAndCachePrayerTimes: fetchDate:', formattedDate, 'location:', location);
+
       console.log(`Fetching FRESH prayer times for ${formattedDate}, location: ${location}`);
 
       const localData = getPrayerTimesFromLocalData(fetchDate) as PrayerData | null;
+      console.log('[PRYR_DEBUG] fetchAndCachePrayerTimes: localData result:', localData ? 'FOUND' : 'NULL', localData ? JSON.stringify(localData.times) : 'N/A');
 
       if (localData) {
         console.log(`Using local CSV prayer time data for ${formattedDate}`);
@@ -145,7 +150,9 @@ export function useHomePrayerData(params: UseHomePrayerDataParams) {
         console.log(`Applying local data adjustments for city: ${cityId}`);
 
         let timings = { ...localData.times } as any;
+        console.log('[PRYR_DEBUG] fetchAndCachePrayerTimes: Before city adjustments:', JSON.stringify(timings));
         timings = applyLocalDataCityAdjustments(timings, cityId, true);
+        console.log('[PRYR_DEBUG] fetchAndCachePrayerTimes: After city adjustments:', JSON.stringify(timings));
 
         const formattedTimes: PrayerData = {
           date: localData.date,
@@ -164,6 +171,7 @@ export function useHomePrayerData(params: UseHomePrayerDataParams) {
         };
 
         setPrayerTimes(formattedTimes);
+        console.log('[PRYR_DEBUG] fetchAndCachePrayerTimes: Prayer times set, calling updateNextPrayer');
         updateNextPrayer(formattedTimes);
         setLoading(false);
 
@@ -182,7 +190,9 @@ export function useHomePrayerData(params: UseHomePrayerDataParams) {
                 let tomorrowTimings = { ...tomorrowData.times } as any;
                 tomorrowTimings = applyLocalDataCityAdjustments(tomorrowTimings, cityId, true);
                 const [h, m] = tomorrowTimings.Fajr.split(':').map(Number);
-                tomorrowFajrMinutes = h * 60 + m;
+                if (!isNaN(h) && !isNaN(m)) {
+                  tomorrowFajrMinutes = h * 60 + m;
+                }
               }
             } catch (e) {
               console.log('ℹ️ Could not fetch tomorrow Fajr for widget (non-critical)');
@@ -219,6 +229,7 @@ export function useHomePrayerData(params: UseHomePrayerDataParams) {
         }
 
         if (currentDay === 0 && notificationsEnabledLocalRef.current) {
+          console.log('[PRYR_DEBUG] fetchAndCachePrayerTimes: Scheduling notification timer for today (currentDay=0, notifEnabled=true)');
           // Clear any existing timer before creating a new one to prevent duplicate scheduling
           if (notifScheduleTimerRef.current) clearTimeout(notifScheduleTimerRef.current);
           notifScheduleTimerRef.current = setTimeout(async () => {
@@ -239,8 +250,8 @@ export function useHomePrayerData(params: UseHomePrayerDataParams) {
         return;
       }
     } catch (error) {
+      console.error('[PRYR_DEBUG] fetchAndCachePrayerTimes: ERROR:', error);
       console.error('Error fetching prayer times:', error);
-
       if (retryCount < 3) {
         console.log(`Retrying prayer time fetch (attempt ${retryCount + 1} of 3)...`);
         const delay = Math.pow(2, retryCount) * 1000;
@@ -285,6 +296,7 @@ export function useHomePrayerData(params: UseHomePrayerDataParams) {
 
   // ── fetchPrayerTimes (top-level entry with timeout) ─
   const fetchPrayerTimes = async () => {
+    console.log('[PRYR_DEBUG] fetchPrayerTimes: START, prayerTimes exists:', !!prayerTimes, 'isFirstLoad:', isFirstLoad);
     try {
       // Only show full-screen loading spinner when there is no existing data.
       // When data already exists, the fetch happens silently in the background
@@ -354,6 +366,7 @@ export function useHomePrayerData(params: UseHomePrayerDataParams) {
 
   // ── updateNextPrayer ────────────────────────────────
   const updateNextPrayer = (data: PrayerData): void => {
+    console.log('[PRYR_DEBUG] updateNextPrayer: Called with data:', data ? JSON.stringify(data.times) : 'NULL');
     if (!data || !data.times) {
       if (__DEV__) console.log('⚠️ updateNextPrayer: No prayer data available');
       return;
@@ -471,7 +484,10 @@ export function useHomePrayerData(params: UseHomePrayerDataParams) {
 
   // ── updateCountdown ─────────────────────────────────
   const updateCountdown = useCallback(() => {
-    if (!nextPrayer) return;
+    if (!nextPrayer) {
+      // Don't log every 100ms when there's no next prayer
+      return;
+    }
 
     const now = new Date();
     const prayerTime = new Date(nextPrayer.date);
@@ -727,6 +743,7 @@ export function useHomePrayerData(params: UseHomePrayerDataParams) {
   };
 
   const clearCache = async (showAlerts = true) => {
+    console.log('[PRYR_DEBUG] clearCache: START, showAlerts:', showAlerts);
     try {
       setRefreshing(true);
 
@@ -796,6 +813,7 @@ export function useHomePrayerData(params: UseHomePrayerDataParams) {
     let configTimer: ReturnType<typeof setTimeout> | null = null;
 
     if (location && method !== undefined && tuningParams !== undefined) {
+      console.log('[PRYR_DEBUG] useHomePrayerData: Main data effect triggered, day:', currentDay, 'location:', location, 'method:', method);
       console.log(`Fetching prayer times for day +${currentDay}, location: ${location}`);
 
       const fetchDataWithRetry = async () => {
@@ -819,6 +837,7 @@ export function useHomePrayerData(params: UseHomePrayerDataParams) {
 
       fetchDataWithRetry();
     } else {
+      console.log('[PRYR_DEBUG] useHomePrayerData: Config incomplete - location:', location, 'method:', method, 'tuningParams:', tuningParams);
       configTimer = setTimeout(() => {
         if (loading && (!location || method === undefined || tuningParams === undefined)) {
           console.log('Configuration incomplete, stopping loading state');

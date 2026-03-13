@@ -231,6 +231,7 @@ const requestIOSPermissions = async () => {
  */
 const requestEssentialPermissions = async () => {
   try {
+    console.log('[PRYR_DEBUG] requestEssentialPermissions: START, platform:', Platform.OS);
     console.log('🔐 Requesting essential permissions...');
 
     if (Platform.OS === 'ios') {
@@ -282,6 +283,7 @@ let eventHandlersRegistered = false;
  * Initialize Notifee prayer notification service
  */
 export async function initializeNotifeePrayerNotifications() {
+  console.log('[PRYR_DEBUG] initializeNotifeePrayerNotifications: called, isInitialized:', isInitialized);
   if (isInitialized) return true;
 
   try {
@@ -332,6 +334,7 @@ export async function initializeNotifeePrayerNotifications() {
  * NO hybrid fallback needed - Android plays the correct sound from the correct channel
  */
 async function createPrayerNotificationChannels() {
+  console.log('[PRYR_DEBUG] createPrayerNotificationChannels: Platform:', Platform.OS);
   if (Platform.OS !== 'android') {
     // iOS uses categories instead of channels
     await createIOSNotificationCategories();

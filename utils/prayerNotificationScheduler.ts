@@ -63,6 +63,7 @@ interface DayPrayerTimes {
 }
 
 function buildPrayerTimesForDate(date: Date, cityId: string = 'doha'): DayPrayerTimes | null {
+  console.log('[PRYR_DEBUG] buildPrayerTimesForDate:', isoDate(date), 'cityId:', cityId);
   const data: any = getPrayerTimesFromLocalData(date);
   if (!data || !data.times) return null;
   // Apply city-specific offsets (e.g. Abu Samra: Fajr +3min, Maghrib +2min)
@@ -98,6 +99,7 @@ interface SchedulePrefs {
 
 // Core: schedule one day's prayers (using existing function that sets repeat daily). For window we schedule per day w/out repeat to avoid drift.
 async function scheduleDay(date: Date, settings: any, cityId: string = 'doha', prefs?: SchedulePrefs) {
+  console.log('[PRYR_DEBUG] scheduleDay:', isoDate(date), 'cityId:', cityId);
   const pt = buildPrayerTimesForDate(date, cityId);
   if (!pt) return [];
 
@@ -273,7 +275,7 @@ async function scheduleDay(date: Date, settings: any, cityId: string = 'doha', p
           trigger
         );
         created.push(id);
-        console.log(`✅ Iqama scheduled ${prayer} ${isoDate(date)} (${minuteText}) [id=${id}]`);
+        console.log(`✅ Iqama scheduled ${prayer} ${isoDate(date)} (${iqamaMinutes}min before iqama) [id=${id}]`);
       } catch (e: any) {
         console.log(`⚠️ Failed scheduling iqama ${prayer} ${isoDate(date)}:`, e?.message);
       }
@@ -304,6 +306,7 @@ export async function ensurePrayerNotificationWindow() {
 
 async function _ensurePrayerNotificationWindowImpl() {
   try {
+    console.log('[PRYR_DEBUG] _ensurePrayerNotificationWindowImpl: START');
     // CRITICAL: Check if notifications are globally enabled before scheduling anything
     const notificationsEnabled = await AsyncStorage.getItem('notifications_enabled');
     if (notificationsEnabled === 'false') {
@@ -499,6 +502,7 @@ async function _ensurePrayerNotificationWindowImpl() {
     let dayCursor = new Date(today);
     // Leave headroom: stop early enough so one full day (up to 11 notifs) can't exceed 54
     const safeMax = 54 - 11; // 11 = max per day (6 prayers + 5 iqama)
+    console.log('[PRYR_DEBUG] ensureWindow: activeOurs=', activeOurs.length, 'coveredDates=', Array.from(coveredDates), 'safeMax=', safeMax);
     for (let i = 0; i < WINDOW_DAYS && scheduledCount < safeMax; i++) {
       const dateStr = isoDate(dayCursor);
       if (!coveredDates.has(dateStr)) {
@@ -517,6 +521,7 @@ async function _ensurePrayerNotificationWindowImpl() {
 }
 
 export async function cancelAll() {
+  console.log('[PRYR_DEBUG] cancelAll: cancelling all prayer/iqama triggers');
   const ids = await notifee.getTriggerNotificationIds();
   for (const id of ids) {
     if (id.startsWith('prayer-') || id.startsWith('iqama-')) {
@@ -554,6 +559,7 @@ export async function onPrayerNotificationDelivered() {
 
 // Force a complete reschedule of all notifications (for settings changes)
 export async function forceRescheduleAllNotifications() {
+  console.log('[PRYR_DEBUG] forceRescheduleAllNotifications: START');
   console.log('🔄 Force rescheduling all notifications from scratch...');
   try {
     // CRITICAL: Check if notifications are globally enabled before rescheduling

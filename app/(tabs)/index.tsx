@@ -49,6 +49,7 @@ import OnboardingTooltips, { HOME_TOOLTIPS } from '../../components/OnboardingTo
 const { width: screenWidth } = Dimensions.get('window');
 
 export default function Home() {
+  console.log('[PRYR_DEBUG] Home: render');
   // Theme integration (phase 1)
   const { colors, isDark } = useTheme();
   // Shorthand alias for theme colors
@@ -139,6 +140,7 @@ export default function Home() {
   useFocusEffect(
     useCallback(() => {
       const checkForRegionChanges = async () => {
+        console.log('[PRYR_DEBUG] Home useFocusEffect: checking region, current:', regionId);
         const savedRegion = await AsyncStorage.getItem('selected_region');
         const regionToUse = savedRegion || DEFAULT_REGION;
         if (regionToUse !== regionId) {

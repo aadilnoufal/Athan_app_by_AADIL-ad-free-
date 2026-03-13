@@ -85,6 +85,7 @@ export function updateWidgetData(data: WidgetData): void {
  * Use for critical updates like initial app load.
  */
 export function updateWidgetDataImmediate(data: WidgetData): void {
+  console.log('[PRYR_DEBUG] updateWidgetDataImmediate: date=', data.date);
   // Cancel any pending debounced write to prevent stale data overwriting this fresh write
   if (debounceTimer) {
     clearTimeout(debounceTimer);
@@ -186,6 +187,7 @@ export function updateWidgetLanguage(lang: string): void {
 // ============================================================================
 
 function _writeWidgetData(data: WidgetData): void {
+  console.log('[PRYR_DEBUG] _writeWidgetData: date=', data.date, 'cityId=', data.cityId, 'theme=', data.themeMode);
   const jsonString = JSON.stringify({
     ...data,
     lastUpdated: Date.now(),
@@ -280,7 +282,9 @@ async function _patchWidgetDataWithLanguageIOS(lang: string, labels: Record<stri
     if (!WidgetDataModuleIOS) return;
     const raw = await WidgetDataModuleIOS.getWidgetData();
     if (!raw) return;
-    const data = JSON.parse(raw);
+    const existingJson = typeof raw === 'string' ? raw : raw.widgetData;
+    if (!existingJson || typeof existingJson !== 'string') return;
+    const data = JSON.parse(existingJson);
     data.language = lang;
     data.localizedLabels = labels;
     data.lastUpdated = Date.now();

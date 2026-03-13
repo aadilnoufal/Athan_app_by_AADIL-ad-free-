@@ -15,6 +15,10 @@ RCT_EXTERN_METHOD(setThemeMode:(NSString *)themeMode
 RCT_EXTERN_METHOD(getWidgetData:(RCTPromiseResolveBlock)resolve
                   reject:(RCTPromiseRejectBlock)reject)
 
+RCT_EXTERN_METHOD(setWidgetLanguage:(NSString *)jsonPatch
+                  resolve:(RCTPromiseResolveBlock)resolve
+                  reject:(RCTPromiseRejectBlock)reject)
+
 + (BOOL)requiresMainQueueSetup {
     return NO;
 }

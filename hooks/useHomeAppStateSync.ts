@@ -40,6 +40,7 @@ export function useHomeAppStateSync({
             const appDateStr = format(currentDateRef.current, 'yyyy-MM-dd');
 
             if (systemDateStr !== appDateStr) {
+                console.log('[PRYR_DEBUG] syncDateWithSystem: date changed', appDateStr, '->', systemDateStr);
                 setCurrentDate(now);
                 setCurrentDay(0);
                 setLastRefreshDate('');

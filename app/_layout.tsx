@@ -2,7 +2,8 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import notifee from '@notifee/react-native';
 import { useEffect, useState, useRef } from "react";
-import { Platform, View, Text, Animated, TouchableOpacity } from "react-native";
+import { Platform, View, Text, Animated, TouchableOpacity, Easing } from "react-native";
+import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { preloadSounds, unloadSounds } from '../utils/audioHelper';
@@ -25,29 +26,36 @@ declare global {
 // Only shown when a real prayer/iqama notification fires while app is open.
 // Theme-aware, no sound/vibration (system notification handles that).
 function InAppNotification({ title, body, prayerName, onClose }: { title: string; body: string; prayerName?: string; onClose: () => void }) {
-  const translateY = useRef(new Animated.Value(-150)).current;
+  const translateY = useRef(new Animated.Value(-160)).current;
   const opacity = useRef(new Animated.Value(0)).current;
-  const scale = useRef(new Animated.Value(0.95)).current;
+  const scale = useRef(new Animated.Value(0.94)).current;
+  // Progress bar animates from 1 (full) → 0 (empty) over the auto-dismiss duration.
+  // useNativeDriver:false is required for layout-based animations like 'width'.
+  const progressAnim = useRef(new Animated.Value(1)).current;
   const dismissedRef = useRef(false);
   const { isDark, colors: C } = useTheme();
 
-  // Pick an icon based on prayer name
-  const iconName = prayerName === 'Fajr' || prayerName === 'Sunrise'
-    ? 'weather-sunset-up'
-    : prayerName === 'Maghrib' || prayerName === 'Isha'
-      ? 'weather-night'
-      : 'mosque';
+  const AUTO_DISMISS_MS = 8000;
+
+  // Prayer-specific icons removed — no icon shown in the banner.
 
   useEffect(() => {
-    // Animate in with spring-like feel
+    // Slide in with spring feel
     Animated.parallel([
       Animated.spring(translateY, { toValue: 0, damping: 18, stiffness: 200, useNativeDriver: true }),
       Animated.timing(opacity, { toValue: 1, duration: 250, useNativeDriver: true }),
       Animated.spring(scale, { toValue: 1, damping: 14, stiffness: 180, useNativeDriver: true }),
     ]).start();
 
-    // Auto-dismiss after 8 seconds
-    const timer = setTimeout(() => dismiss(), 8000);
+    // Progress bar depletes linearly over the auto-dismiss window
+    Animated.timing(progressAnim, {
+      toValue: 0,
+      duration: AUTO_DISMISS_MS,
+      easing: Easing.linear,
+      useNativeDriver: false,
+    }).start();
+
+    const timer = setTimeout(() => dismiss(), AUTO_DISMISS_MS);
     return () => clearTimeout(timer);
   }, []);
 
@@ -55,14 +63,21 @@ function InAppNotification({ title, body, prayerName, onClose }: { title: string
     if (dismissedRef.current) return;
     dismissedRef.current = true;
     Animated.parallel([
-      Animated.timing(translateY, { toValue: -150, duration: 280, useNativeDriver: true }),
+      Animated.timing(translateY, { toValue: -160, duration: 280, useNativeDriver: true }),
       Animated.timing(opacity, { toValue: 0, duration: 250, useNativeDriver: true }),
     ]).start(() => onClose());
   };
 
-  const bgColor = isDark ? 'rgba(20, 27, 33, 0.97)' : 'rgba(255, 255, 255, 0.97)';
-  const accentColor = C.accent.gold;
-  const glowColor = isDark ? 'rgba(240, 214, 97, 0.25)' : 'rgba(212, 175, 55, 0.20)';
+  // Gradient colours mirror the app's card/surface palette exactly
+  const gradientColors: readonly [string, string] = isDark
+    ? ['#141D24', '#1C2830']
+    : ['#FFFFFF', '#F6F3EC'];
+
+  const accent = C.accent.gold;
+  // Icon container: same treatment as enhancedIconContainer in prayer cards
+  const outerBorder = isDark ? 'rgba(240,214,97,0.15)' : 'rgba(212,175,55,0.18)';
+  const progressTrack = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)';
+  const closeBg = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)';
 
   return (
     <Animated.View
@@ -74,69 +89,107 @@ function InAppNotification({ title, body, prayerName, onClose }: { title: string
           right: 0,
           marginTop: (Constants.statusBarHeight || 28) + 8,
           marginHorizontal: 12,
-          borderRadius: 18,
-          backgroundColor: bgColor,
-          borderWidth: 1,
-          borderColor: isDark ? C.border.medium : C.border.accent,
+          borderRadius: 20,
           overflow: 'hidden',
-          elevation: 12,
+          elevation: 14,
           zIndex: 9999,
-          // iOS shadow
-          shadowColor: accentColor,
+          // iOS shadow — neutral, not gold-tinted
+          shadowColor: isDark ? '#000000' : '#1A1A1A',
           shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.3,
+          shadowOpacity: isDark ? 0.35 : 0.12,
           shadowRadius: 12,
+          borderWidth: 1,
+          borderColor: outerBorder,
         },
         { transform: [{ translateY }, { scale }], opacity },
       ]}
     >
-      {/* Top accent bar */}
-      <View style={{ height: 3, backgroundColor: accentColor }} />
+      {/* Gradient background — matches the app's card surface palette */}
+      <LinearGradient
+        colors={gradientColors}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingTop: 14, paddingBottom: 12 }}>
 
-      <View style={{ flexDirection: 'row', alignItems: 'center', padding: 14, paddingTop: 12 }}>
-        {/* Icon container with glow */}
-        <View style={{
-          width: 44, height: 44, borderRadius: 22,
-          backgroundColor: glowColor,
-          alignItems: 'center', justifyContent: 'center',
-          marginRight: 12,
-        }}>
-          <MaterialCommunityIcons name={iconName} size={24} color={accentColor} />
+          {/* Left vertical gold accent stripe — gives the banner its character */}
+          <View style={{
+            width: 3,
+            height: 44,
+            borderRadius: 2,
+            backgroundColor: accent,
+            marginRight: 14,
+            opacity: 0.85,
+          }} />
+
+          {/* Icon container removed — clean text-only layout */}
+
+          {/* Text block */}
+          <View style={{ flex: 1, marginRight: 4 }}>
+            {/* Prayer name — primary text, the gold stripe/icon carry the accent */}
+            <Text
+              numberOfLines={1}
+              style={{
+                fontSize: 16,
+                fontWeight: '700',
+                color: C.text.primary,
+                letterSpacing: 0.2,
+                marginBottom: 3,
+              }}
+            >
+              {prayerName ? `${prayerName} Prayer` : title}
+            </Text>
+            {/* Body / subtitle */}
+            <Text
+              numberOfLines={2}
+              style={{
+                fontSize: 13,
+                fontWeight: '400',
+                color: C.text.secondary,
+                lineHeight: 17,
+              }}
+            >
+              {body}
+            </Text>
+          </View>
+
+          {/* Close button */}
+          <TouchableOpacity
+            onPress={dismiss}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            style={{
+              width: 26,
+              height: 26,
+              borderRadius: 13,
+              backgroundColor: closeBg,
+              alignItems: 'center',
+              justifyContent: 'center',
+              alignSelf: 'flex-start',
+              marginTop: 1,
+            }}
+          >
+            <MaterialCommunityIcons name="close" size={13} color={C.text.tertiary} />
+          </TouchableOpacity>
         </View>
 
-        {/* Text */}
-        <View style={{ flex: 1 }}>
-          <Text style={{
-            fontSize: 15, fontWeight: '700',
-            color: C.text.primary,
-            marginBottom: 2,
-          }}>{title}</Text>
-          <Text style={{
-            fontSize: 13, fontWeight: '400',
-            color: C.text.secondary,
-            lineHeight: 18,
-          }}>{body}</Text>
+        {/* Countdown progress bar — depletes over the auto-dismiss duration */}
+        <View style={{ height: 2.5, backgroundColor: progressTrack }}>
+          <Animated.View
+            style={{
+              height: '100%',
+              backgroundColor: accent,
+              opacity: 0.55,
+              width: progressAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }),
+            }}
+          />
         </View>
-
-        {/* Close */}
-        <TouchableOpacity
-          onPress={dismiss}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          style={{
-            width: 28, height: 28, borderRadius: 14,
-            backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
-            alignItems: 'center', justifyContent: 'center',
-            marginLeft: 8,
-          }}
-        >
-          <MaterialCommunityIcons name="close" size={14} color={C.text.tertiary} />
-        </TouchableOpacity>
-      </View>
+      </LinearGradient>
     </Animated.View>
   );
 }
 
 function InnerLayout() {
+  console.log('[PRYR_DEBUG] InnerLayout: render');
   const [notification, setNotification] = useState<{ title: string; body: string; data?: any } | null>(null);
   const lastReceivedAtRef = useRef(0); // Track when last notification was received (ref to avoid re-subscribing listener)
   // Removed blocking splash: we no longer delay initial render for assets
@@ -436,6 +489,7 @@ function InnerLayout() {
 
     const initPush = async () => {
       try {
+        console.log('[PRYR_DEBUG] _layout initPush: starting FCM setup');
         const {
           initializePushNotifications,
           setupForegroundHandler,

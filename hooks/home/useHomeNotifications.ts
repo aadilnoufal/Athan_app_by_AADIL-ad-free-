@@ -34,6 +34,7 @@ import type { PrayerData, NotificationSettings } from '../../app/components/home
 const SCHEDULE_COOLDOWN = 5000; // 5 seconds cooldown between scheduling attempts
 
 export function useHomeNotifications() {
+  console.log('[PRYR_DEBUG] useHomeNotifications: Hook initialized');
   // ── State ───────────────────────────────────────────
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({
@@ -84,6 +85,7 @@ export function useHomeNotifications() {
   // ── checkNotificationSettings ───────────────────────
   const checkNotificationSettings = async () => {
     try {
+      console.log('[PRYR_DEBUG] checkNotificationSettings: START');
       console.log('🔍 ===== CHECKING NOTIFICATION SETTINGS =====');
       const serviceStatus = await getNotifeeServiceStatus();
       console.log('🔍 Notifee service status check:', serviceStatus);
@@ -156,6 +158,7 @@ export function useHomeNotifications() {
   const scheduleNotificationsForToday = async () => {
     try {
       const now = Date.now();
+      console.log('[PRYR_DEBUG] scheduleNotificationsForToday: START, cooldown check:', now - lastScheduleAttempt.current, 'ms since last attempt');
       if (now - lastScheduleAttempt.current < SCHEDULE_COOLDOWN) {
         console.log(`⏱️ Schedule cooldown active, skipping (${SCHEDULE_COOLDOWN / 1000}s cooldown)`);
         return;
@@ -191,6 +194,7 @@ export function useHomeNotifications() {
 
     const initializeNotifications = async () => {
       try {
+        console.log('[PRYR_DEBUG] useHomeNotifications: initializeNotifications START');
         console.log('🔧 Initializing Notifee prayer notification system...');
         const initialized = await initializeNotifeePrayerNotifications();
 
@@ -220,6 +224,7 @@ export function useHomeNotifications() {
     // Poll AsyncStorage for notification settings changes every 10 s
     const checkForSettingsChanges = async () => {
       try {
+        console.log('[PRYR_DEBUG] checkForSettingsChanges: Polling AsyncStorage (10s interval)');
         const notifEnabled = await AsyncStorage.getItem('notifications_enabled');
         const notifSettings = await AsyncStorage.getItem('notification_settings');
 

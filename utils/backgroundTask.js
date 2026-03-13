@@ -12,6 +12,7 @@ try {
   if (!TaskManager.isTaskDefined(TASK_ID)) {
     TaskManager.defineTask(TASK_ID, async () => {
       try {
+        console.log('[PRYR_DEBUG] backgroundFetchTask: executing');
         const { ensurePrayerNotificationWindow } = require('./prayerNotificationScheduler');
         await ensurePrayerNotificationWindow();
         return BackgroundFetch.BackgroundFetchResult.NewData;
@@ -23,6 +24,7 @@ try {
 } catch {}
 
 export async function setupBackgroundTask() {
+  console.log('[PRYR_DEBUG] setupBackgroundTask: called, started=', started);
   if (started) return true;
   try {
     const { startPrayerNotificationWindowMaintainer } = require('./prayerNotificationScheduler');

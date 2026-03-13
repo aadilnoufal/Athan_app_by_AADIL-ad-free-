@@ -37,6 +37,7 @@ export const LanguageProvider = ({ children }) => {
   // Function to change the current language
   const changeLanguage = useCallback(async (langId) => {
     try {
+      console.log('[PRYR_DEBUG] changeLanguage:', langId);
       if (languages[langId]) {
         // Save to storage
         await AsyncStorage.setItem('app_language', langId);

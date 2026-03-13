@@ -10,6 +10,8 @@ struct WidgetTheme {
     let progressBackground: Color
     let separator: Color
     let borderColor: Color
+    let prayerHighlight: Color       // Semi-transparent gold pill fill for next prayer
+    let prayerHighlightBorder: Color // Subtle gold border for the highlight pill
 
     static let dark = WidgetTheme(
         background: Color(red: 0.055, green: 0.075, blue: 0.090),        // #0E1317
@@ -19,7 +21,9 @@ struct WidgetTheme {
         accentGold: Color(red: 0.941, green: 0.839, blue: 0.380),        // #F0D661
         progressBackground: Color(red: 0.133, green: 0.188, blue: 0.224),// #223039
         separator: Color(red: 0.133, green: 0.188, blue: 0.224),         // #223039
-        borderColor: Color(red: 0.118, green: 0.165, blue: 0.200)        // #1E2A33
+        borderColor: Color(red: 0.118, green: 0.165, blue: 0.200),       // #1E2A33
+        prayerHighlight: Color(red: 0.941, green: 0.839, blue: 0.380).opacity(0.09), // ~#18F0D661
+        prayerHighlightBorder: Color(red: 0.941, green: 0.839, blue: 0.380).opacity(0.12) // ~#20F0D661
     )
 
     static let sepia = WidgetTheme(
@@ -30,7 +34,9 @@ struct WidgetTheme {
         accentGold: Color(red: 0.831, green: 0.686, blue: 0.216),        // #D4AF37
         progressBackground: Color(red: 0.855, green: 0.839, blue: 0.812),// #DAD6CF — darkened for better contrast
         separator: Color(red: 0.918, green: 0.906, blue: 0.875),         // #EAE7DF
-        borderColor: Color(red: 0.918, green: 0.906, blue: 0.875)        // #EAE7DF
+        borderColor: Color(red: 0.918, green: 0.906, blue: 0.875),       // #EAE7DF
+        prayerHighlight: Color(red: 0.831, green: 0.686, blue: 0.216).opacity(0.08), // ~#15D4AF37
+        prayerHighlightBorder: Color(red: 0.831, green: 0.686, blue: 0.216).opacity(0.12) // ~#20D4AF37
     )
 
     static func forMode(_ mode: String) -> WidgetTheme {

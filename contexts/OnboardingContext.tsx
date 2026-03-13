@@ -64,6 +64,7 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
   useEffect(() => {
     const load = async () => {
       try {
+        console.log('[PRYR_DEBUG] OnboardingContext: loading state from AsyncStorage');
         const results = await AsyncStorage.multiGet(Object.values(KEYS));
         const map = new Map(results as [string, string | null][]);
 

@@ -13,17 +13,20 @@ struct PrayerTimelineEntry: TimelineEntry {
 /// Creates timeline entries with hourly refresh, used by both widget types.
 func createTimeline(in context: TimelineProviderContext) -> Timeline<PrayerTimelineEntry> {
     let currentDate = Date()
+    let calendar = Calendar.current
+    let baseMinute = calendar.date(bySetting: .second, value: 0, of: currentDate) ?? currentDate
+    let startOfMinute = calendar.date(bySetting: .nanosecond, value: 0, of: baseMinute) ?? baseMinute
     let data = loadWidgetData()
 
     // Create entries for the next hour (one per minute for accurate countdown)
     var entries: [PrayerTimelineEntry] = []
     for minuteOffset in stride(from: 0, to: 60, by: 1) {
-        let entryDate = Calendar.current.date(byAdding: .minute, value: minuteOffset, to: currentDate)!
+        let entryDate = calendar.date(byAdding: .minute, value: minuteOffset, to: startOfMinute)!
         entries.append(PrayerTimelineEntry(date: entryDate, data: data))
     }
 
     // Refresh timeline after 30 minutes
-    let nextRefresh = Calendar.current.date(byAdding: .minute, value: 30, to: currentDate)!
+    let nextRefresh = calendar.date(byAdding: .minute, value: 30, to: startOfMinute)!
     return Timeline(entries: entries, policy: .after(nextRefresh))
 }
 
